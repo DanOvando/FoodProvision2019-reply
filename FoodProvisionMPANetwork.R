@@ -18,13 +18,12 @@ library(cowplot)
 library(reshape)
 
 ##Define scenarios. 
-scenario<-"BAU1"
-#scenario<-"OAconstant"
-#scenario<-"all managed"
-#scenario<-"Escorched_current"
-#scenario<-"Efin_msy"
-#scenario<-"EBvK01fin"
-#scenario<-"EBvK01_msy"
+scenario<-"BAU1" # Business as usual scenario used in our paper. Based on Costello et al. "concervation concern" scenario.
+#scenario<-"OAconstant" # Costello et al. "all stocks" scenario.
+#scenario<-"all managed" #All MSY scenario
+#scenario<-"Efin_msy" #Costello et al. "all stock" + MSY scenario
+#scenario<-"EBvK01fin" #"Collapse+current" scenario
+#scenario<-"EBvK01_msy" #"Collapse+MSY" scenario
 
 #Load files
 MegaData<-readRDS(file = "~/foodGCEfile/MegaData.rds")
@@ -50,7 +49,6 @@ length(MPAposition)*100/dim(Cleanmegacell)[1]
 
 numcell<-dim(Cleanmegacell)[1]
 celltoiterateFULL<-1:numcell
-#celltoiterate<-celltoiterateFULL #can erase this if we activate remove MPAs from celltoiterate
 MPAselect0<-matrix(0, nrow=numcell, ncol=1)
 PriorityAreas<-c()
 NetworkResult<-vector()
@@ -60,7 +58,7 @@ MPAselect0[MPAposition]<-1
 head(MPAselect0)
 sum(MPAselect0)
 
-#remove MPAs from celltoiterateFULL ##For now, fine
+#remove MPAs from celltoiterateFULL
 celltoiterateFULL<-celltoiterateFULL[-MPAposition]
 celltoiterate<-celltoiterateFULL
 ncell<-length(celltoiterate)
@@ -72,18 +70,8 @@ r<-MegaData$r
 
 if (scenario=="all managed"){
   E<-MegaData$Emsy
-}else if(scenario=="2012xmsy"){
-  E<-MegaData$E2050xmsyfin
-}else if(scenario=="constant"){
-  E<-MegaData$E2050xcurrentfin
 }else if(scenario=="OAconstant"){
   E<-MegaData$Efin
-}else if(scenario=="OAconstantxmsy"){
-  E<-MegaData$E2050bestxmsy
-}else if(scenario=="Escorched_current"){
-  E<-MegaData$Escorched_current
-}else if(scenario=="OAhalfxmsy"){  
-  E<-MegaData$Efinhalf_msy
 }else if(scenario=="BAU1"){  
   E<-MegaData$Efin_BAU1
 }else if(scenario=="Efin_msy"){ 
@@ -92,8 +80,6 @@ if (scenario=="all managed"){
   E<-MegaData$EBvK01fin 
 }else if(scenario=="EBvK01_msy"){ 
   E<-MegaData$EBvK01_msy  
-}else if(scenario=="Efinhalf_msy"){   
-  E<-MegaData$Efinhalf_msy
 }
 
 MPAselect<-MPAselect0
@@ -103,7 +89,7 @@ hbau<-hbau*(hbau>0)
 HBAU<-sum(hbau)
 HBAU
 
-PICKSIZE<-10
+PICKSIZE<-100
 
 nmax<-floor(length(celltoiterate)/PICKSIZE)
 nmax #this is the number of iterations needed for PICKSIZE at a time!
@@ -145,10 +131,8 @@ for (i in 1:nmax){
   hmpa<-hmpa*(hmpa>0)
   HMPA<-sum(hmpa)#sum((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r))), na.rm=T)
   
-  #save result. Comment other parts not needed now.
+  #save result.
   PerSpDeltaH[i,]<-hmpa-hbau
-  #PerSpDeltaH_EEZ[i,]<-(hmpa-hbau)*SpeciesRangeinEEZ
-  #PerSpDeltaH_HS[i,]<-(hmpa-hbau)*SpeciesRangeinHS
   NetworkResult[i]<-HMPA-HBAU
   
   #pass this to the top
@@ -177,10 +161,6 @@ if(scenario=="BAU1"){
   saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH100_OAconstant_mollweide.rds")
   saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_OAconstant_mollweide.rds")
   saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_OAconstant_mollweide.rds")   
-}else if(scenario=="Escorched_current"){
-  saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH100_Escorched_current_mollweide.rds")
-  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_Escorched_current_mollweide.rds")
-  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_Escorched_current_mollweide.rds")
 }else if(scenario=="Efin_msy"){
   saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH100_Efin_msy_mollweide.rds")
   saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_Efin_msy_mollweide.rds")
@@ -193,50 +173,6 @@ if(scenario=="BAU1"){
   saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH100_EBvK01_msy_mollweide.rds")
   saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_EBvK01_msy_mollweide.rds")
   saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_EBvK01_msy_mollweide.rds") 
-}
-
-
-
-if (scenario=="all managed"){
-  saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH100_allmanaged.rds")
-  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_allmanaged.rds")
-  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_allmanaged.rds")
-}else if(scenario=="2012xmsy"){
-  saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH100_2012xmsy.rds")
-  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_2012xmsy.rds")
-  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_2012xmsy.rds")
-}else if(scenario=="constant"){
-  saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH100_constant.rds")
-  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_constant.rds")
-  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_constant.rds")
-}else if(scenario=="OAconstant"){
-  saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH100_OAconstant.rds")
-  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_OAconstant.rds")
-  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_OAconstant.rds")
-}else if(scenario=="OAconstant10"){
-  saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH10_OAconstant.rds")
-  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult10_OAconstant.rds")
-  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas10_OAconstant.rds")
-}else if(scenario=="OAconstantxmsy"){
-  saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH100_OAconstantxmsy.rds")
-  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_OAconstantxmsy.rds")
-  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_OAconstantxmsy.rds")  
-}else if(scenario=="scorchedearth"){  
-  saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH100_scorchedearth.rds")
-  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_scorchedearth.rds")
-  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_scorchedearth.rds") 
-}else if(scenario=="OAhalfxmsy"){  
-  saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH100_OAhalfxmsy.rds")
-  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_OAhalfxmsy.rds")
-  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_OAhalfxmsy.rds") 
-}else if(scenario=="BAU1"){   
-  saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH100_BAU1.rds")
-  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_BAU1.rds")
-  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_BAU1.rds")   
-}else {
-  saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH100.rds")
-  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100.rds")
-  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100.rds")
 }
 
 NetworkResult<-readRDS(file = "~/foodGCEfile/NetworkResult100.rds")
@@ -260,26 +196,6 @@ theme_set(theme_cowplot())
 benefitplot<-ggplot(BenefitCurve, aes(MPA, NetworkResult)) +geom_line(col="blue")+# theme_classic()+
   labs(x="% EEZ protected",y="Change in catch (MMT)",title=paste("Global (max =", round(max(BenefitCurve$NetworkResult),2),"MMT)"))#+geom_hline(yintercept = 0)
 benefitplot
-
-if (scenario=="all managed"){
-  
-}else if(scenario=="2012xmsy"){
-  png(file=paste("~/foodGCEfile/HLP/benefitfunctionFoodGlobal_2012xmsy.png",sep = ""), width = 6, height = 4.5, units = 'in', res = 300)
-  benefitplot
-  dev.off()
-}else if(scenario=="constant"){  
-  png(file=paste("~/foodGCEfile/HLP/benefitfunctionFoodGlobal_constant.png",sep = ""), width = 6, height = 4.5, units = 'in', res = 300)
-  benefitplot
-  dev.off()
-}else if(scenario=="OAconstant"){  
-  png(file=paste("~/foodGCEfile/HLP/benefitfunctionFoodGlobal_OAconstant.png",sep = ""), width = 6, height = 4.5, units = 'in', res = 300)
-  benefitplot
-  dev.off()
-}else {
-  png(file=paste("~/foodGCEfile/HLP/benefitfunctionFoodGlobal.png",sep = ""), width = 6, height = 4.5, units = 'in', res = 300)
-  benefitplot
-  dev.off()
-}
 
 Priority<-as.data.frame(PriorityAreas)
 Priority$rank <- (1-(seq.int(nrow(Priority))/ncell))*100
@@ -306,15 +222,12 @@ GlobalMap
 
 #ggsave("~/foodGCEfile/FoodResults/FoodProvPriorities10_BAU1.png", width = 12, height = 6, units = 'in', dpi= 300)
 
-
 if(scenario=="BAU1"){   
   ggsave("~/foodGCEfile/FoodResults/FoodProvPriorities100_BAU1.png", width = 12, height = 6, units = 'in', dpi= 300)
 }else if(scenario=="all managed"){
   ggsave("~/foodGCEfile/FoodResults/FoodProvPriorities100_allmanaged.png", width = 12, height = 6, units = 'in', dpi= 600)
 }else if(scenario=="OAconstant"){
   ggsave("~/foodGCEfile/FoodResults/FoodProvPriorities100_OAconstant.png", width = 12, height = 6, units = 'in', dpi= 600)
-}else if(scenario=="Escorched_current"){
-  ggsave("~/foodGCEfile/FoodResults/FoodProvPriorities100_Escorched_current.png", width = 12, height = 6, units = 'in', dpi= 600)
 }else if(scenario=="Efin_msy"){
   ggsave("~/foodGCEfile/FoodResults/FoodProvPriorities100_Efin_msy.png", width = 12, height = 6, units = 'in', dpi= 600)
 }else if(scenario=="EBvK01fin"){
@@ -322,67 +235,3 @@ if(scenario=="BAU1"){
 }else if(scenario=="EBvK01_msy"){
   ggsave("~/foodGCEfile/FoodResults/FoodProvPriorities100_EBvK01_msy.png", width = 12, height = 6, units = 'in', dpi= 600)
 }
-
-
-
-if (scenario=="all managed"){
-  
-}else if(scenario=="2012xmsy"){
-  png(file="~/Food provision/FoodProvPriorities100_2012xmsy.png", width = 12, height = 6, units = 'in', res = 300)
-  FoodProvPriorities
-  dev.off()
-}else if(scenario=="constant"){
-  png(file="~/Food provision/FoodProvPriorities100_constant.png", width = 12, height = 6, units = 'in', res = 300)
-  FoodProvPriorities
-  dev.off()
-}else if(scenario=="OAconstant"){
-  png(file="~/Food provision/FoodProvPriorities100_OAconstant.png", width = 12, height = 6, units = 'in', res = 300)
-  FoodProvPriorities
-  dev.off()  
-}else if(scenario=="OAconstantxmsy"){
-  png(file="~/Food provision/FoodProvPriorities100_OAconstant.png", width = 12, height = 6, units = 'in', res = 300)
-  FoodProvPriorities
-  dev.off()    
-}else {
-  png(file="~/Food provision/FoodProvPriorities100_EEZ.png", width = 12, height = 6, units = 'in', res = 300)
-  FoodProvPriorities
-  dev.off()
-}
-
-
-#Plot here
-Priority<-as.data.frame(PriorityAreas)
-Priority$rank <- (length(MPAposition)+1):(dim(Priority)[1]+length(MPAposition))#(MPAinEEZ+1):length(EEZposition)
-coord<-na.omit(CleanCoordmegacell)
-coord2 <- cbind(PriorityAreas = rownames(coord), coord)
-Priority$PriorityAreas<-as.factor(Priority$PriorityAreas)
-Priority2<-left_join(Priority,coord2, by="PriorityAreas")
-
-#ggplot(Priority2, aes(x=lon,y=lat,colour=rank))+geom_point()
-#juan_plot
-JuanPlot<-Priority2 %>% select(lat,lon,rank)
-JuanPlot$MPA<-0
-#bind MPA
-JuanPlot<-rbind(MPA_coord,JuanPlot)
-JuanPlot$rank <- rescale(JuanPlot$rank, to = c(0, 100)) #((seq.int(nrow(Priority))/nmax))*100
-JuanPlot
-#ggplot(JuanPlot, aes(x=lon,y=lat,colour=rank))+geom_point()
-#dim(unique(JuanPlot[c("lat", "lon")]))
-
-##Save
-write.csv(JuanPlot,file = paste("~/foodGCEfile/HLP/Food_",ISO[countryNum],".csv",sep = ""))
-
-#plot same as Juan
-coordsplot<-JuanPlot %>% select(lon,lat)
-empty_raster <- raster(res = 0.5)
-cells <- cellFromXY(empty_raster, as.matrix(coordsplot))
-empty_raster[cells] <- JuanPlot$rank
-
-png(file=paste("~/foodGCEfile/HLP/FoodMAP_",ISO[countryNum],".png",sep = ""), width = 8, height = 8, units = 'in', res = 300)
-colfunc<-c("#d73027","#fdae61","#fee090","#e0f3f8","#abd9e9","#74add1", "#4575b4")
-plot(empty_raster, xlim = c(min(JuanPlot$lon),max(JuanPlot$lon)), ylim = c(min(JuanPlot$lat), max(JuanPlot$lat)),col=colfunc, breaks=c(0,5,10,20,30,40,50,100), interpolate=F, main=countries[countryNum],legend.args=list(text='Top % of EEZ', side=4,font=1, line=2.5, cex=1.1))
-map("world", add=TRUE, lwd=0.5, interior = FALSE, col = "black")
-dev.off()
-
-
-
