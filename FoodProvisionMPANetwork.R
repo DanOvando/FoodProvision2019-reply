@@ -100,7 +100,7 @@ MPAselect<-MPAselect0
 R<-rowSums(KprotectedPerCell_Library[,which(MPAselect==1),drop=FALSE])
 hbau<-na.omit((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r))))
 hbau<-hbau*(hbau>0)
-HBAU<-sum(hbau)#sum((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r))), na.rm=T)
+HBAU<-sum(hbau)
 HBAU
 
 PICKSIZE<-10
@@ -135,24 +135,15 @@ for (i in 1:nmax){
   #3. block those additional 1000 in MPAselect
   MPAselect0[Prioritycellselected]<-1
   
-  ##3.1.Compute fraction per species within EEZ using the cleanmegacee
-  #this is working but i will comment now --- not needed
-  #RangeinEEZ<-t((CleanCoordmegacell_MPA_EEZ$EEZ)*(1-MPAselect0)) %*% as.matrix(Cleanmegacell) #EEZ x not in MPA  
-  #SpeciesRangeinEEZ<-t(RangeinEEZ)
-  
-  ###for NOW, just plot EEZ
-  #RangeinHS<-t((1-CleanCoordmegacell_MPA_EEZ$EEZ)*(1-MPAselect0)) %*% as.matrix(Cleanmegacell) #EEZ x not in MPA  
-  #SpeciesRangeinHS<-t(RangeinHS)
-  
   #3. save them for our priority areas
   PriorityAreas<-append(PriorityAreas,Prioritycellselected)
+  
   #4. Calculate food prov of the additional 1000 cells
   MPAselect<-MPAselect0
   R<-rowSums(KprotectedPerCell_Library[,which(MPAselect==1),drop=FALSE])
   hmpa<-na.omit((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r))))
   hmpa<-hmpa*(hmpa>0)
   HMPA<-sum(hmpa)#sum((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r))), na.rm=T)
-  #HMPA-HBAU
   
   #save result. Comment other parts not needed now.
   PerSpDeltaH[i,]<-hmpa-hbau
@@ -270,7 +261,6 @@ benefitplot<-ggplot(BenefitCurve, aes(MPA, NetworkResult)) +geom_line(col="blue"
   labs(x="% EEZ protected",y="Change in catch (MMT)",title=paste("Global (max =", round(max(BenefitCurve$NetworkResult),2),"MMT)"))#+geom_hline(yintercept = 0)
 benefitplot
 
-
 if (scenario=="all managed"){
   
 }else if(scenario=="2012xmsy"){
@@ -307,16 +297,10 @@ ShortCoord$ID<-row.names(ShortCoord)
 
 dim(ShortCoord)
 head(ShortCoord)
-##green = "#008B45FF"
-#red -= "#BB0021FF"
-#BLEU GREEN  "#00828099"
-#low="white", high="#BB0021FF"
 
 GlobalMap<-ShortCoord %>% ggplot(aes(x=lon,y=lat,fill=rank)) + scale_fill_gradient(low="white", high="#00539CFF",limits=c(0,100),name="Rank")+
-  theme(axis.title.x = element_blank(),
-        axis.title.y = element_blank())+
-  geom_raster()+
-  geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="#EEA47FFF")+
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank())+
+  geom_raster()+ geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="#EEA47FFF")+
   geom_sf(data = land_shp_moll, inherit.aes = F)
 GlobalMap
 
@@ -339,61 +323,6 @@ if(scenario=="BAU1"){
   ggsave("~/foodGCEfile/FoodResults/FoodProvPriorities100_EBvK01_msy.png", width = 12, height = 6, units = 'in', dpi= 600)
 }
 
-
-
-# #ShortCoord<-ShortCoord %>% select(ID,rank)
-# coordsplot<-ShortCoord %>% select(lon,lat)
-# empty_raster <- raster(res = 0.5)
-# cells <- cellFromXY(empty_raster, as.matrix(coordsplot))
-# empty_raster[cells] <- ShortCoord$rank#PriorityFrame2$rank
-# plot(empty_raster,main="Food provision potential (MT)",axes=F,box=F)
-# 
-# # #load long coord
-# # LongCoord<-readRDS(file = "~/foodGCEfile/Long_CleanCoordmegacell.rds")
-# # LongCoord$ID<-row.names(LongCoord)
-# # LongCoord2<-left_join(LongCoord,ShortCoord,by="ID")
-# # LongCoord2[is.na(LongCoord2)] <- min(PriorityFrame2$rank,na.rm=T)
-# # #------------------------
-# # #plot
-# # 
-# # coordsplot<-LongCoord2 %>% select(lon,lat)
-# # empty_raster <- raster(res = 0.5)
-# # cells <- cellFromXY(empty_raster, as.matrix(coordsplot))
-# # empty_raster[cells] <- LongCoord2$rank#PriorityFrame2$rank
-# # plot(empty_raster,main="Food provision potential (MT)",axes=F,box=F)
-# 
-# #plot same as Juan
-# library(tmap)
-# library(leaflet)
-# library(sf)
-# #install.packages(c("tmap","leaflet","sf"))
-# crs(empty_raster) <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
-# maxValue(empty_raster)
-# z_pal <- list(breaks = c(0,50,60,70,80,90,95,100),
-#               labels = c("0-50", "50-60", "60-70", "70-80", "80-90", "90-95", "95-100"),
-#               colors = rev(c("#d73027","#fdae61","#fee090","#e0f3f8","#abd9e9","#74add1", "#4575b4")))
-# land_shp <-st_read("~/foodGCEfile/landshp_moll/spatial-datasets-land-land_50.shp")
-# ocean_low_res_moll<-raster::raster("~/foodGCEfile/ocean-low-res-moll.tiff")
-# land_shp_moll <- land_shp %>% st_transform(crs = projection(ocean_low_res_moll))
-# 
-# FoodProvPriorities<-empty_raster %>% 
-#   raster::projectRaster(ocean_low_res_moll) %>% 
-#   tmap::tm_shape()+
-#   tmap::tm_raster(title = "Priority score",
-#                   palette  = z_pal$colors,
-#                   breaks = z_pal$breaks,
-#                   labels = z_pal$labels,
-#                   legend.is.portrait = T,
-#                   legend.reverse = T)+
-#   tmap::tm_shape(land_shp_moll)+
-#   tmap::tm_fill(col = "black", border.col = "transparent")+
-#   #tmap::tm_credits(caption) +
-#   tmap::tm_layout(title = "Food provision",
-#                   title.position = c("center", .95),
-#                   inner.margins = c(0.12, 0, 0.08, 0.04),
-#                   frame = F,
-#                   legend.position = c(.99, "center"))
-# FoodProvPriorities
 
 
 if (scenario=="all managed"){
