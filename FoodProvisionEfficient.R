@@ -1954,7 +1954,6 @@ m3<- Aqua3stackRev %>%
 m3
 ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/m3.png", m3, width = 10, height = 8, dpi = 300, units = "in")#resolution not great
 
-
 #carrying capacity, m=9
 MagaData_K<-MegaData %>% filter(Manage==0) %>% filter(m==0.9) #managed only
 head(MagaData_K)
