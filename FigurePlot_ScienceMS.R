@@ -431,8 +431,12 @@ head(ShortCoord_Sort)
 dim(ShortCoord_Sort)
 min(ShortCoord_Sort$rank)
 
+ShortCoord_Sort$sign<-ShortCoord_Sort$dH>0
+InflectPoint<-min(which(ShortCoord_Sort$sign == TRUE))
+InflectMPA<-ShortCoord_Sort$rank[InflectPoint]
+
 MPAcoverage<-ShortCoord_Sort %>% ggplot(aes(x=lon,y=lat,fill=rank)) + #scale_fill_gradient2(low="darkred", mid="white",high="#00539CFF",midpoint = 0, space = "Lab",na.value = "grey50", guide = "colourbar", aesthetics = "fill",name=expression(paste(Delta, "H (MT)")))+
-  scale_fill_gradientn(colours = c("#00539CFF", "white", "red"), limits=c(0,100), values = scales::rescale(c(min(ShortCoord_Sort$rank), 22, max(ShortCoord_Sort$rank))),name="% MPA coverage")+
+  scale_fill_gradientn(colours = c("#00539CFF", "white", "red"), limits=c(0,100), values = scales::rescale(c(min(ShortCoord_Sort$rank), InflectMPA, max(ShortCoord_Sort$rank))),name="% MPA coverage")+
   theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank(),legend.position=c(0.65, 0.05), legend.direction = "horizontal")+ #"bottom
   geom_raster()+
   geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
