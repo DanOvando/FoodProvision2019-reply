@@ -24,6 +24,88 @@ library(leaflet)
 library(sf)
 library(scales)
 
+MegaData<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/MegaData.rds")
+KprotectedPerCell_Library<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/KprotectedPerCell_Library_mollweide.rds")
+CleanCoordmegacell<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/CleanCoordmegacell_mollweide.rds")
+MPA_coord<-readRDS(file="/Users/ren/Documents/CODES/FoodProvision/MPA_coord_mollweide.rds")
+Cleanmegacell<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/Cleanmegacell_mollweide.rds")
+CleanCoordmegacell_MPA<-left_join(CleanCoordmegacell,MPA_coord,by=c("lon","lat"))
+MPAposition<-which(CleanCoordmegacell_MPA$MPA==1)
+MPAsize0<-length(MPAposition)*100/dim(Cleanmegacell)[1]
+
+#SI figure, exploitation rate
+###Compute spillover---PIXEL-LEVEL spillover 
+numcell<-dim(Cleanmegacell)[1]
+MPAselect0<-matrix(0, nrow=numcell, ncol=1)
+MPAselect0[MPAposition]<-1
+K<-MegaData$Kfin #k per species
+m<-MegaData$m_fin #mobility per species
+r<-MegaData$r_fin
+#E<-MegaData$Efin
+E<-MegaData$Efin_BAU1
+ER<-1-E
+ER<-1*(ER>1) + ER*(ER<=1)
+max(ER)
+min(ER)
+
+MPAselect<-MPAselect0
+
+R<-0
+ER_redistribute_0<-data.frame(E0 = 1-(1-ER)^(1/(1-R)))
+head(ER_redistribute_0)
+
+R<-rowSums(KprotectedPerCell_Library[,which(MPAselect==1),drop=FALSE])
+ER_redistribute_2pt4<-data.frame(EBAU = 1-(1-ER)^(1/(1-R)))
+head(ER_redistribute_2pt4)
+
+Eevolve<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/Eevolve100_BAU1_mollweide_redistribute.rds")
+head(Eevolve)
+dim(Eevolve)
+plot(rowMedians(Eevolve, na.rm=TRUE))#this will give us the same result 
+
+
+Eevolve_median_0<-data.frame(area=0,median=median(ER_redistribute_0$E0))
+
+Eevolve_median<-data.frame(area=1:1173)
+Eevolve_median$median<-rowMedians(Eevolve, na.rm=TRUE)
+head(Eevolve_median)
+
+Eevolve_median_fin<-rbind(Eevolve_median_0,Eevolve_median)
+
+
+xaxis<-(Eevolve_median$area*100*100/dim(CleanCoordmegacell)[1])+MPAsize0
+head(xaxis)
+tail(xaxis)
+medianEplot<-ggplot(Eevolve_median, aes(x = (area*100*100/dim(CleanCoordmegacell)[1])+MPAsize0, y=median)) + geom_line()+labs(x="% MPA coverage", y="Median exploitation rate") + ylim(c(0,1))
+medianEplot
+head(Eevolve_median)
+tail(Eevolve_median)
+#round(1173*100*100/dim(CleanCoordmegacell)[1],1)
+
+Eevolve_df<-as.data.frame(t(Eevolve))
+head(Eevolve_df)
+
+hist_evolve_1<-ggplot(ER_redistribute_0, aes(x = E0)) + geom_histogram() +
+  geom_vline(xintercept = median(Eevolve_df$V1), color = "red", linetype = "dashed")+labs(x="Exploitation rate (E)", y="Number of stocks", title="% MPA coverage = 0%")
+hist_evolve_1
+
+hist_evolve_2<-ggplot(ER_redistribute_2pt4, aes(x = EBAU)) + geom_histogram() +
+  geom_vline(xintercept = median(Eevolve_df$V1), color = "red", linetype = "dashed")+labs(x="Exploitation rate (E)", y="Number of stocks", title="% MPA coverage = 2.4%")
+hist_evolve_2
+
+hist_evolve_3<-ggplot(Eevolve_df, aes(x = V1173)) + geom_histogram()+
+  geom_vline(xintercept = median(Eevolve_df$V1173), color = "red", linetype = "dashed")+labs(x="Exploitation rate (E)", y="Number of stocks", title="% MPA coverage = 99.9%")
+hist_evolve_3
+
+FigSI_Eevolve<-grid.arrange(medianEplot,hist_evolve_2,hist_evolve_3, layout_matrix = rbind(c(1,1),c(1,1),c(2,3)))
+#FigSI_Eevolve<-grid.arrange(medianEplot,hist_evolve_1,hist_evolve_2,hist_evolve_3, ncol=2)#layout_matrix = rbind(c(1,1),c(1,1),c(2,3)))
+FigSI_Eevolve
+ggsave(file="/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/FigSI_Eevolve.png", FigSI_Eevolve, width = 10, height = 8, dpi = 600, units = "in")
+ggsave(file="/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/FigSI_Eevolve.tiff", FigSI_Eevolve, width = 10, height = 8, dpi = 600, units = "in")
+
+#install.packages("matrixStats")
+#library("matrixStats")
+
 #FIGURE 1 - Pixel-level
 MegaData<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/MegaData.rds")
 Cleanmegacell<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/Cleanmegacell_mollweide.rds")
@@ -79,12 +161,21 @@ head(CleanCoordmegacell_EEZ_noMPA)
 
 ###Compute PIXEL-LEVEL spillover 
 K<-MegaData$Kfin #k per species
-m<-MegaData$m #mobility per species
-r<-MegaData$r
+m<-MegaData$m_fin #mobility per species
+r<-MegaData$r_fin
 E<-MegaData$Efin_BAU1
+
+ER<-1-E
+ER<-1*(ER>1) + ER*(ER<=1)
+max(ER)
+min(ER)
+
 MPAselect<-MPAselect0
 R<-rowSums(KprotectedPerCell_Library[,which(MPAselect==1),drop=FALSE])
-hbau<-na.omit((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r))))
+
+ER_redistribute<-1-(1-ER)^(1/(1-R))
+hbau<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
+#hbau<-na.omit((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r))))
 hbau<-hbau*(hbau>0)
 HBAU<-sum(hbau)#sum((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r))), na.rm=T)
 HBAU
@@ -106,10 +197,10 @@ CleanCoordmegacell_EEZ_noMPA$EEZ[is.na(CleanCoordmegacell_EEZ_noMPA$EEZ)==T]<-"H
 Plot1b$EEZ<-CleanCoordmegacell_EEZ_noMPA$EEZ
 head(Plot1b)
 
-Plot1b %>% group_by(EEZ) %>% summarize(mean=mean(V1)) #EEZ is 10 times higher than HS
+Plot1b %>% group_by(EEZ) %>% summarize(mean=mean(V1)) #EEZ is 8 times higher than HS
 
 FigS1<-ggplot(Plot1b,aes(x=EEZ,y=V1,fill=EEZ))+
-  geom_bar(stat = "summary", fun.y = "mean",fill="grey")+labs(x="",y=expression(paste("Average ",Delta,"H (MMT)")))+
+  geom_bar(stat = "summary", fun.y = "mean",fill="grey")+labs(x="",y=expression(paste("Average ",Delta,"H (MT)")))+
   theme_bw()+theme(axis.text=element_text(size=35),axis.title=element_text(size=35),legend.position = "none")
 FigS1
 ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/FigS1.png", FigS1,dpi=300)#resolution not great
@@ -140,7 +231,7 @@ result3<-rbind(result,result2)
 Fig1Data<-cbind(CleanCoordmegacell_mpaEND[,1:2],result3)
 head(Fig1Data)
 
-options("scipen"=100, "digits"=1)
+#options("scipen"=100, "digits"=1)
 root<-3
 pixeldHplot<-Fig1Data %>% 
   mutate(tmp = abs(deltaH)^(1/root),
@@ -155,7 +246,7 @@ pixeldHplot<-Fig1Data %>%
   geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
   geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
 pixeldHplot
-ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/Fig1_pixeldHplot.png", pixeldHplot, width = 8, height = 4, dpi = 600, units = "in")
+ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/Fig1_pixeldHplot.tiff", pixeldHplot, width = 8, height = 4, dpi = 600, units = "in")
 
 ###########################################################################################################################
 
@@ -204,12 +295,21 @@ celltoiterate<-celltoiterateFULL
 ncell<-length(celltoiterate)
 
 K<-MegaData$Kfin #k per species
-m<-MegaData$m #mobility per species
-r<-MegaData$r
+m<-MegaData$m_fin #mobility per species
+r<-MegaData$r_fin
 E<-MegaData$Efin_BAU1
+
+ER<-1-E
+ER<-1*(ER>1) + ER*(ER<=1)
+max(ER)
+min(ER)
+
 MPAselect<-MPAselect0
 R<-rowSums(KprotectedPerCell_Library[,which(MPAselect==1),drop=FALSE])
-hbau<-na.omit((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r))))
+
+ER_redistribute<-1-(1-ER)^(1/(1-R))
+hbau<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
+#hbau<-na.omit((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r))))
 hbau<-hbau*(hbau>0)
 HBAU<-sum(hbau)#sum((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r))), na.rm=T)
 HBAU
@@ -217,12 +317,12 @@ HBAU
 nmax<-floor(length(celltoiterate)/1000)
 PerSpDeltaH<-matrix(nrow=nmax,ncol=1342)
 
-NetworkResult<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/NetworkResult100_BAU1_mollweide.rds")
-PriorityAreas<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/PriorityAreas100_BAU1_mollweide.rds")
+NetworkResult<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/NetworkResult100_BAU1_mollweide_redistribute.rds")
+PriorityAreas<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/PriorityAreas100_BAU1_mollweide_redistribute.rds")
 head(MegaData)
 
 #this is for generating how much food will be generated from managed stocks vs unmanaged.
-PerSpeciesDH<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/PerSpDeltaH100_OAconstant_mollweide.rds")
+PerSpeciesDH<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/PerSpDeltaH100_BAU1_mollweide_redistribute.rds")
 dim(PerSpeciesDH)
 max(which(MegaData$Manage == 0))
 unmanagedDH<-rowSums(PerSpeciesDH[,1:max(which(MegaData$Manage == 0))]) #unmanaged
@@ -252,6 +352,7 @@ benefitplot3<-ggplot(BenefitCurve3, aes(MPA, NetworkResult)) +geom_line(col="blu
   labs(x="% MPA coverage",y="Change in catch (MMT)")
 benefitplot3
 
+max(BenefitCurve3$NetworkResult)
 
 #all Managed scenario
 NetworkResult<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/NetworkResult100_allmanaged.rds")
@@ -274,18 +375,32 @@ benefitplot_allmanaged
 
 ##BBAU2
 E<-MegaData$Efin
+
+ER<-1-E
+ER<-1*(ER>1) + ER*(ER<=1)
+max(ER)
+min(ER)
+
 numcell<-dim(Cleanmegacell)[1]
 MPAselect0<-matrix(0, nrow=numcell, ncol=1)
 MPAselect0[MPAposition]<-1
 MPAselect<-MPAselect0
 R<-rowSums(KprotectedPerCell_Library[,which(MPAselect==1),drop=FALSE])
-hbau<-na.omit((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r))))
+
+ER_redistribute<-1-(1-ER)^(1/(1-R))
+hbau<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
+#hbau<-na.omit((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r))))
 hbau<-hbau*(hbau>0)
 HBAU<-sum(hbau)#sum((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r))), na.rm=T)
 HBAU
 
-NetworkResult<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/NetworkResult100_OAconstant_mollweide.rds")
-PriorityAreas<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/PriorityAreas100_OAconstant_mollweide.rds")
+#Harvest BAU with no MPA
+sum((1-E)*((r+E-1)/r)*K)
+#current MPA benefits
+HBAU-sum((1-E)*((r+E-1)/r)*K)
+
+NetworkResult<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/NetworkResult100_OAconstant_mollweide_redistribute.rds")
+PriorityAreas<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/PriorityAreas100_OAconstant_mollweide_redistribute.rds")
 PICKSIZE<-100
 nmax<-floor(ncell/PICKSIZE)
 BenefitCurve_BAU2<-as.data.frame(NetworkResult)/1000000
@@ -302,17 +417,33 @@ benefitplot_BAU2<-ggplot(BenefitCurve_BAU2, aes(MPA, NetworkResult)) +geom_line(
   labs(x="% MPA coverage",y="Change in catch (MMT)")
 benefitplot_BAU2
 
+max(BenefitCurve_BAU2$NetworkResult)
+
 ###Collapsed (0.1k) assumption
 E<-MegaData$EBvK01fin
+
+ER<-1-E
+ER<-1*(ER>1) + ER*(ER<=1)
+max(ER)
+min(ER)
+
 numcell<-dim(Cleanmegacell)[1]
 MPAselect0<-matrix(0, nrow=numcell, ncol=1)
 MPAselect0[MPAposition]<-1
 MPAselect<-MPAselect0
 R<-rowSums(KprotectedPerCell_Library[,which(MPAselect==1),drop=FALSE])
-hbau<-na.omit((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r))))
+
+ER_redistribute<-1-(1-ER)^(1/(1-R))
+hbau<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
+#hbau<-na.omit((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r))))
 hbau<-hbau*(hbau>0)
 HBAU<-sum(hbau)
 HBAU
+
+#Harvest BAU with no MPA
+sum((1-E)*((r+E-1)/r)*K)
+#current MPA benefits
+HBAU-sum((1-E)*((r+E-1)/r)*K)
 
 NetworkResult<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/NetworkResult100_EBvK01fin_mollweide.rds")
 PriorityAreas<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/PriorityAreas100_EBvK01fin_mollweide.rds")
@@ -332,6 +463,8 @@ benefitplot_EBvK01fin<-ggplot(BenefitCurve_EBvK01fin, aes(MPA, NetworkResult)) +
   labs(x="% MPA coverage",y="Change in catch (MMT)")
 benefitplot_EBvK01fin
 
+max(BenefitCurve_EBvK01fin$NetworkResult)
+
 benefitplot_combined<-ggplot(BenefitCurve3, aes(MPA, NetworkResult)) +geom_line(col="#00A087FF",size=0.5)+ 
   labs(x="% MPA coverage",y="Change in catch (MMT)")+theme_bw()+ylim(min(BenefitCurve_allmanaged$NetworkResult),max(BenefitCurve_EBvK01fin$NetworkResult))+
   theme(axis.text=element_text(size=14),axis.title=element_text(size=14))+
@@ -341,10 +474,24 @@ benefitplot_combined<-ggplot(BenefitCurve3, aes(MPA, NetworkResult)) +geom_line(
 benefitplot_combined
 #ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/Fig2Benefit.png", benefitplot_combined,dpi=600)
 
+benefitplot_main<-ggplot(BenefitCurve3, aes(MPA, NetworkResult)) +geom_line(col="#00A087FF",size=2)+ 
+  labs(x="% ocean protected",y="Change in catch (MMT)")+theme_bw()+ylim(min(BenefitCurve_allmanaged$NetworkResult),max(BenefitCurve_EBvK01fin$NetworkResult))+
+  theme(axis.text=element_text(size=30),axis.title=element_text(size=30))
+benefitplot_main
+ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/benefitplot_main.png", benefitplot_main,dpi=300)
+
+
+benefitplot_top3<-ggplot(BenefitCurve3, aes(MPA, NetworkResult)) +geom_line(col="#00A087FF",size=02)+ 
+  labs(x="% ocean protected",y="Change in catch (MMT)")+theme_bw()+ylim(min(BenefitCurve_allmanaged$NetworkResult),max(BenefitCurve_EBvK01fin$NetworkResult))+
+  theme(axis.text=element_text(size=30),axis.title=element_text(size=30))+
+  geom_line(data=BenefitCurve_EBvK01fin, aes(MPA, NetworkResult),col="black",size=2,linetype = "dotdash")+theme(legend.position = "none")+
+  geom_line(data=BenefitCurve_BAU2, aes(MPA, NetworkResult),col="black",size=2,linetype = "dashed")+theme(legend.position = "none")
+benefitplot_top3
+ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/benefitplot_top3.png", benefitplot_top3,dpi=300)
 
 #Fig 2a.
-NetworkResult<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/NetworkResult10_BAU1_mollweide.rds")
-PriorityAreas<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/PriorityAreas10_BAU1_mollweide.rds")
+NetworkResult<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/NetworkResult100_BAU1_mollweide_redistribute_10.rds")
+PriorityAreas<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/PriorityAreas100_BAU1_mollweide_redistribute_10.rds")
 length(PriorityAreas)
 length(NetworkResult)
 head(PriorityAreas)
@@ -421,7 +568,7 @@ cumsumrank$HScs<-cumsumrank$HScs/sum(cumsumrank$EEZ==0)
 
 cumsumrankplot<-ggplot(cumsumrank)+geom_line(aes(x=id, y=EEZcs),col="#F39B7FFF",size=1) + geom_line(aes(x=id, y=HScs),col="#8491B4FF",size=1)+labs(x="% MPA coverage",y="Protected/Available pixels")+
   theme_bw()+theme(axis.text=element_text(size=14),axis.title=element_text(size=14))+
-  annotate("text", x = 50, y = 0.75, label = "High Seas",size=4)+annotate("text", x = 50, y = 0.25, label = "EEZs",size=4)
+  annotate("text", x = 25, y = 0.50, label = "EEZs",size=4)+annotate("text", x = 50, y = 0.25, label = "High Seas",size=4)
 cumsumrankplot
 
 min(ShortCoord$rank)
@@ -442,6 +589,9 @@ MPAcoverage<-ShortCoord_Sort %>% ggplot(aes(x=lon,y=lat,fill=rank)) + #scale_fil
   geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
   geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
 MPAcoverage
+
+
+
 ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/MPAcoverage.png", MPAcoverage, width = 10, height = 8, dpi = 600, units = "in")#resolution not great
 
 p1<-MPAcoverage
@@ -449,7 +599,7 @@ p2<-benefitplot_combined
 p3<-cumsumrankplot
 fig2<-grid.arrange(p1,p2,p3, layout_matrix = rbind(c(1,1),c(1,1),c(2,3)))
 fig2
-ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/Fig2.png", fig2, width = 10, height = 8, dpi = 600, units = "in")
+ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/Fig2.tiff", fig2, width = 10, height = 8, dpi = 600, units = "in")
 
 ##------------PLOT FIGURE 3-------------
 head(MegaData)
@@ -458,19 +608,20 @@ ER_ratio_EBvK01_msy<-weighted.mean((1-MegaData$EBvK01_msy)/(1-MegaData$Emsy), Me
 ER_ratio_OA_constant<-weighted.mean((1-MegaData$Efin)/(1-MegaData$Emsy), MegaData$MSYfin)
 ER_ratio_Efin_msy<-weighted.mean((1-MegaData$Efin_msy)/(1-MegaData$Emsy), MegaData$MSYfin)
 ER_ratio_Efin_BAU1<-weighted.mean((1-MegaData$Efin_BAU1)/(1-MegaData$Emsy), MegaData$MSYfin)
-ER_ratio_OAhalf_msy<-weighted.mean((1-MegaData$Efinhalf_msy)/(1-MegaData$Emsy), MegaData$MSYfin)
+#ER_ratio_OAhalf_msy<-weighted.mean((1-MegaData$Efinhalf_msy)/(1-MegaData$Emsy), MegaData$MSYfin)
 ER_ratio_EBvK01fin
 ER_ratio_EBvK01_msy
 ER_ratio_Efin_BAU1
 ER_ratio_OA_constant
-ER_ratio_OA_msy
-ER_ratio_OAhalf_msy
+ER_ratio_Efin_msy
+#ER_ratio_OA_msy
+#ER_ratio_OAhalf_msy
 
 dH_EBvK01fin<-max(readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/NetworkResult100_EBvK01fin_mollweide.rds"))/1000000
 dH_EBvK01_msy<-max(readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/NetworkResult100_EBvK01_msy_mollweide.rds"))/1000000
-dH_OA_constant<-max(readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/NetworkResult100_OAconstant_mollweide.rds"))/1000000
+dH_OA_constant<-max(readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/NetworkResult100_OAconstant_mollweide_redistribute.rds"))/1000000
 dH_Efin_msy<-max(readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/NetworkResult100_Efin_msy_mollweide.rds"))/1000000
-dH_Efin_BAU1<-max(readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/NetworkResult100_BAU1_mollweide.rds"))/1000000
+dH_Efin_BAU1<-max(readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/PaperFigures/NetworkResult100_BAU1_mollweide_redistribute.rds"))/1000000
 
 dH_OA_constant/dH_Efin_BAU1
 dH_EBvK01fin/dH_Efin_BAU1

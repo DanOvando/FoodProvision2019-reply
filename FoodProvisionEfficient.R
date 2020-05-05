@@ -1,11 +1,15 @@
 #Food provision code for the Nat Geo project
 #Last update: 30 October 2019
+#Checked: March 2020
 #Author: Reniel Cabral
+
+#this is the equation I used for the derivative of delta h wrt R for assumption #2
+#(1-(1-E)^(1/(1-x)))*((m*k*(1-x))/((1-(1-E)^(1/(1-x)))*x+m))*(1- (((1-(1-E)^(1/(1-x)))*(1-x)*m)/((((1-(1-E)^(1/(1-x)))*x)+m)*r)))
+
 
 #Clear memory
 gc()
 rm(list = ls())
-#.rs.restartR()
 
 saveme<-0 #if 1, meaning save activated
 
@@ -27,7 +31,6 @@ library(rasterVis)
 library(tmap)
 library(leaflet)
 library(rootSolve)
-#options("scipen"=-100, "digits"=4)
 
 PlotFunction<-function(var1){
   # define projections
@@ -92,9 +95,11 @@ plot(empty_rasterothers, zlim=c(0,maxValue(empty_rasterothers)),legend.only=TRUE
 dev.off()
 }
 
-#Load K from Costello et al. 2016 database
-CostelloData<-read.csv("/Users/ren/Documents/CODES/FoodProvision/Aquamaps/UnlumpedProjectionData.csv")
+#Load Costello et al. 2016 database
+#CostelloData<-read.csv("/Users/ren/Documents/CODES/FoodProvision/Aquamaps/UnlumpedProjectionData.csv")
+CostelloData<-read.csv("/Users/ren/Documents/CODES/FoodProvision/Aquamaps/UnlumpedProjectionData.csv", stringsAsFactors = FALSE)
 #CostelloData<-read.csv("/Users/ren/Documents/CODES/FoodProvision/Aquamaps/ProjectionData.csv")
+dim(CostelloData)
 head(CostelloData,5)
 
 Costello2012<-CostelloData %>% filter(Year=="2012")
@@ -105,23 +110,6 @@ head(Costello2012)
 #MSY from costello of RAM, FAO, and SOFIA
 Costello2012 %>% group_by(Dbase,CatchShare) %>% summarise(sum(MSY))
 
-#MSY here// explore only. can be deleted.
-Costello2012$Kprime<-(Costello2012$MSY*(1.188)^(1/0.188))/Costello2012$g
-plot(Costello2012$k,Costello2012$Kprime)
-
-# #check 2050 stat
-# #filter === 2050, BAU, All Stocks, not catch share, not in RAM
-# Costello2050<-CostelloData %>% filter(Year=="2050", Policy=="BAU", Scenario=="All Stocks", CatchShare==0, Dbase!="RAM")
-# head(Costello2050)
-# table(Costello2050$Dbase)
-# table(Costello2050$Policy)
-# table(Costello2050$Scenario)
-# table(Costello2050$CatchShare)
-# head(Costello2050)
-# min(Costello2050$Catch)
-# min(Costello2050$Biomass)
-# Costello2050 %>% filter(Biomass==0)
-# plot(Costello2050$Profits)  
 
 CostelloDataPrime<- CostelloData %>%
   mutate(SciName=replace(SciName, SciName=="Sardinops melanostictus", "Sardinops sagax")) %>%
@@ -204,22 +192,25 @@ CostelloDataPrime<- CostelloData %>%
   mutate(SciName=replace(SciName, SciName=="Chelidonichthys lastoviza","Trigloporus lastoviza")) %>%
   mutate(SciName=replace(SciName, SciName=="Protothaca staminea","Leukoma staminea")) %>%
   mutate(SciName=replace(SciName, SciName=="Notothenia squamifrons","Lepidonotothen squamifrons")) %>%
-  filter(k>0) #remove zero carrying capacity
+  
+  mutate(SciName=replace(SciName, SciName=="Pleuronectes quadrituberculat","Pleuronectes quadrituberculatus")) %>%
+  mutate(SciName=replace(SciName, SciName=="Pseudopleuronectes herzenst","Pseudopleuronectes herzensteini")) %>%
+  mutate(SciName=replace(SciName, SciName=="Herklotsichthys quadrimaculat","Herklotsichthys quadrimaculatus")) %>%
 
+  filter(k>0) #remove zero carrying capacity
 CostelloPresentPrime<- CostelloDataPrime %>% filter(Year=="2012")
 head(CostelloPresentPrime)
 
-# #compute equilibrium 
-# varB<-CostelloPresentPrime %>% mutate(varB=phi*c*(g^1.3)/(Price*MSY)) %>% select(varB)
-# fun<-function (x) (x^1.188) - (1.188*x) + varB[2,]
-# curve(fun(x),0,1)
-# uniroot.all(fun,c(0,1))
 
 CostelloK<-CostelloDataPrime %>% filter(Year=="2012") %>% mutate(k=Biomass/(0.4*BvBmsy)) %>% group_by(SciName) %>% summarize(K=sum(k), B=sum(Biomass), Fstatus=weighted.mean(FvFmsy, MSY), Bstatus=weighted.mean(BvBmsy, MSY)) %>% mutate(BK2012=B/K)
 head(CostelloK)
 dim(CostelloK)
 
 plot(CostelloK$BK2012)
+
+#check why "Trachurus murphyi" has no 2050 data.. because all are RAM stocks
+#CostelloDataPrime %>% filter(Year=="2050", Policy=="BAU", Scenario=="All Stocks", Dbase!="RAM") %>%
+#  group_by(SciName) %>% filter(SciName=="Trachurus murphyi")
 
 Costello2050<-CostelloDataPrime %>% filter(Year=="2050", Policy=="BAU", Scenario=="All Stocks", CatchShare==0, Dbase!="RAM") %>%
   #group_by(SciName) %>% summarize(catch2050=sum(Catch), biomass2050=sum(Biomass), k2050=sum(k)) %>% mutate(ER2050=catch2050/biomass2050, bvk2050=biomass2050/k2050)
@@ -233,24 +224,12 @@ Costello2050ALL<-CostelloDataPrime %>% filter(Year=="2050", Policy=="BAU", Scena
 head(Costello2050ALL)
 dim(Costello2050ALL)
 
+
+
 #combine the two database
 CostelloPresent0<-left_join(CostelloK,Costello2050, by="SciName")
 CostelloPresent1<-left_join(CostelloPresent0,Costello2050ALL, by="SciName")
 CostelloPresent<-CostelloPresent1
-
-#OLD CODE
-# CostelloPresent1$ER2050prime<-CostelloPresent1$ER2050
-# CostelloPresent1$ER2050prime[is.na(CostelloPresent1$ER2050prime)] <- -1
-# CostelloPresent<- CostelloPresent1 %>% mutate(ERdiff=ER2050-ER2050ALL, ERcostello=(ER2050ALL*((ER2050prime==-1)*1)) + (ER2050prime*(1-((ER2050prime==-1)*1))))
-# CostelloPresent %>% filter(is.nan(ERcostello)==T) #we know that expoitation rate is high so ER should be high
-# CostelloPresent$ERcostello[is.nan(CostelloPresent$ERcostello)]<-100
-
-
-# # check UNiQUE r per species
-# head(CostelloDataPrime)
-# rperspeciescostello<-CostelloDataPrime %>% select(SciName,MSY,g) %>% mutate(rcostello=(4*g)/((0.188+1)^(1/0.188)))
-# rperspeciescostelloUNIQUE<-unique(rperspeciescostello[c("SciName", "rcostello")])
-# head(rperspeciescostelloUNIQUE)
 
 #rank species
 CostelloPresent<-as.data.frame(CostelloPresent)
@@ -270,7 +249,11 @@ spnamelookup<-as.data.frame(spnamelookup)
 head(spnamelookup)
 dim(spnamelookup) 
 
-"Clupea bentincki" %in% c(as.character(spnamelookup$resolved_scientific_name),
+library(rfishbase)
+popgrowth("Sardinops sagax")
+
+#Pseudopleuronectes herzensteini
+"Herklotsichthys quadrimaculatus" %in% c(as.character(spnamelookup$resolved_scientific_name),
                           as.character(spnamelookup$aquamaps_sci_name),
                           as.character(spnamelookup$worms_sci_name),
                           as.character(spnamelookup$eol_sci_name),
@@ -289,15 +272,23 @@ include <-rankedsp %>% filter((SciName %in% spnamelookup$resolved_scientific_nam
 dim(include)
 head(include)#these are the species in Costello DB included 
 
-# #add B/K values --- note: Bmsy/K=0.4 so B/K = 0.4B/Bmsy
-# Costello2050$BK<-0.4*Costello2050$BvBmsy
-# hist(Costello2050$BK) #even when economics is added, the median and mean is 0.153 and mean 0.218.
-# mean(Costello2050$BK)
-# median(Costello2050$BK)
-# max(Costello2050$BK)
+
+"Clupea bentincki" %in% include$SciName
+#Pleuronectes quadrituberculat not in include!!
+dim(include)#819 vs 885 #63 new species
+
+# #check what are the species we need information
+# mfile_v2<-read.csv("/Users/ren/Documents/CODES/FoodProvision/mobility_data_paper - data.csv")
+# head(mfile_v2)
+# head(include)
+# Add_data<-include %>% filter(! (SciName %in% mfile_v2$SciName)) %>% select(SciName)
+# dim(Add_data)
+# #save additional species and add to the database
+# #write.csv(Add_data, file = "/Users/ren/Documents/CODES/FoodProvision/AdditionalSpecies_RevisionPNAS.csv")
+
 
 #what are the species in costello db not included?
-rankedsp %>% filter(!(rankedsp$SciName %in% include$SciName))
+rankedsp %>% filter(!(rankedsp$SciName %in% include$SciName)) %>% select(SciName)
 #Clean species name mismatch
 
 #what are the species ID of these?
@@ -311,7 +302,6 @@ spID$v4<-spnamelookup$SPECIESID[match(include$SciName,spnamelookup$eol_sci_name)
 spID$v5<-spnamelookup$SPECIESID[match(include$SciName,spnamelookup$col_sci_name)]
 spID$v6<-spnamelookup$SPECIESID[match(include$SciName,spnamelookup$gbif_sci_name)]
 spID$v7<-spnamelookup$SPECIESID[match(include$SciName,spnamelookup$itis_sci_name)]
-#spID$fin<-apply(spID[,3:9],1, function(x) unique(x[!is.na(x)]))
 spID$fin<-apply(spID[,(1:7)+nudge],1, function(x) unique(x[!is.na(x)]))
 head(spID)
 
@@ -330,11 +320,21 @@ include$bvk2050[is.na(include$bvk2050)] <- -1
 include <- include %>% mutate(bvk_fin=(bvk2050ALL*((bvk2050==-1)*1)) + (bvk2050*(1-((bvk2050==-1)*1))))
 head(include)
 
+#Load r then remove SciName entry in "include" if they have no r information
+#this is the growth parameter
+r_rev<-read.csv("/Users/ren/Documents/CODES/FoodProvision/Parameters/r_data_whitneycheck - rsave_whitneycheck.csv")
+head(r_rev)
+rinclude<-r_rev %>% filter(r>0 | r_mean>0) %>% select(species)
+dim(rinclude)
+
+#remove some species with no r data
+include<-include %>% filter(SciName %in% rinclude$species)
+dim(include) #811 species. Ok, sounds good.
+
 ##TRANSFER files to VM for convertion to mollweide
 #saveRDS(Aquaothers2, file = "/Users/ren/Documents/CODES/FoodProvision/Aquaothers2.rds")
 #saveRDS(include, file = "/Users/ren/Documents/CODES/FoodProvision/include.rds")
 #saveRDS(land_shp_moll, file = "/Users/ren/Documents/CODES/FoodProvision/land_shp_moll.rds")
-
 
 # ###Nov22, transform to mollweide
 # ##OPTION 1
@@ -705,76 +705,77 @@ head(Aqua3stack)
 # plt<-levelplot(PlotFunction(empty_raster), margin = F, cuts=11, pretty=TRUE, par.settings = mapTheme)
 # plt
 
-#--this is for deriving the biological parameters c/o Chris Free
-library(FishLife)
-load("/Users/ren/Documents/CODES/FoodProvision/Return.RData")
-# Predicted variables
-# -------------------------------------------
-# Loo - asymptotic length (Linf, cm)
-# K - growth coefficient (K)
-# Winfinity - Asymptotic mass (Winf, g)
-# tmax - maximum age (Amax, yr)
-# tm - age at maturity (Amat, yr)
-# M - mortality rate (M, 1/yr)
-# Lm - length at maturity (Lmat, cm)
-# Temperature - average temperature (T, °C)
-# ln_var - marginal standard deviation of recruitment variability (τ)
-# rho - autocorrelation of recruitment variability (ρ)
-# ln_MASPS - maximum annual spawners per spawner (r)
-
-# Derived variables
-# -------------------------------------------
-# ln_margsd - standard deviation for recruitment (σ): σ = sqrt(τ^2 / (1-ρ^2))
-# h / logitbound_h - steepness (h): h = ρ / (4 + ρ)
-# ln_Fmsy - FMSY
-# ln_Fmsy_over_m - FMSY/M ratio
-# r / ln_r - Intrinsic growth rate (r): dominant eigen value for Leslie matrix w/ assumptions: length-weight b=3.04, VonB t0=-0.1, maturity ogive slope=0.25*tmat
-# G / ln_G - Generation time (G, yr)
-
-fishlife2 <- function(species){
-  # Setup container
-  fl <- data.frame(species=sort(unique(species)),
-                   linf_cm=NA, k=NA, winf_g=NA, tmax_yr=NA, tmat_yr=NA,
-                   m=NA, lmat_cm=NA, temp_c=NA, 
-                   sr_var=NA, sr_rho=NA, masps=NA, sr_sd=NA, 
-                   h=NA, fmsydivm=NA, fmsy=NA, r=NA, g_yr=NA, stringsAsFactors=F)
-  
-  # Loop through species
-  for(i in 1:nrow(fl)){
-    
-    # Match species to FishLife
-    sciname <- fl$species[i]
-    genus <- stringr::word(sciname, 1)
-    nwords_in_spp <- length(strsplit(sciname, " ")[[1]])
-    spp <- stringr::word(sciname, start=2, end=nwords_in_spp)
-    spp <- ifelse(spp=="spp", "predictive", spp)
-    try(taxa_match <- FishLife::Search_species(Genus=genus, Species = spp, add_ancestors=TRUE)$match_taxonomy)
-    
-    # Get predictions from FishLife (mean and covariance)
-    if(inherits(taxa_match, "try-error")){
-      # Record blanks
-      fl[i,2:ncol(fl)] <- rep(NA, ncol(fl)-1)
-    }else{
-      # Extract FishLife 2.0 means
-      params <- colnames(Return$beta_gv)
-      mus <- Return$beta_gv[rownames(Return$beta_gv)==taxa_match[[1]], ]
-      mus_use <- mus[c("Loo", "K", "Winfinity", "tmax", "tm", 
-                       "M", "Lm", "Temperature", "ln_var", "rho", "ln_MASPS", "ln_margsd",
-                       "h", "ln_Fmsy_over_M", "ln_Fmsy", "r",  "G")]
-      fl[i,2:ncol(fl)] <- mus_use
-    }
-    
-  }
-  
-  # Exponentiate columns
-  # These columns are not log-transformed: "temp_c", "rho", "h", "r", "g_yr", "fmsy"
-  log_cols <- c("linf_cm", "k", "winf_g", "tmax_yr", "tmat_yr", "m", "lmat_cm", "sr_var", "masps", "sr_sd", "fmsydivm", "fmsy")
-  fl[,log_cols] <- exp(fl[,log_cols])
-  
-  # Return
-  return(fl)
-}
-#----end function for deriving the biol params
+# #--this is for deriving the biological parameters c/o Chris Free
+# #Derive r
+# library(FishLife)
+# load("/Users/ren/Documents/CODES/FoodProvision/Return.RData")
+# # Predicted variables
+# # -------------------------------------------
+# # Loo - asymptotic length (Linf, cm)
+# # K - growth coefficient (K)
+# # Winfinity - Asymptotic mass (Winf, g)
+# # tmax - maximum age (Amax, yr)
+# # tm - age at maturity (Amat, yr)
+# # M - mortality rate (M, 1/yr)
+# # Lm - length at maturity (Lmat, cm)
+# # Temperature - average temperature (T, °C)
+# # ln_var - marginal standard deviation of recruitment variability (τ)
+# # rho - autocorrelation of recruitment variability (ρ)
+# # ln_MASPS - maximum annual spawners per spawner (r)
+# 
+# # Derived variables
+# # -------------------------------------------
+# # ln_margsd - standard deviation for recruitment (σ): σ = sqrt(τ^2 / (1-ρ^2))
+# # h / logitbound_h - steepness (h): h = ρ / (4 + ρ)
+# # ln_Fmsy - FMSY
+# # ln_Fmsy_over_m - FMSY/M ratio
+# # r / ln_r - Intrinsic growth rate (r): dominant eigen value for Leslie matrix w/ assumptions: length-weight b=3.04, VonB t0=-0.1, maturity ogive slope=0.25*tmat
+# # G / ln_G - Generation time (G, yr)
+# 
+# fishlife2 <- function(species){
+#   # Setup container
+#   fl <- data.frame(species=sort(unique(species)),
+#                    linf_cm=NA, k=NA, winf_g=NA, tmax_yr=NA, tmat_yr=NA,
+#                    m=NA, lmat_cm=NA, temp_c=NA, 
+#                    sr_var=NA, sr_rho=NA, masps=NA, sr_sd=NA, 
+#                    h=NA, fmsydivm=NA, fmsy=NA, r=NA, g_yr=NA, stringsAsFactors=F)
+#   
+#   # Loop through species
+#   for(i in 1:nrow(fl)){
+#     
+#     # Match species to FishLife
+#     sciname <- fl$species[i]
+#     genus <- stringr::word(sciname, 1)
+#     nwords_in_spp <- length(strsplit(sciname, " ")[[1]])
+#     spp <- stringr::word(sciname, start=2, end=nwords_in_spp)
+#     spp <- ifelse(spp=="spp", "predictive", spp)
+#     try(taxa_match <- FishLife::Search_species(Genus=genus, Species = spp, add_ancestors=TRUE)$match_taxonomy)
+#     
+#     # Get predictions from FishLife (mean and covariance)
+#     if(inherits(taxa_match, "try-error")){
+#       # Record blanks
+#       fl[i,2:ncol(fl)] <- rep(NA, ncol(fl)-1)
+#     }else{
+#       # Extract FishLife 2.0 means
+#       params <- colnames(Return$beta_gv)
+#       mus <- Return$beta_gv[rownames(Return$beta_gv)==taxa_match[[1]], ]
+#       mus_use <- mus[c("Loo", "K", "Winfinity", "tmax", "tm", 
+#                        "M", "Lm", "Temperature", "ln_var", "rho", "ln_MASPS", "ln_margsd",
+#                        "h", "ln_Fmsy_over_M", "ln_Fmsy", "r",  "G")]
+#       fl[i,2:ncol(fl)] <- mus_use
+#     }
+#     
+#   }
+#   
+#   # Exponentiate columns
+#   # These columns are not log-transformed: "temp_c", "rho", "h", "r", "g_yr", "fmsy"
+#   log_cols <- c("linf_cm", "k", "winf_g", "tmax_yr", "tmat_yr", "m", "lmat_cm", "sr_var", "masps", "sr_sd", "fmsydivm", "fmsy")
+#   fl[,log_cols] <- exp(fl[,log_cols])
+#   
+#   # Return
+#   return(fl)
+# }
+# #----end function for deriving the biol params
 
 #get coordinates
 coords <- read.table("/Users/ren/Documents/CODES/FoodProvision/Lat_Lon_DBEM.txt", sep = ",", col.name = c("id", "lon", "lat"))
@@ -784,7 +785,6 @@ dim(coords)
 coordUNIQUE<-unique(coords[c("lat", "lon")])
 dim(coordUNIQUE) #great!
 
-###---REN's modification
 head(Aqua3)
 Aqua3<-Aqua3 %>% mutate(normprob=probability/totalprob)
 Aqua3 %>% group_by(SpeciesID) %>% summarize(sumtest=sum(normprob))
@@ -806,30 +806,20 @@ dim(TEST_UNIQUE)
 #   coords2<-left_join(coords2, Aqua3sub,by=c("lon","lat"))
 # }
 # coords2<-coords2 %>% mutate_if(is.numeric,coalesce,0)
-# saveRDS(coords2, file = "/Users/ren/Documents/CODES/FoodProvision/reshaped_costellodata.rds") #UNLUMPED DATA
+# saveRDS(coords2, file = "/Users/ren/Documents/CODES/FoodProvision/reshaped_costellodata_PNASrev.rds")
+#saveRDS(coords2, file = "/Users/ren/Documents/CODES/FoodProvision/reshaped_costellodata_v2.rds")
+#saveRDS(coords2, file = "/Users/ren/Documents/CODES/FoodProvision/reshaped_costellodata.rds") #UNLUMPED DATA
 #saveRDS(coords2, file = "/Users/ren/Documents/CODES/FoodProvision/reshaped_costellodata_lumped.rds") #LUMPED DATA
 
 #load the generated data above
-Aqua4<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/reshaped_costellodata.rds")
+Aqua4<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/reshaped_costellodata_PNASrev.rds")
+#Aqua4<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/reshaped_costellodata_v2.rds")#this is the file for the first draft of PNAS
+#Aqua4<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/reshaped_costellodata.rds")
 #Aqua4<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/reshaped_costellodata_lumped.rds")
 dim(Aqua4)
 Aqua4<-distinct(Aqua4,lon,lat, .keep_all= TRUE)
 dim(Aqua4)
 colSums(Aqua4,na.rm=T)#to verify that the code above is correct, we should perform colsum
-#sum(coords2$normprob,na.rm = T)
-
-# Aqua3$normprob<-Aqua3$probability/Aqua3$totalprob
-# MydataLong<-Aqua3 %>% select(CenterLat,CenterLong,SpeciesID,normprob) 
-# MydataLong<-dcast(MydataLong,CenterLat + CenterLong ~ SpeciesID,value.var="normprob")
-# head(MydataLong)
-# colSums(MydataLong)
-# ####
-
-#Merge Aqua3 and Coords.
-#library(reshape2)
-# Mydata<-Aqua3 %>% select(CenterLat,CenterLong,SpeciesID,probability) 
-# Mydata<-dcast(Mydata,CenterLat + CenterLong ~ SpeciesID,value.var="probability")
-# head(Mydata)
 
 #Aqua4 is the rawest data. Separate managed species from the species list.
 head(Aqua4) #id, lon, lat, species
@@ -854,6 +844,10 @@ ManagementLayer <- na.omit(ManagementLayer)
 #add species id code into the "ManagementLayer" file. We can get the id from "include"
 head(include)
 
+#check why the first entry has no data
+head(CostelloDataPrime)
+CostelloDataPrime %>% filter(SciName=="Trachurus murphyi", Year==2050)
+
 #ManagementLayer2<-left_join(ManagementLayer,include,by="SciName") %>% select(lon,lat,SpeciesID)
 #try to add stockid
 ManagementLayer2<-left_join(ManagementLayer,include,by="SciName") %>% select(lon,lat,stockid,SpeciesID)
@@ -876,36 +870,32 @@ unique(ManagementLayer2$SpeciesID)
 #ManagementLayer4<-cast(ManagementLayer2trans,lon+lat~stockid)
 #saveRDS(ManagementLayer4, file = "/Users/ren/Documents/CODES/FoodProvision/ManagementLayer4.rds")
 
-##OK, THIS IS THE FINAL CODE!!! RUN ONLY ONCE --- FAST RUN. FEW MINUTES.
+#OK, THIS IS THE FINAL CODE!!! RUN ONLY ONCE --- FAST RUN. FEW MINUTES.
 # count<-0
-# ManagementLayer4<-coords
+# ManagementLayerPNAS<-coords
 # for (i in unique(ManagementLayer2trans$stockid)){
 #   ML2Tprime<-ManagementLayer2trans %>% filter(stockid==i)
 #   ML2Tprime$stockid<-NULL
 #   colnames(ML2Tprime)[which(names(ML2Tprime) == "Value")] <- i
-#   ManagementLayer4<-left_join(ManagementLayer4, ML2Tprime,by=c("lon","lat"))
+#   ManagementLayerPNAS<-left_join(ManagementLayerPNAS, ML2Tprime,by=c("lon","lat"))
 #   count<-count+1
 #   print(count)
 # }
-# ManagementLayer4<-ManagementLayer4 %>% mutate_if(is.numeric,coalesce,0)
-# saveRDS(ManagementLayer4, file = "/Users/ren/Documents/CODES/FoodProvision/ManagementLayer4.rds")
+# ManagementLayerPNAS<-ManagementLayerPNAS %>% mutate_if(is.numeric,coalesce,0)
+# saveRDS(ManagementLayerPNAS, file = "/Users/ren/Documents/CODES/FoodProvision/ManagementLayerPNAS.rds")
 
 ##FROM HERE, I CHANGED MNGT LAYER 3 to 4
-ManagementLayer4<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/ManagementLayer4.rds")
+ManagementLayer4<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/ManagementLayerPNAS.rds") #revised PNAS file
+#ManagementLayer4<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/ManagementLayer4.rds")#this is the original PNAS file
 head(ManagementLayer4)
 plot(ManagementLayer4$'BGRDRSE')
-#ManagementLayer3 is our areas of management
-
-# managedspecieslist<-colnames(ManagementLayer4)
-# managedspecieslist<-managedspecieslist[-which(managedspecieslist %in% c("id","lon","lat"))]
-# managedspecieslist<-as.data.frame(managedspecieslist)
-# colnames(managedspecieslist) <- "stockid"
 
 #what are the species ids of the stocks?
 #Reference- stockid and SpeciesID
 ReferenceStockSpeciesID<-ManagementLayer2 %>% select(stockid,SpeciesID) %>% group_by(stockid,SpeciesID) %>% summarise(n=n())
 ReferenceStockSpeciesID2<-ReferenceStockSpeciesID %>% filter(is.na(SpeciesID)==F)
-#524 of the species in Costello et al. species list have stock assessments
+dim(ReferenceStockSpeciesID2)
+#534 of the species in Costello et al. species list have stock assessments
 
 #normalization function
 NormFunction<-function(rawfile){
@@ -930,12 +920,10 @@ colSums(Aqua4Norm) #ok, answer correct
 Aqua4Norm<-cbind(Aqua4[c("id", "lon", "lat")],Aqua4Norm)
 
 #Species that are not in the management layer/poorly managed
-#Aqua4poor<-Aqua4Norm[ , -which(names(Aqua4Norm) %in% colnames(ManagementLayer3))]
 Aqua4poor<-Aqua4Norm[ , -which(names(Aqua4Norm) %in% ReferenceStockSpeciesID2$SpeciesID)]
 head(Aqua4poor)
 
 #Species in the management layer//not yet disaggregated
-#Aqua4other<-Aqua4Norm[ , which(names(Aqua4Norm) %in% colnames(ManagementLayer3))]
 Aqua4other<-Aqua4Norm[ , which(names(Aqua4Norm) %in% ReferenceStockSpeciesID2$SpeciesID)]
 Aqua4other<-cbind(Aqua4[c("id", "lon", "lat")],Aqua4other)
 head(Aqua4other)
@@ -973,30 +961,11 @@ for (i in unique(ReferenceStockSpeciesID2$SpeciesID)){
   names(AquaPoor_other)[names(AquaPoor_other) == 'myval'] <- i
 }
 
-# ###THIS IS THE OLD CODE OF THE TWO CHUNKS OF CODES ABOVE
-# for (i in ReferenceStockSpeciesID2$SpeciesID){
-#   j<-ReferenceStockSpeciesID2$stockid[which(ReferenceStockSpeciesID2$SpeciesID==i)]
-#     #i="Fis-10768"
-#   Layer1<-Aqua4other %>% select(c(lon,lat,i))
-#   Layer2<-ManagementLayer4 %>% select(c(lon,lat,j))
-#   Layer3<-left_join(Layer1,Layer2,by=c("lon","lat"))
-#   Layer3[is.na(Layer3)] <- 0
-#   AquaPoor_other <- AquaPoor_other %>% mutate(myval=Layer3[,3]*(Layer3[,4]!=1))
-#   names(AquaPoor_other)[names(AquaPoor_other) == 'myval'] <- i
-#   
-#   AquaManaged_other<-AquaManaged_other %>% mutate(myval=Layer3[,3]*(Layer3[,4]==1))
-#   names(AquaManaged_other)[names(AquaManaged_other) == 'myval'] <- j
-# }
-
 #we can plot the managed layer to see if it is the same as expected (and not mess up the coordinates)  
-
 head(AquaManaged_other)
 dim(AquaManaged_other)
 
-#plot(AquaManaged_other$'Fis-10768')
-
 nmanageareas<-as.data.frame((AquaManaged_other[,3:dim(AquaManaged_other)[2]]>0)*1)
-#plot(nmanageareas$'Fis-10768')
 
 summanagedlayer<-rowSums(nmanageareas)
 max(summanagedlayer)
@@ -1070,7 +1039,6 @@ dim(KNorm_AquaManaged_other)
 KNorm_AquaManaged_other<-KNorm_AquaManaged_other %>% filter(Kfrac!=0)
 dim(KNorm_AquaManaged_other)
 
-
 stocktoSpID<-ReferenceStockSpeciesID2 %>% select(-n)
 KNorm_AquaManaged_other_SPID<-left_join(KNorm_AquaManaged_other,stocktoSpID, by="stockid") %>%select(SpeciesID,Kfrac,Manage,stockid)
 KNorm_Aqua4poor$stockid<-KNorm_Aqua4poor$SpeciesID
@@ -1094,28 +1062,13 @@ ManagedComb<-AquaManaged_other
 
 #remove columns we identified above in the calculation of Kfrac
 removespeciesAquaPoor$SpeciesID
-PoorlyManagedComb$"ITS-97075" <- NULL #Manual removal because other ways are not working!!!! =(
+PoorlyManagedComb<-PoorlyManagedComb[ , ! names(PoorlyManagedComb) %in% removespeciesAquaPoor$SpeciesID, drop=F]
 dim(PoorlyManagedComb)
 
 dim(ManagedComb)
 removespeciesAquaManaged$stockid
-ManagedComb$"BWHITCH"<- NULL
-ManagedComb$"CMACKWA"<- NULL
-ManagedComb$"FLSOLEBSAI"<- NULL
-ManagedComb$"FLSOLEGA"<- NULL
-ManagedComb$"HMACKCH"<- NULL
-ManagedComb$"PRCODMEDGSA9"<- NULL
-ManagedComb$"RKCRABNS"<- NULL
-ManagedComb$"RMULLMEDGSA25"<- NULL
-ManagedComb$"RROCKLOBSTERSAUSNZ"<- NULL
-ManagedComb$"RROCKLOBSTERSAUSSZ"<- NULL
+ManagedComb<-ManagedComb[, ! names(ManagedComb) %in% removespeciesAquaManaged$stockid, drop=F]
 dim(ManagedComb)  
-
-#PoorlyManagedComb[ , !(names(PoorlyManagedComb) %in% removespeciesAquaPoor$SpeciesID)] #this is slow!! NOT WORKING!!!
-#dim(PoorlyManagedComb)
-#dim(ManagedComb)
-#ManagedComb[ , !(names(ManagedComb) %in% removespeciesAquaManaged$stockid)] #this is slow!! ##NOT WORKING!!!
-#dim(ManagedComb)
 
 #These are our normalized files
 Norm_PoorlyManagedComb<-NormFunction(PoorlyManagedComb)
@@ -1163,10 +1116,6 @@ Cleanmegacell<-Reduced_megacell3
 head(Cleanmegacell)
 
 colSums(Cleanmegacell)
-##add sum per cell, then remove 
-#Reduced_CoordNorm_PoorlyManagedComb<-cbind(CoordNorm_PoorlyManagedComb,NKsum=rowSums(Norm_PoorlyManagedComb,na.rm=T))%>%filter(NKsum>0)%>%select (-NKsum)  
-#Reduced_CoordNorm_ManagedComb<-cbind(CoordNorm_ManagedComb,NKsum=rowSums(Norm_ManagedComb,na.rm=T))%>%filter(NKsum>0)%>%select (-NKsum)
-
 dim(Cleanmegacell)
 
 # ##these are the reference files!!!
@@ -1198,6 +1147,7 @@ Mng2<-left_join(Mng,stocktoSpID, by="stockid") %>%select(SpeciesID,Manage,stocki
 head(Mng2)
 dim(Mng2)
 
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #Next is to prepare a table of the biological layers? 
 MegaData<-rbind(PoorMng,Mng2)
 
@@ -1209,34 +1159,84 @@ KfracFile <- KfracFile %>% select(stockid,Kfrac) #i just need these since stocki
 MegaData<-left_join(MegaData,KfracFile,by="stockid")
 #MegaData$Kfin<-MegaData$K*MegaData$Kfrac
 
-#add r
-biolparams<-fishlife2(as.character(MegaData$SciName))
-biolparams2<-biolparams %>% select(species,r)
-colnames(biolparams2)[colnames(biolparams2)=="species"] <- "SciName"
-MegaData<-left_join(MegaData,biolparams2,by="SciName") #ok
-
-#load file with m estimate
-#mfile<-read.csv("/Users/ren/Documents/CODES/FoodProvision/SpeciesNamesCostello_m.csv")
-mfile<-read.csv("/Users/ren/Documents/CODES/FoodProvision/mobility_data - data.csv")
-mfile$m<-mfile$m_final
-mfile<-mfile %>% mutate(m=replace(m,m==1,0.1),
-                        m=replace(m,m==2,0.3),
-                        m=replace(m,m==3,0.9))
-mfile<-mfile %>% select(SpeciesID,m)
-MegaData<-left_join(MegaData,mfile,by="SpeciesID")
 head(MegaData)
+dim(MegaData)
+
+# #add r #comment this for now. I will just load the r parameters
+# biolparams<-fishlife2(as.character(MegaData$SciName))
+# biolparams2<-biolparams %>% select(species,r)
+# colnames(biolparams2)[colnames(biolparams2)=="species"] <- "SciName"
+# MegaData<-left_join(MegaData,biolparams2,by="SciName") #ok
+
+#Load r then remove SciName entry in "include" if they have no r information
+#this is the growth parameter
+r_rev<-read.csv("/Users/ren/Documents/CODES/FoodProvision/Parameters/r_data_whitneycheck - rsave_whitneycheck.csv")
+head(r_rev)
+dim(r_rev)
+r_data<-r_rev %>% filter(species %in% MegaData$SciName) %>% select(species, r_mean,ln_r_mu,ln_r_sd,r,r_lower_bound,r_upper_bound) %>% mutate(stdev=(r_upper_bound-r_lower_bound)/4)
+colnames(r_data)[which(names(r_data) == "r_mean")] <- "r_thorson"
+colnames(r_data)[which(names(r_data) == "r")] <- "r_fishbase"
+colnames(r_data)[which(names(r_data) == "species")] <- "SciName"
+r_data<-r_data %>% rowwise() %>% mutate(r_fin = sum(r_thorson,r_fishbase, na.rm=TRUE))
+MegaData<-left_join(MegaData,r_data,by="SciName")
+dim(MegaData)
+head(MegaData)
+  
+# rbound<-r_rev %>% filter(r>0) %>% mutate(stdev=(r_upper_bound-r_lower_bound)/4)#, rlowerfrac=(r-r_lower_bound)/r, rupperfrac=(r_upper_bound-r)/r)
+# plot(rbound$stdev)
+# xx<-seq(0, 2, length.out=1000)
+# yy<-dnorm(xx, mean = 0.60, sd = 0.1275, log = FALSE)
+# plot(xx,yy)
+# #To do: plot all r curve!
+
+mfile<-read.csv("/Users/ren/Documents/CODES/FoodProvision/Parameters/mobility_data_paper - data.csv")
+mfile$m_fin<-mfile$m_index
+mfile<-mfile %>% mutate(m_fin=replace(m_fin,m_fin==1,0.1),
+                        m_fin=replace(m_fin,m_fin==2,0.3),
+                        m_fin=replace(m_fin,m_fin==3,0.9))
+
+head(mfile)
+SI_r_and_m_data<-left_join(r_data,mfile,by="SciName")
+head(SI_r_and_m_data)
+dim(SI_r_and_m_data)
+write.csv(SI_r_and_m_data, file = "/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/SI_r_and_m_data.csv")
+
+mfile<-mfile %>% select(SciName,m_fin)
+MegaData<-left_join(MegaData,mfile,by="SciName")
+head(MegaData)
+dim(MegaData)
+
+# #Old code
+# #load file with m estimate
+# #mfile<-read.csv("/Users/ren/Documents/CODES/FoodProvision/SpeciesNamesCostello_m.csv")
+# mfile<-read.csv("/Users/ren/Documents/CODES/FoodProvision/mobility_data - data.csv")
+# mfile$m<-mfile$m_final
+# mfile<-mfile %>% mutate(m=replace(m,m==1,0.1),
+#                         m=replace(m,m==2,0.3),
+#                         m=replace(m,m==3,0.9))
+# mfile<-mfile %>% select(SpeciesID,m)
+# MegaData<-left_join(MegaData,mfile,by="SpeciesID")
+# head(MegaData)
 
 #ER is exploitation rate, E is escapement. This is for stock-assessed.
 ERmanage<-read.csv("/Users/ren/Documents/CODES/FoodProvision/MatchedER - MatchedERFin.csv")
+ERmanage_add_PNAS<-read.csv("/Users/ren/Documents/CODES/FoodProvision/MatchedER_PNAS.csv")
+head(ERmanage)
+head(ERmanage_add_PNAS)
+ERmanage_add_PNAS_newSp<-ERmanage_add_PNAS %>% filter(! stockid %in% ERmanage$stockid)
+dim(ERmanage)
+ERmanage<-rbind(ERmanage,ERmanage_add_PNAS_newSp)
+dim(ERmanage)
+
 MegaData<-left_join(MegaData,ERmanage,by="stockid")
 #ERmanage is the exploitation rate of managed fishery
 
 #if ERmanage is > r, make ER==r. AT ER=r, biomass and catch will be zero 
-MegaData <- MegaData %>% mutate(ERset= (ER*(ER<=r)) + (r*(ER>r))) %>% mutate(E=1-ERset)
+MegaData <- MegaData %>% mutate(ERset= (ER*(ER<=r_fin)) + (r_fin*(ER>r_fin))) %>% mutate(E=1-ERset)
 head(MegaData)
 
 #calculate E that will result to bvk_fin, add E at msy, calculate E that will make BvK=0.1
-MegaData <- MegaData %>% mutate(ER_costello=r-(bvk_fin*r)) %>% mutate(E_costello=1-ER_costello, Emsy=1-(0.5*r), EBvK01=1-(0.9*r))
+MegaData <- MegaData %>% mutate(ER_costello=r_fin-(bvk_fin*r_fin)) %>% mutate(E_costello=1-ER_costello, Emsy=1-(0.5*r_fin), EBvK01=1-(0.9*r_fin))
 head(MegaData)
 
 min(MegaData$bvk_fin)
@@ -1263,90 +1263,14 @@ head(MegaData)
 
 MegaData <- MegaData %>% mutate(EBvK01_msy=(Emsy*(Emanage!=-1)) + (EBvK01*(Emanage==-1)))
 head(MegaData)
-#this is ER/ERmsy
-#weighted.mean((1-MegaData$Efin)/(1-MegaData$Emsy), MegaData$MSYfin)
-
-# #E assumption that would make BvK 0.1 for all stocks
-# #if E is NA, then OA
-# #MegaDataV2<-MegaData %>% mutate(E = replace_na(E, 1-(0.9*MegaData$r)))#mutate(E=replace(E, E==NA",1-(0.9*r)))
-# managedE<-MegaData$E*(is.na(MegaData$E)==F) #this is just the managed E. Need to do this to convert NA to zero
-# managedE[is.na(managedE)] <- 0
-# MegaData$E1<-(1-(0.9*MegaData$r))*(is.na(MegaData$E)==T) + managedE #E1 is mixed escapement, both managed and OA included
-# head(MegaData)
-# 
-# ###the stock will collapse if exploitation rate is greater than the growth rate of the stock
-# #ERcheck<-MegaData %>% select(SpeciesID,stockid,Kfin, r, Efin,Ropt,Hopt)
-# ER<-1-MegaData$E1
-# ERratio<-ER/(0.9*MegaData$r)
-# min(ERratio)
-# max(ERratio)
-# MegaData$Efin<-MegaData$E1*(ERratio<=1) + ((1-(0.9*MegaData$r))*(ERratio>1)) #managed or open access.
-# hist(1-MegaData$Efin) #histogram of exploitation rate
-# head(MegaData)
-
-# #add E-MSY
-# MegaData$ERfin<-1-MegaData$Efin
-# MegaData$ERmsy<-0.5*MegaData$r
-# MegaData$ERfinvERmsy<-MegaData$ERfin/MegaData$ERmsy
-# hist(MegaData$ERfinvERmsy)
-# head(MegaData)
 
 ##add Efin + MSY assumption for species with stock assessment
-max(MegaData$ER_costello)
-min(MegaData$ER_costello)
-# #step 1 is to compute E
-# E2050xmsy<-((1-MegaData$ERcostello)*(MegaData$Manage==0)) + ((1-MegaData$ERmsy)*(MegaData$Manage==1))
-# #step 2 is cap data
-# MegaData$E2050xmsyfin<-(E2050xmsy*(((1-E2050xmsy)/MegaData$r)<=1)) + ((1-MegaData$r)*(((1-E2050xmsy)/MegaData$r)>1))
 MegaData<-MegaData %>% mutate(Efin_msy= (Efin*(Manage==0)+ Emsy*(Manage==1)))
 head(MegaData)
 
-# ##add E2050 data + current escapement assumption for species with stock assessment
-# #step 1 is to compute E
-# E2050xcurrent<-((1-MegaData$ERcostello)*(MegaData$Manage==0)) + ((1-MegaData$ERfin)*(MegaData$Manage==1))
-# #step 2 is cap data
-# MegaData$E2050xcurrentfin<-(E2050xcurrent*(((1-E2050xcurrent)/MegaData$r)<=1)) + ((1-MegaData$r)*(((1-E2050xcurrent)/MegaData$r)>1))
-# head(MegaData)
-# 
-# #use ER=r(1-B2050/K) -- I think this is the best!
-# BK2050<-MegaData$biomass2050/MegaData$k2050
-# BK2050[is.na(BK2050)] <- -1
-# BK2050ALL<-MegaData$biomass2050ALL/MegaData$K2050ALL
-# BoverK2050<- ((BK2050ALL*(BK2050==-1)) + (BK2050*(BK2050!=-1)))
-# plot(BoverK2050)
-# #exploitation rate (ER)
-# ER2050<-MegaData$r*(1-BoverK2050)
-# #if ER>r, biomass will be zero. To be sure, reset ER==r if ER>r.
-# plot(ER2050/MegaData$r)
-# ER2050<- (MegaData$r*(ER2050>MegaData$r)) +  (ER2050*(ER2050<=MegaData$r))
-# 
-# #oks, now calculate E
-# MegaData$E_BoverK2050<-(1-ER2050)
-# #check ER for managed
-# min(MegaData$ER,na.rm=T)
-# MegaData$ER[is.na(MegaData$ER)]<- -1 #there are NAs
-# 
-# ER2050managed<-MegaData$ER
-# ER2050managed<- (MegaData$r*(ER2050managed>MegaData$r)) +  (ER2050managed*(ER2050managed<=MegaData$r))
-# #ok, now if ER2050managed == -1, it should be the unmanaged. Otherwise, use the managed values
-# ER2050best<- (ER2050*(ER2050managed == -1))  + (ER2050managed*(ER2050managed >= 0))
-# table(ER2050best) #13 stocks with exploitation rate == 0 (MPA will have no benefit for those stocks)
-# MegaData$E2050best<-1-ER2050best
-# head(MegaData)
-# 
-# plot(MegaData$E_BoverK2050-MegaData$E2050best)
-# 
-# ##add E2050 data + MSY for others
-# head(MegaData)
-# MegaData$E2050bestxmsy<-MegaData$E2050best*(MegaData$Manage==0) + MegaData$Emsy*(MegaData$Manage==1)
-# plot(MegaData$E2050bestxmsy-MegaData$E2050best)
-
-##add scorched earth + current E for others, and corched earth + MSY
-MegaData<-MegaData %>% mutate(Escorched_current= (((1-r)*(Manage==0))+ (Efin*(Manage==1))), Escorched_msy= (((1-r)*(Manage==0))+ (Emsy*(Manage==1))))
+##add scorched earth + current E for others, and scorched earth + MSY
+MegaData<-MegaData %>% mutate(Escorched_current= (((1-r_fin)*(Manage==0))+ (Efin*(Manage==1))), Escorched_msy= (((1-r_fin)*(Manage==0))+ (Emsy*(Manage==1))))
 head(MegaData)
-# MegaData$Escorchedearth<-(1-MegaData$r)*(MegaData$Manage==0) + MegaData$E2050best*(MegaData$Manage==1)
-# head(MegaData)
-
 
 #50% of the poorly managed will be managed at msy
 MegaData$randomnum<-runif(dim(MegaData)[1])
@@ -1355,35 +1279,25 @@ MegaData<-MegaData %>% mutate(Efinhalf_msy= (Efin*(Manage==0 & randomnum<=0.5)+ 
 head(MegaData)
 
 #BAU1: check Fstatus (then F current forever)
-MegaData <- MegaData %>% mutate(Efin_BAU1=Efin*(Manage==1)+Efin*((Fstatus>1 | Bstatus<1) & Manage==0)+ (1-r+(BK2012*r))*(Fstatus<1 & Bstatus>1 & Manage==0))
+MegaData <- MegaData %>% mutate(Efin_BAU1=Efin*(Manage==1)+Efin*((Fstatus>1 | Bstatus<1) & Manage==0)+ (1-r_fin+(BK2012*r_fin))*(Fstatus<1 & Bstatus>1 & Manage==0))
 head(MegaData)
 plot(MegaData$Efin,MegaData$Efin_BAU1)
 
-#check this later
-halfearth<-MegaData %>% filter(Manage==0) %>% select(MSYfin,Efin,Emsy) %>% mutate(ERratio=(1-Efin)/(1-Emsy))
-head(halfearth)
-plot(halfearth$MSYfin,halfearth$ERratio)
+# #check this later
+# halfearth<-MegaData %>% filter(Manage==0) %>% select(MSYfin,Efin,Emsy) %>% mutate(ERratio=(1-Efin)/(1-Emsy))
+# head(halfearth)
+# plot(halfearth$MSYfin,halfearth$ERratio)
 
 #MSY per species from costello et al.
 MSYperspeciescostello<-CostelloPresentPrime %>% select(SciName,MSY) %>% filter(SciName %in% MegaData$SciName) %>% group_by(SciName) %>% summarize(MSYtotal=sum(MSY))
 MegaData<-left_join(MegaData,MSYperspeciescostello,by="SciName")
 MegaData$MSYfin<-MegaData$MSYtotal*MegaData$Kfrac
-MegaData$Kfin<-4*MegaData$MSYfin/MegaData$r
+MegaData$Kfin<-4*MegaData$MSYfin/MegaData$r_fin
 sum(MegaData$MSYfin)
 sum(MegaData$Kfin)
 head(MegaData)
 plot(MegaData$Kfin,MegaData$K*MegaData$Kfrac)
 abline(0,1)
-
-#include costello r (not working!)
-rperspeciescostelloUNIQUE_2<-rperspeciescostelloUNIQUE %>% filter(SciName %in% MegaData$SciName) 
-#MegaData_withcostellor<-left_join(MegaData,rperspeciescostelloUNIQUE,by="SciName")
-#add r
-rparams<-fishlife2(as.character(rperspeciescostelloUNIQUE_2$SciName))
-rparams2<-rparams %>% select(species,r)
-colnames(rparams2)[colnames(rparams2)=="species"] <- "SciName"
-rperspeciescostelloUNIQUE_3<-left_join(rperspeciescostelloUNIQUE_2,rparams2,by="SciName") #ok
-plot(rperspeciescostelloUNIQUE_3$rcostello,rperspeciescostelloUNIQUE_3$r)
 
 #plot K per stock per species for SI
 head(MegaData)
@@ -1393,7 +1307,7 @@ plotMegaDataKplot<-ggplot(MegaDataKplot, aes(x = reorder(stockid, Kfin), y = Kfi
   geom_bar(fill="steelblue",stat = "identity") +
   coord_flip() +
   geom_text(aes(label = SciName,size=14), nudge_y = 9e6, color = "black")+
-  labs(y = "Carrying capacity, K (MT)", x="Fish stock")+ ylim(0, 4.5e7)+
+  labs(y = "Carrying capacity, K (MT)", x="Fish stock")+ ylim(0, max(MegaDataKplot$Kfin)+1.5e7)+
   theme(axis.text=element_text(size=14),
         axis.title=element_text(size=16,face="bold"),
         legend.position="none")
@@ -1405,7 +1319,7 @@ dev.off()
 #plot K per species for SI
 head(MegaData)
 sum((MegaData$Manage==0)*1)
-MegaDataKplot<-MegaData %>% filter(Manage==0) %>% mutate(KfinTot=4*MSYtotal/r) 
+MegaDataKplot<-MegaData %>% filter(Manage==0) %>% mutate(KfinTot=4*MSYtotal/r_fin) 
 MegaDataKplot<-MegaDataKplot[order(-MegaDataKplot$KfinTot),] %>% slice(1:50)
 plotMegaDataKplot<-ggplot(MegaDataKplot, aes(x = reorder(SciName, KfinTot), y = KfinTot)) +
   geom_bar(fill="steelblue",stat = "identity") +
@@ -1420,75 +1334,90 @@ png(file="/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/KperSpecies.pn
 plotMegaDataKplot
 dev.off()
 
-#Check total MSY and compare to costello et al.
-sum((MegaData$r*MegaData$Kfin)/4) #MSYtotal
+#Check total MSY and compare to Costello et al.
+#This is reported in the paper
+sum((MegaData$r_fin*MegaData$Kfin)/4) #MSYtotal
 sum(MegaData$Kfin) #total K
 
 #MegaData<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/MegaData.rds")
 
 #Ropt, Hopt
 head(MegaData)
-MegaData$Ropt<-((MegaData$m*MegaData$r) + (((2*MegaData$Efin)-2)*MegaData$m)) / (((MegaData$Efin-1)*MegaData$r)+(((2*MegaData$Efin)-2)*MegaData$m))
+MegaData$Ropt<-((MegaData$m_fin*MegaData$r_fin) + (((2*MegaData$Efin)-2)*MegaData$m_fin)) / (((MegaData$Efin-1)*MegaData$r_fin)+(((2*MegaData$Efin)-2)*MegaData$m_fin))
 hist(MegaData$Ropt,xlab="Ropt",main="")
 
 #SI plot for paper
+#Optimal MPA size per species
 optimalMPAsize<-as.data.frame(MegaData$Ropt*100)
 names(optimalMPAsize) <- c("Ropt")
-optimalMPAsize<-optimalMPAsize %>% filter(Ropt>0) %>% filter(Ropt<=100)
+optimalMPAsize<-optimalMPAsize %>% filter(Ropt<=100) %>% filter(Ropt>0) 
 head(optimalMPAsize)
-hist(optimalMPAsize,xlab="Ropt",main="")
-mu<-mean(optimalMPAsize$Ropt)
+dim(optimalMPAsize)
+#hist(optimalMPAsize,xlab="Ropt",main="")
+mu<-median(optimalMPAsize$Ropt)
+mean(optimalMPAsize$Ropt)
 optimalMPAsize<-as.data.frame(optimalMPAsize)
 p<-ggplot(optimalMPAsize, aes(x=Ropt)) +geom_histogram()+
   #geom_histogram(fill="white", position="dodge")+
   geom_vline(xintercept=mu,
-             linetype="dashed")+
-  theme(legend.position="top")+labs(x="MPA size (0-100%)",y="Number of species")
+             linetype="dashed", colour="red")+
+  theme(legend.position="top")+labs(x="MPA size (0-100%)",y="Number of stocks")
 p
 png(file="/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/Ropt.png", width = 6, height = 6,units = 'in',res = 300) 
 p
 dev.off()
 
+#another figure in the SI
+BK<-ggplot(MegaData, aes(x=bvk_fin)) +geom_histogram()+
+  geom_vline(xintercept=median(MegaData$bvk_fin),
+             linetype="dashed", colour="red")+
+  theme(legend.position="top")+labs(x="B/K",y="Number of stocks")
+BK
+png(file="/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/BK.png", width = 6, height = 6,units = 'in',res = 300) 
+BK
+dev.off()
+
+
 #Given Ropt, what is Hopt???
-MegaData$Hopt<-((1-MegaData$Efin)*((MegaData$m*MegaData$Kfin*(1-MegaData$Ropt))/(MegaData$Ropt-(MegaData$Efin*MegaData$Ropt)+MegaData$m))*(1-(((1-MegaData$Efin)*(1-MegaData$Ropt)*MegaData$m)/((MegaData$Ropt-(MegaData$Efin*MegaData$Ropt)+MegaData$m)*MegaData$r)))) - ((1-MegaData$Efin)*((MegaData$r+MegaData$Efin-1)/MegaData$r)*MegaData$Kfin)
+MegaData$Hopt<-((1-MegaData$Efin)*((MegaData$m_fin*MegaData$Kfin*(1-MegaData$Ropt))/(MegaData$Ropt-(MegaData$Efin*MegaData$Ropt)+MegaData$m_fin))*(1-(((1-MegaData$Efin)*(1-MegaData$Ropt)*MegaData$m_fin)/((MegaData$Ropt-(MegaData$Efin*MegaData$Ropt)+MegaData$m_fin)*MegaData$r_fin)))) - ((1-MegaData$Efin)*((MegaData$r_fin+MegaData$Efin-1)/MegaData$r_fin)*MegaData$Kfin)
 hist(MegaData$Hopt)
 
-
 ##What proportion of MSY is managed vs unmanaged?
-MegaData %>% group_by(Manage) %>% summarise(msy=sum(MSYfin))
-#21/60 --- 35% of the stocks have stock assessment
+MegaData %>% group_by(Manage) %>% summarise(msy=sum(MSYfin)) %>% mutate(proportion=msy/sum(msy))
+#35% of the stocks have stock assessment
 
-#plot curve for different MPA size
-dH<-vector()
-Rvec<-vector()
-count<-0
-FracMPA<-seq(0,1,0.01)
-E<-MegaData$Efin[1]
-m<-MegaData$m[1]
-K<-MegaData$Kfin[1]
-r<-MegaData$r[1]
-for (R in FracMPA){
-  count<-count+1
-  dH[count]<-((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r)))) - ((1-E)*((r+E-1)/r)*K)
-  Rvec[count]<-R
-}
-Mycurve<-cbind(Rvec,dH)
-Mycurve<-as.data.frame(Mycurve)
-plot(Mycurve$Rvec,Mycurve$dH)
-#write.csv(Mycurve, file = "/Users/ren/Documents/CODES/FoodProvision/Curve_explore.csv")
-
-#curve fitting
 #install.packages("nls2")
 #install.packages("minpack.lm")
 library(nls2)
 library(minpack.lm)
-x  <- Mycurve$Rvec[1:37]
-y <- Mycurve$dH[1:37]
-p <- plot(x,y,pch=19)
-nlsFit <- nlsLM(y ~b1*((((1489.9105/b1)^(1/b2))/0.3578660)*x)^b2,start=list(b1 = y[2]/x[2],b2=0.3))
-newdata <- data.frame(x = seq(min(x),max(x),len=100))
-predictLine <- lines(newdata$x,predict(nlsFit,newdata=newdata),col="red")
-print(predictLine)
+
+# #plot curve for different MPA size
+# dH<-vector()
+# Rvec<-vector()
+# count<-0
+# FracMPA<-seq(0,1,0.01)
+# E<-MegaData$Efin[1]
+# m<-MegaData$m[1]
+# K<-MegaData$Kfin[1]
+# r<-MegaData$r[1]
+# for (R in FracMPA){
+#   count<-count+1
+#   dH[count]<-((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r)))) - ((1-E)*((r+E-1)/r)*K)
+#   Rvec[count]<-R
+# }
+# Mycurve<-cbind(Rvec,dH)
+# Mycurve<-as.data.frame(Mycurve)
+# plot(Mycurve$Rvec,Mycurve$dH)
+# #write.csv(Mycurve, file = "/Users/ren/Documents/CODES/FoodProvision/Curve_explore.csv")
+# 
+# #curve fitting
+# x  <- Mycurve$Rvec[1:37]
+# y <- Mycurve$dH[1:37]
+# p <- plot(x,y,pch=19)
+# nlsFit <- nlsLM(y ~b1*((((1489.9105/b1)^(1/b2))/0.3578660)*x)^b2,start=list(b1 = y[2]/x[2],b2=0.3))
+# newdata <- data.frame(x = seq(min(x),max(x),len=100))
+# predictLine <- lines(newdata$x,predict(nlsFit,newdata=newdata),col="red")
+# print(predictLine)
 
 #derive parameters for Juan// Zonation
 head(MegaData)
@@ -1515,14 +1444,14 @@ for (i in 1:dim(ZonationMegaData)[1]){
   Rvec<-vector()
   count<-0
   E<-ZonationMegaData$Efin[i]
-  m<-ZonationMegaData$m[i]
+  m_fin<-ZonationMegaData$m_fin[i]
   K<-ZonationMegaData$Kfin[i]
-  r<-ZonationMegaData$r[i]
+  r_fin<-ZonationMegaData$r_fin[i]
   Hopt<-ZonationMegaData$Hopt[i]
   Ropt<-ZonationMegaData$Ropt[i]
   for (R in FracMPA){
     count<-count+1
-    dH[count]<-((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r)))) - ((1-E)*((r+E-1)/r)*K)
+    dH[count]<-((1-E)*((m_fin*K*(1-R))/(R-(E*R)+m_fin))*(1-(((1-E)*(1-R)*m_fin)/((R-(E*R)+m_fin)*r_fin)))) - ((1-E)*((r_fin+E-1)/r_fin)*K)
     Rvec[count]<-R
   }
   Mycurve<-cbind(Rvec,dH)
@@ -1555,9 +1484,9 @@ ZonationMegaData$xparam<-xparam
 #ZonationMegaData$Tparam<-Tparam
 head(ZonationMegaData)
 ZonationMegaData$ExploitationRate<-1-ZonationMegaData$Efin
-ForZonationMegaData<-ZonationMegaData %>% select(stockid,Kfin,Ropt,Hopt,xparam,ExploitationRate,Kfin,m,r)
+ForZonationMegaData<-ZonationMegaData %>% select(stockid,Kfin,Ropt,Hopt,xparam,ExploitationRate,Kfin,m_fin,r_fin)
 head(ForZonationMegaData)
-write.csv(ForZonationMegaData, file = "/Users/ren/Documents/CODES/FoodProvision/ForZonationMegaData_Unmanaged.csv")
+write.csv(ForZonationMegaData, file = "/Users/ren/Documents/CODES/FoodProvision/ForZonationMegaData_Unmanaged_R1.csv")
 
 
 #THIS IS FOR OTHER SPECIES #MANAGED
@@ -1570,14 +1499,14 @@ for (i in 1:dim(Zonation_others)[1]){
   Rvec<-vector()
   count<-0
   E<-Zonation_others$Efin[i]
-  m<-Zonation_others$m[i]
+  m_fin<-Zonation_others$m_fin[i]
   K<-Zonation_others$Kfin[i]
-  r<-Zonation_others$r[i]
+  r_fin<-Zonation_others$r_fin[i]
   Hopt<-Zonation_others$Hopt[i]
   Ropt<-Zonation_others$Ropt[i]
   for (R in FracMPA){
     count<-count+1
-    dH[count]<-((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r)))) - ((1-E)*((r+E-1)/r)*K)
+    dH[count]<-((1-E)*((m_fin*K*(1-R))/(R-(E*R)+m_fin))*(1-(((1-E)*(1-R)*m_fin)/((R-(E*R)+m_fin)*r_fin)))) - ((1-E)*((r_fin+E-1)/r_fin)*K)
     Rvec[count]<-R
   }
   Mycurve<-cbind(Rvec,dH)
@@ -1597,8 +1526,8 @@ dev.off()
 Zonation_others$w2param<-w2param
 Zonation_others$yparam<-yparam
 Zonation_others$ExploitationRate<-1-Zonation_others$Efin
-ForZonationMegaData_Managed<-Zonation_others %>% select(stockid,Kfin,Ropt,Hopt,w2param,yparam,ExploitationRate,Kfin,m,r)
-write.csv(ForZonationMegaData_Managed, file = "/Users/ren/Documents/CODES/FoodProvision/ForZonationMegaData_Managed.csv")
+ForZonationMegaData_Managed<-Zonation_others %>% select(stockid,Kfin,Ropt,Hopt,w2param,yparam,ExploitationRate,Kfin,m_fin,r_fin)
+write.csv(ForZonationMegaData_Managed, file = "/Users/ren/Documents/CODES/FoodProvision/ForZonationMegaData_Managed_R1.csv")
 
 ####For Zonation BAU1---------BAU1 -------------BAU1
 #Ropt, Hopt
@@ -1698,9 +1627,6 @@ ForZonationMegaData_Managed_BAU1<-Zonation_others %>% select(stockid,Kfin,Ropt,H
 write.csv(ForZonationMegaData_Managed_BAU1, file = "/Users/ren/Documents/CODES/FoodProvision/ForZonationMegaData_Managed_BAU1.csv")
 
 
-
-
-
 ###PLOT K using the new data!!!!!!!!!!!!!!!!!!!!!!!!
 #files needed: Aquaothers2, MegaData 
 #saveRDS(Aquaothers2, file = "/Users/ren/Documents/CODES/FoodProvision/Aquaothers2.rds")
@@ -1711,7 +1637,7 @@ head(Aquaothers2)
 #K and SpeciesID
 head(MegaData)
 MagaData_K<-MegaData %>% filter(Manage==0) 
-includeREV<-MagaData_K %>% select(SpeciesID,r,MSYtotal) %>% mutate(Ktotal=4*MSYtotal/r) %>% select(SpeciesID,Ktotal)
+includeREV<-MagaData_K %>% select(SpeciesID,r_fin,MSYtotal) %>% mutate(Ktotal=4*MSYtotal/r_fin) %>% select(SpeciesID,Ktotal)
 Aqua3Rev<-merge(Aquaothers2,includeREV,by="SpeciesID")
 head(Aqua3Rev)
 ###
@@ -1719,21 +1645,39 @@ head(Aqua3Rev)
 Aqua3Rev <- Aqua3Rev %>% group_by(SpeciesID) %>% mutate(totalprob=sum(probability))
 Aqua3stackRev<-Aqua3Rev %>% group_by(CenterLat,CenterLong) %>% summarise(S=sum(probability*Ktotal/totalprob))
 #head(Aqua3stackRev) #S is total K per cell
-
 Aqua3stackRev<-as.data.frame(Aqua3stackRev)
-empty_raster <- raster(res = 0.5)
-cells <- cellFromXY(empty_raster, as.matrix(Aqua3stackRev[,2:1]))
-empty_raster[cells] <- Aqua3stackRev[,3]
-plot(empty_raster,main="Carrying capacity per cell (MT)")
+# empty_raster <- raster(res = 0.5)
+# cells <- cellFromXY(empty_raster, as.matrix(Aqua3stackRev[,2:1]))
+# empty_raster[cells] <- Aqua3stackRev[,3]
+# plot(empty_raster,main="Carrying capacity per cell (MT)")
 
-png(file="/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/Kplot_all_flat.png", width = 8, height = 5, units = 'in', res = 300)
-plot(empty_raster)
-dev.off()
+# png(file="/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/Kplot_all_flat.png", width = 8, height = 5, units = 'in', res = 300)
+# plot(empty_raster)
+# dev.off()
 
-#----K PLOT - BASED ON GGPLOT
-head(Aqua3stackRev)
+# #----K PLOT - BASED ON GGPLOT
+# head(Aqua3stackRev)
 land_shp_moll<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/land_shp_moll.rds")
-KPLOTFin<- Aqua3stackRev %>% 
+# KPLOTFin<- Aqua3stackRev %>% 
+#   set_names(c("lat", "lon", "K")) %>%
+#   select(lon, lat, K)%>% 
+#   raster::rasterFromXYZ(crs = "+proj=longlat +datum=WGS84") %>% 
+#   raster::projectRaster(crs = "+proj=moll") %>% 
+#   as.data.frame(xy = T) %>%
+#   filter(!is.na(K)) %>%
+#   set_names(c("lon", "lat", "K")) %>%
+#   ggplot(aes(x=lon,y=lat,fill=K)) + labs(fill="K (MT/cell)")+scale_fill_gradient(low="white", high="#00539CFF")+
+#   #guides(fill=guide_legend())+
+#   theme(axis.title.x = element_blank(),axis.title.y = element_blank())+
+#   geom_raster()+
+#   geom_sf(data = land_shp_moll, inherit.aes = F)
+# KPLOTFin
+# ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/KPLOTFin.png", KPLOTFin,width = 10, height = 8, dpi = 300, units = "in")#resolution not great
+
+#format same as pixel level food prov
+root<-3
+head(Aqua3stackRev)
+SI_totalkpercell<-Aqua3stackRev %>% 
   set_names(c("lat", "lon", "K")) %>%
   select(lon, lat, K)%>% 
   raster::rasterFromXYZ(crs = "+proj=longlat +datum=WGS84") %>% 
@@ -1741,13 +1685,21 @@ KPLOTFin<- Aqua3stackRev %>%
   as.data.frame(xy = T) %>%
   filter(!is.na(K)) %>%
   set_names(c("lon", "lat", "K")) %>%
-  ggplot(aes(x=lon,y=lat,fill=K)) + labs(fill="K (MT/cell)")+scale_fill_gradient(low="white", high="#00539CFF")+
-  #guides(fill=guide_legend())+
-  theme(axis.title.x = element_blank(),axis.title.y = element_blank())+
-  geom_raster()+
-  geom_sf(data = land_shp_moll, inherit.aes = F)
-KPLOTFin
-ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/KPLOTFin.png", KPLOTFin,width = 10, height = 8, dpi = 300, units = "in")#resolution not great
+  mutate(tmp = K^(1/root)) %>% 
+  ggplot()+
+  geom_raster(aes(lon, lat, fill = tmp))+
+  scale_fill_gradient2(labels = function(x){x^root},
+                       low = "white",
+                       high = "#00539CFF", space = "Lab",
+                       name="K (MT/cell)",
+                       limits=c(0,max(Aqua3stackRev$S)^(1/root)))+
+  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank())+ #"bottom
+  labs(title = "", fill = "", y = "", x = "")+
+  #geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+SI_totalkpercell
+ggsave(file="/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/SI_totalkpercell.png", SI_totalkpercell,width = 10, height = 8, dpi = 300, units = "in")#resolution not great
+
 
 #--Kplot based on Juan's code
 max(Aqua3stackRev$S)
@@ -1800,11 +1752,6 @@ Kplot
 tiff(file="/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/Kplot_all.tiff", width = 12, height = 6, units = 'in', res = 300)
 Kplot
 dev.off()
-
-
-#This is a data request. Ok to ignore next time.
-#Question: 
-
 
 #test if I can combine tmap with ggplot
 library(cowplot)
@@ -1886,26 +1833,44 @@ head(MPA_coord)
 saveRDS(MPA_coord,file = "/Users/ren/Documents/CODES/FoodProvision/EEZfile/MPA_coord.rds")
 
 #---compute K per m!!!!!!!!!!!!!!! (for SI)
-#carrying capacity, m=0.1
-MagaData_K<-MegaData %>% filter(Manage==0) %>% filter(m==0.1) #managed only
+# 
+MagaData_K<-MegaData %>% filter(Manage==0) %>% filter(m_fin==0.1) #managed only
 head(MagaData_K)
-includeREV<-MagaData_K %>% select(SpeciesID,r,MSYtotal) %>% mutate(Ktotal=4*MSYtotal/r) %>% select(SpeciesID,Ktotal)
+includeREV<-MagaData_K %>% select(SpeciesID,r_fin,MSYtotal) %>% mutate(Ktotal=4*MSYtotal/r_fin) %>% select(SpeciesID,Ktotal)
 Aqua3Rev<-merge(Aquaothers2,includeREV,by="SpeciesID")
 Aqua3Rev <- Aqua3Rev %>% group_by(SpeciesID) %>% mutate(totalprob=sum(probability))
 Aqua3stackRev<-Aqua3Rev %>% group_by(CenterLat,CenterLong) %>% summarise(S=sum(probability*Ktotal/totalprob))
 Aqua3stackRev<-as.data.frame(Aqua3stackRev)
-empty_raster <- raster(res = 0.5)
-cells <- cellFromXY(empty_raster, as.matrix(Aqua3stackRev[,2:1]))
-empty_raster[cells] <- Aqua3stackRev[,3]
-plot(PlotFunction(empty_raster),main="Carrying capacity per cell (MT), m=0.1")
-png(file="/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/Kplot_all_flat_m01.png", width = 8, height = 5, units = 'in', res = 300)
-plot(empty_raster)
-dev.off()
+# empty_raster <- raster(res = 0.5)
+# cells <- cellFromXY(empty_raster, as.matrix(Aqua3stackRev[,2:1]))
+# empty_raster[cells] <- Aqua3stackRev[,3]
+# plot(PlotFunction(empty_raster),main="Carrying capacity per cell (MT), m=0.1")
+# png(file="/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/Kplot_all_flat_m01.png", width = 8, height = 5, units = 'in', res = 300)
+# plot(empty_raster)
+# dev.off()
 
 land_shp_moll<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/land_shp_moll.rds")
-head(Aqua3stackRev)
-max(Aqua3stackRev$S)
-m01<- Aqua3stackRev %>% 
+# head(Aqua3stackRev)
+# max(Aqua3stackRev$S)
+# m01<- Aqua3stackRev %>% 
+#   set_names(c("lat", "lon", "K")) %>%
+#   select(lon, lat, K)%>% 
+#   raster::rasterFromXYZ(crs = "+proj=longlat +datum=WGS84") %>% 
+#   raster::projectRaster(crs = "+proj=moll") %>% 
+#   as.data.frame(xy = T) %>%
+#   filter(!is.na(K)) %>%
+#   set_names(c("lon", "lat", "K")) %>%
+#   ggplot(aes(x=lon,y=lat,fill=K)) + scale_fill_gradient(low="white", high="#00539CFF",name="K (MT/pixel)",limit=c(0,max(Aqua3stackRev$S)))+#guides(fill=guide_legend())+
+#   theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank())+ #theme_bw()+
+#   geom_raster()+
+#   #geom_sf(data = land_shp_moll, inherit.aes = F)
+#   geom_sf(data = land_shp_moll, fill="darkgray", lwd = 0.1, inherit.aes = F)
+# m01
+# ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/m01.png", m01, width = 10, height = 8, dpi = 300, units = "in")#resolution not great
+
+#carrying capacity, m=0.1
+##plot same as pixel level food prov
+SI_totalkpercell_m01<-Aqua3stackRev %>% 
   set_names(c("lat", "lon", "K")) %>%
   select(lon, lat, K)%>% 
   raster::rasterFromXYZ(crs = "+proj=longlat +datum=WGS84") %>% 
@@ -1913,32 +1878,56 @@ m01<- Aqua3stackRev %>%
   as.data.frame(xy = T) %>%
   filter(!is.na(K)) %>%
   set_names(c("lon", "lat", "K")) %>%
-  ggplot(aes(x=lon,y=lat,fill=K)) + scale_fill_gradient(low="white", high="#00539CFF",name="K (MT/pixel)",limit=c(0,max(Aqua3stackRev$S)))+#guides(fill=guide_legend())+
-  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank())+ #theme_bw()+
-  geom_raster()+
-  #geom_sf(data = land_shp_moll, inherit.aes = F)
-  geom_sf(data = land_shp_moll, fill="darkgray", lwd = 0.1, inherit.aes = F)
-m01
-ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/m01.png", m01, width = 10, height = 8, dpi = 300, units = "in")#resolution not great
+  mutate(tmp = K^(1/root)) %>% 
+  ggplot()+
+  geom_raster(aes(lon, lat, fill = tmp))+
+  scale_fill_gradient2(labels = function(x){x^root},
+                       low = "white",
+                       high = "#00539CFF", space = "Lab",
+                       name="K (MT/cell)",
+                       limits=c(0,max(Aqua3stackRev$S)^(1/root)))+
+  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank())+ #"bottom
+  labs(title = "", fill = "", y = "", x = "")+
+  #geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+SI_totalkpercell_m01
+ggsave(file="/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/SI_totalkpercell_m01.png", SI_totalkpercell_m01,width = 10, height = 8, dpi = 300, units = "in")#resolution not great
 
 
-#carrying capacity, m=0.3
-MagaData_K<-MegaData %>% filter(Manage==0) %>% filter(m==0.3) #managed only
+# #carrying capacity, m=0.3
+MagaData_K<-MegaData %>% filter(Manage==0) %>% filter(m_fin==0.3) #managed only
 head(MagaData_K)
-includeREV<-MagaData_K %>% select(SpeciesID,r,MSYtotal) %>% mutate(Ktotal=4*MSYtotal/r) %>% select(SpeciesID,Ktotal)
+includeREV<-MagaData_K %>% select(SpeciesID,r_fin,MSYtotal) %>% mutate(Ktotal=4*MSYtotal/r_fin) %>% select(SpeciesID,Ktotal)
 Aqua3Rev<-merge(Aquaothers2,includeREV,by="SpeciesID")
 Aqua3Rev <- Aqua3Rev %>% group_by(SpeciesID) %>% mutate(totalprob=sum(probability))
 Aqua3stackRev<-Aqua3Rev %>% group_by(CenterLat,CenterLong) %>% summarise(S=sum(probability*Ktotal/totalprob))
 Aqua3stackRev<-as.data.frame(Aqua3stackRev)
-empty_raster <- raster(res = 0.5)
-cells <- cellFromXY(empty_raster, as.matrix(Aqua3stackRev[,2:1]))
-empty_raster[cells] <- Aqua3stackRev[,3]
-plot(empty_raster,main="Carrying capacity per cell (MT), m=0.3")
-png(file="/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/Kplot_all_flat_m03.png", width = 8, height = 5, units = 'in', res = 300)
-plot(empty_raster)
-dev.off()
+# empty_raster <- raster(res = 0.5)
+# cells <- cellFromXY(empty_raster, as.matrix(Aqua3stackRev[,2:1]))
+# empty_raster[cells] <- Aqua3stackRev[,3]
+# plot(empty_raster,main="Carrying capacity per cell (MT), m=0.3")
+# png(file="/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/Kplot_all_flat_m03.png", width = 8, height = 5, units = 'in', res = 300)
+# plot(empty_raster)
+# dev.off()
 
-m3<- Aqua3stackRev %>% 
+# m3<- Aqua3stackRev %>% 
+#   set_names(c("lat", "lon", "K")) %>%
+#   select(lon, lat, K)%>% 
+#   raster::rasterFromXYZ(crs = "+proj=longlat +datum=WGS84") %>% 
+#   raster::projectRaster(crs = "+proj=moll") %>% 
+#   as.data.frame(xy = T) %>%
+#   filter(!is.na(K)) %>%
+#   set_names(c("lon", "lat", "K")) %>%
+#   ggplot(aes(x=lon,y=lat,fill=K)) + scale_fill_gradient(low="white", high="#00539CFF",name="K (MT/pixel)",limit=c(0,max(Aqua3stackRev$S)))+#guides(fill=guide_legend())+
+#   theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank())+ #theme_bw()+
+#   geom_raster()+
+#   #geom_sf(data = land_shp_moll, inherit.aes = F)
+#   geom_sf(data = land_shp_moll, fill="darkgray", lwd = 0.1, inherit.aes = F)
+# m3
+# ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/m3.png", m3, width = 10, height = 8, dpi = 300, units = "in")#resolution not great
+
+##plot same as pixel level food prov
+SI_totalkpercell_m3<-Aqua3stackRev %>% 
   set_names(c("lat", "lon", "K")) %>%
   select(lon, lat, K)%>% 
   raster::rasterFromXYZ(crs = "+proj=longlat +datum=WGS84") %>% 
@@ -1946,31 +1935,55 @@ m3<- Aqua3stackRev %>%
   as.data.frame(xy = T) %>%
   filter(!is.na(K)) %>%
   set_names(c("lon", "lat", "K")) %>%
-  ggplot(aes(x=lon,y=lat,fill=K)) + scale_fill_gradient(low="white", high="#00539CFF",name="K (MT/pixel)",limit=c(0,max(Aqua3stackRev$S)))+#guides(fill=guide_legend())+
-  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank())+ #theme_bw()+
-  geom_raster()+
-  #geom_sf(data = land_shp_moll, inherit.aes = F)
-  geom_sf(data = land_shp_moll, fill="darkgray", lwd = 0.1, inherit.aes = F)
-m3
-ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/m3.png", m3, width = 10, height = 8, dpi = 300, units = "in")#resolution not great
+  mutate(tmp = K^(1/root)) %>% 
+  ggplot()+
+  geom_raster(aes(lon, lat, fill = tmp))+
+  scale_fill_gradient2(labels = function(x){x^root},
+                       low = "white",
+                       high = "#00539CFF", space = "Lab",
+                       name="K (MT/cell)",
+                       limits=c(0,max(Aqua3stackRev$S)^(1/root)))+
+  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank())+ #"bottom
+  labs(title = "", fill = "", y = "", x = "")+
+  #geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+SI_totalkpercell_m3
+ggsave(file="/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/SI_totalkpercell_m3.png", SI_totalkpercell_m3,width = 10, height = 8, dpi = 300, units = "in")#resolution not great
 
-#carrying capacity, m=9
-MagaData_K<-MegaData %>% filter(Manage==0) %>% filter(m==0.9) #managed only
+# #carrying capacity, m=9
+MagaData_K<-MegaData %>% filter(Manage==0) %>% filter(m_fin==0.9) #managed only
 head(MagaData_K)
-includeREV<-MagaData_K %>% select(SpeciesID,r,MSYtotal) %>% mutate(Ktotal=4*MSYtotal/r) %>% select(SpeciesID,Ktotal)
+includeREV<-MagaData_K %>% select(SpeciesID,r_fin,MSYtotal) %>% mutate(Ktotal=4*MSYtotal/r_fin) %>% select(SpeciesID,Ktotal)
 Aqua3Rev<-merge(Aquaothers2,includeREV,by="SpeciesID")
 Aqua3Rev <- Aqua3Rev %>% group_by(SpeciesID) %>% mutate(totalprob=sum(probability))
 Aqua3stackRev<-Aqua3Rev %>% group_by(CenterLat,CenterLong) %>% summarise(S=sum(probability*Ktotal/totalprob))
 Aqua3stackRev<-as.data.frame(Aqua3stackRev)
-empty_raster <- raster(res = 0.5)
-cells <- cellFromXY(empty_raster, as.matrix(Aqua3stackRev[,2:1]))
-empty_raster[cells] <- Aqua3stackRev[,3]
-plot(empty_raster,main="Carrying capacity per cell (MT), m=0.9")
-png(file="/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/Kplot_all_flat_m09.png", width = 8, height = 5, units = 'in', res = 300)
-plot(empty_raster)
-dev.off()
+# empty_raster <- raster(res = 0.5)
+# cells <- cellFromXY(empty_raster, as.matrix(Aqua3stackRev[,2:1]))
+# empty_raster[cells] <- Aqua3stackRev[,3]
+# plot(empty_raster,main="Carrying capacity per cell (MT), m=0.9")
+# png(file="/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/Kplot_all_flat_m09.png", width = 8, height = 5, units = 'in', res = 300)
+# plot(empty_raster)
+# dev.off()
+# 
+# m9<- Aqua3stackRev %>% 
+#   set_names(c("lat", "lon", "K")) %>%
+#   select(lon, lat, K)%>% 
+#   raster::rasterFromXYZ(crs = "+proj=longlat +datum=WGS84") %>% 
+#   raster::projectRaster(crs = "+proj=moll") %>% 
+#   as.data.frame(xy = T) %>%
+#   filter(!is.na(K)) %>%
+#   set_names(c("lon", "lat", "K")) %>%
+#   ggplot(aes(x=lon,y=lat,fill=K)) + scale_fill_gradient(low="white", high="#00539CFF",name="K (MT/pixel)",limit=c(0,max(Aqua3stackRev$S)))+#guides(fill=guide_legend())+
+#   theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank())+ #theme_bw()+
+#   geom_raster()+
+#   #geom_sf(data = land_shp_moll, inherit.aes = F)
+#   geom_sf(data = land_shp_moll, fill="darkgray", lwd = 0.1, inherit.aes = F)
+# m9
+# ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/m9.png", m9, width = 10, height = 8, dpi = 300, units = "in")#resolution not great
 
-m9<- Aqua3stackRev %>% 
+##plot same as pixel level food prov
+SI_totalkpercell_m9<-Aqua3stackRev %>% 
   set_names(c("lat", "lon", "K")) %>%
   select(lon, lat, K)%>% 
   raster::rasterFromXYZ(crs = "+proj=longlat +datum=WGS84") %>% 
@@ -1978,15 +1991,36 @@ m9<- Aqua3stackRev %>%
   as.data.frame(xy = T) %>%
   filter(!is.na(K)) %>%
   set_names(c("lon", "lat", "K")) %>%
-  ggplot(aes(x=lon,y=lat,fill=K)) + scale_fill_gradient(low="white", high="#00539CFF",name="K (MT/pixel)",limit=c(0,max(Aqua3stackRev$S)))+#guides(fill=guide_legend())+
-  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank())+ #theme_bw()+
-  geom_raster()+
-  #geom_sf(data = land_shp_moll, inherit.aes = F)
-  geom_sf(data = land_shp_moll, fill="darkgray", lwd = 0.1, inherit.aes = F)
-m9
-ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/m9.png", m9, width = 10, height = 8, dpi = 300, units = "in")#resolution not great
+  mutate(tmp = K^(1/root)) %>% 
+  ggplot()+
+  geom_raster(aes(lon, lat, fill = tmp))+
+  scale_fill_gradient2(labels = function(x){x^root},
+                       low = "white",
+                       high = "#00539CFF", space = "Lab",
+                       name="K (MT/cell)",
+                       limits=c(0,max(Aqua3stackRev$S)^(1/root)))+
+  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank())+ #"bottom
+  labs(title = "", fill = "", y = "", x = "")+
+  #geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+SI_totalkpercell_m9
+ggsave(file="/Users/ren/Documents/CODES/FoodProvision/SupplementInfo/SI_totalkpercell_m9.png", SI_totalkpercell_m9,width = 10, height = 8, dpi = 300, units = "in")#resolution not great
 
-##
+#Files to transfer to bigger machine 
+
+#MegaData, Cleanmegacell, and the coordinates --
+saveRDS(Cleanmegacell, file = "/Users/ren/Documents/CODES/FoodProvision/Cleanmegacell.rds")
+saveRDS(MegaData, file = "/Users/ren/Documents/CODES/FoodProvision/MegaData.rds")
+saveRDS(CleanCoordmegacell, file = "/Users/ren/Documents/CODES/FoodProvision/CleanCoordmegacell.rds")
+
+MegaData_UncertaintyAnalysis<-MegaData %>% mutate(ExploitationRate_BAU1=1-Efin_BAU1, ExploitationRate_AllMSY=1-Emsy, ExploitationRate_BAU2=1-Efin
+                                                  ) %>% 
+  select(SpeciesID,Manage,stockid,SciName,m_fin,Kfin,r_fin,r_thorson,ln_r_mu,ln_r_sd,r_fishbase,stdev, ExploitationRate_BAU1,ExploitationRate_AllMSY,ExploitationRate_BAU2)
+head(MegaData_UncertaintyAnalysis)
+write.csv(MegaData_UncertaintyAnalysis, file = "/Users/ren/Documents/CODES/FoodProvision/MegaData_UncertaintyAnalysis.csv")
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 
 ###Compute spillover---PIXEL-LEVEL spillover
 dim(Cleanmegacell)
@@ -2659,7 +2693,7 @@ MatchedERHOST3 <- rbind(as.data.frame(MatchedERHOST2),as.data.frame(ematch2))
 head(MatchedERHOST3)
 
 #save MatchedERHOST3 and load in google doc for manual entries
-write.csv(MatchedERHOST3, file = "/Users/ren/Documents/CODES/FoodProvision/MatchedER.csv")
+write.csv(MatchedERHOST3, file = "/Users/ren/Documents/CODES/FoodProvision/MatchedER_PNAS.csv")
 
 #what are the stockid with no match?
 Gap2<-Gap1 %>% filter(! stockid %in% MatchedERHOST3$stockid)
