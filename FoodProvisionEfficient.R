@@ -1,11 +1,9 @@
 #Food provision code for the Nat Geo project
-#Last update: 30 October 2019
-#Checked: March 2020
+#Last checked: 5 May 2020
 #Author: Reniel Cabral
 
 #this is the equation I used for the derivative of delta h wrt R for assumption #2
 #(1-(1-E)^(1/(1-x)))*((m*k*(1-x))/((1-(1-E)^(1/(1-x)))*x+m))*(1- (((1-(1-E)^(1/(1-x)))*(1-x)*m)/((((1-(1-E)^(1/(1-x)))*x)+m)*r)))
-
 
 #Clear memory
 gc()
@@ -32,23 +30,6 @@ library(tmap)
 library(leaflet)
 library(rootSolve)
 
-PlotFunction<-function(var1){
-  # define projections
-  behrmannCRS <- CRS('+proj=cea +lat_ts=30')
-  data(wrld_simpl)
-  mollCRS <- CRS('+proj=moll')
-  world_ext = projectExtent(wrld_simpl, crs = behrmannCRS)
-  # crop sst to extent of world to avoid overlap on the seam
-  sst_crop = crop(x = var1, y=world_ext, snap='in')
-  # convert sst to longlat (similar to test file)
-  # somehow this gets rid of the unwanted pixels outside the ellipse
-  sst_longlat = projectRaster(sst_crop, crs = ('+proj=longlat'))
-  # then convert to mollweide
-  sst_moll <- projectRaster(sst_longlat, crs=mollCRS, over=T)
-  return(sst_moll)
-}
-
-#--check total K using the aquamaps data
 #load the expert data and save as RDS for faster loading
 #Aquaexpert<-read.csv("/Users/ren/Documents/CODES/FoodProvision/Aquamaps/spatial-datasets_Aquamaps_complete_current_data_all_hcaf_species_native_expert.csv")
 #saveRDS(Aquaexpert, file = "/Users/ren/Documents/CODES/FoodProvision/Aquamaps/Aquaexpert.rds")
@@ -62,14 +43,6 @@ empty_raster <- raster(res = 0.5)
 cells <- cellFromXY(empty_raster, as.matrix(speciesstack2[,2:1]))
 empty_raster[cells] <- speciesstack2[,3]
 plot(empty_raster,main="Sum of all species suitability, expert")
-
-if(saveme==1){
-png(file="/Users/ren/Documents/CODES/FoodProvision/Results/SumSuitabilityExpert.png", width = 6, height = 4, units = 'in', res = 300)
-plot(PlotFunction(empty_raster),zlim=c(0,maxValue(empty_raster)),main="Sum of all species suitability, expert",axes=F,box=F,legend=F)
-plot(empty_raster, zlim=c(0,maxValue(empty_raster)),legend.only=TRUE,legend.width=1, legend.shrink=0.75,axis.args=list(cex.axis=0.5),
-     legend.args=list(text='', side=4, font=2, line=2.5, cex=0.8))
-dev.off()
-}
 
 ##load the other data and bind with expert-vetted data
 #Aquaothers<-read.csv("/Users/ren/Documents/CODES/FoodProvision/Aquamaps/spatial-datasets_Aquamaps_complete_current_data_all_hcaf_species_native.csv")
@@ -86,15 +59,6 @@ cellsothers <- cellFromXY(empty_rasterothers, as.matrix(speciesstack2others[,2:1
 empty_rasterothers[cellsothers] <- speciesstack2others[,3]
 plot(empty_rasterothers,main="Sum of all species suitability")
 
-if(saveme==1){
-png(file="/Users/ren/Documents/CODES/FoodProvision/Results/SumSuitabilityAll.png", width = 6, height = 4, units = 'in', res = 300)
-#plot(empty_rasterothers,main="Sum of all species suitability")
-plot(PlotFunction(empty_rasterothers),zlim=c(0,maxValue(empty_rasterothers)),main="Sum of all species suitability",axes=F,box=F,legend=F)
-plot(empty_rasterothers, zlim=c(0,maxValue(empty_rasterothers)),legend.only=TRUE,legend.width=1, legend.shrink=0.75,axis.args=list(cex.axis=0.5),
-     legend.args=list(text='', side=4, font=2, line=2.5, cex=0.8))
-dev.off()
-}
-
 #Load Costello et al. 2016 database
 #CostelloData<-read.csv("/Users/ren/Documents/CODES/FoodProvision/Aquamaps/UnlumpedProjectionData.csv")
 CostelloData<-read.csv("/Users/ren/Documents/CODES/FoodProvision/Aquamaps/UnlumpedProjectionData.csv", stringsAsFactors = FALSE)
@@ -107,9 +71,9 @@ table(Costello2012$Dbase)
 table(Costello2012$Policy)
 table(Costello2012$Scenario)
 head(Costello2012)
+
 #MSY from costello of RAM, FAO, and SOFIA
 Costello2012 %>% group_by(Dbase,CatchShare) %>% summarise(sum(MSY))
-
 
 CostelloDataPrime<- CostelloData %>%
   mutate(SciName=replace(SciName, SciName=="Sardinops melanostictus", "Sardinops sagax")) %>%
@@ -192,15 +156,12 @@ CostelloDataPrime<- CostelloData %>%
   mutate(SciName=replace(SciName, SciName=="Chelidonichthys lastoviza","Trigloporus lastoviza")) %>%
   mutate(SciName=replace(SciName, SciName=="Protothaca staminea","Leukoma staminea")) %>%
   mutate(SciName=replace(SciName, SciName=="Notothenia squamifrons","Lepidonotothen squamifrons")) %>%
-  
   mutate(SciName=replace(SciName, SciName=="Pleuronectes quadrituberculat","Pleuronectes quadrituberculatus")) %>%
   mutate(SciName=replace(SciName, SciName=="Pseudopleuronectes herzenst","Pseudopleuronectes herzensteini")) %>%
   mutate(SciName=replace(SciName, SciName=="Herklotsichthys quadrimaculat","Herklotsichthys quadrimaculatus")) %>%
-
   filter(k>0) #remove zero carrying capacity
 CostelloPresentPrime<- CostelloDataPrime %>% filter(Year=="2012")
 head(CostelloPresentPrime)
-
 
 CostelloK<-CostelloDataPrime %>% filter(Year=="2012") %>% mutate(k=Biomass/(0.4*BvBmsy)) %>% group_by(SciName) %>% summarize(K=sum(k), B=sum(Biomass), Fstatus=weighted.mean(FvFmsy, MSY), Bstatus=weighted.mean(BvBmsy, MSY)) %>% mutate(BK2012=B/K)
 head(CostelloK)
@@ -210,7 +171,7 @@ plot(CostelloK$BK2012)
 
 #check why "Trachurus murphyi" has no 2050 data.. because all are RAM stocks
 #CostelloDataPrime %>% filter(Year=="2050", Policy=="BAU", Scenario=="All Stocks", Dbase!="RAM") %>%
-#  group_by(SciName) %>% filter(SciName=="Trachurus murphyi")
+#group_by(SciName) %>% filter(SciName=="Trachurus murphyi")
 
 Costello2050<-CostelloDataPrime %>% filter(Year=="2050", Policy=="BAU", Scenario=="All Stocks", CatchShare==0, Dbase!="RAM") %>%
   #group_by(SciName) %>% summarize(catch2050=sum(Catch), biomass2050=sum(Biomass), k2050=sum(k)) %>% mutate(ER2050=catch2050/biomass2050, bvk2050=biomass2050/k2050)
@@ -223,8 +184,6 @@ Costello2050ALL<-CostelloDataPrime %>% filter(Year=="2050", Policy=="BAU", Scena
   group_by(SciName) %>% summarize(catch2050ALL=sum(Catch), biomass2050ALL=sum(Biomass), k2050ALL=sum(k)) %>% mutate(bvk2050ALL=biomass2050ALL/k2050ALL)
 head(Costello2050ALL)
 dim(Costello2050ALL)
-
-
 
 #combine the two database
 CostelloPresent0<-left_join(CostelloK,Costello2050, by="SciName")
@@ -240,7 +199,7 @@ rankedsp<-rankedsp %>% filter(!SciName=="<NA>")
 "Sardinops sagax" %in% rankedsp$SciName
 
 head(rankedsp,5)
-dim(rankedsp)# there are 1111 unique species/genus/family entries
+dim(rankedsp)# there are 1098 unique species/genus/family entries
 ##next step is to match species with K
 
 #load the species id matching
@@ -249,10 +208,6 @@ spnamelookup<-as.data.frame(spnamelookup)
 head(spnamelookup)
 dim(spnamelookup) 
 
-library(rfishbase)
-popgrowth("Sardinops sagax")
-
-#Pseudopleuronectes herzensteini
 "Herklotsichthys quadrimaculatus" %in% c(as.character(spnamelookup$resolved_scientific_name),
                           as.character(spnamelookup$aquamaps_sci_name),
                           as.character(spnamelookup$worms_sci_name),
@@ -272,10 +227,8 @@ include <-rankedsp %>% filter((SciName %in% spnamelookup$resolved_scientific_nam
 dim(include)
 head(include)#these are the species in Costello DB included 
 
-
 "Clupea bentincki" %in% include$SciName
-#Pleuronectes quadrituberculat not in include!!
-dim(include)#819 vs 885 #63 new species
+dim(include)
 
 # #check what are the species we need information
 # mfile_v2<-read.csv("/Users/ren/Documents/CODES/FoodProvision/mobility_data_paper - data.csv")
@@ -285,7 +238,6 @@ dim(include)#819 vs 885 #63 new species
 # dim(Add_data)
 # #save additional species and add to the database
 # #write.csv(Add_data, file = "/Users/ren/Documents/CODES/FoodProvision/AdditionalSpecies_RevisionPNAS.csv")
-
 
 #what are the species in costello db not included?
 rankedsp %>% filter(!(rankedsp$SciName %in% include$SciName)) %>% select(SciName)
