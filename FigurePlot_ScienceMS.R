@@ -626,7 +626,7 @@ dH_Efin_BAU1<-max(readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/Paper
 dH_OA_constant/dH_Efin_BAU1
 dH_EBvK01fin/dH_Efin_BAU1
 
-NetworkResult100_EBvK01_msy_mollweide
+#NetworkResult100_EBvK01_msy_mollweide
 
 require(ggplot2)
 require(ggrepel)
@@ -659,4 +659,4 @@ Fig3Science<-ggplot(testdata, aes(x = x, y = y, label = Policy)) + geom_line(lin
   theme(text = element_text(size=20))+ 
   scale_x_reverse()+  xlim(ER_ratio_EBvK01fin,.8) +annotate(geom="text", x=1.25, y=-1.5, label=expression("Poorly managed fisheries" %->% "Well-managed fisheries"),size=7)
 Fig3Science
-ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/Fig3.png", Fig3Science,width = 10, height = 8, dpi = 300, units = "in")
+ggsave(file="/Users/ren/Documents/CODES/FoodProvision/PaperFigures/Fig3.tiff", Fig3Science,width = 10, height = 8, dpi = 300, units = "in")

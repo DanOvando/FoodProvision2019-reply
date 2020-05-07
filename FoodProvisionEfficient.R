@@ -274,228 +274,20 @@ head(include)
 
 #Load r then remove SciName entry in "include" if they have no r information
 #this is the growth parameter
-r_rev<-read.csv("/Users/ren/Documents/CODES/FoodProvision/Parameters/r_data_whitneycheck - rsave_whitneycheck.csv")
+r_rev<-read.csv("/Users/ren/Documents/GitHub/FoodProvision2019/Parameters/r_data_whitneycheck - rsave_whitneycheck.csv")
 head(r_rev)
 rinclude<-r_rev %>% filter(r>0 | r_mean>0) %>% select(species)
 dim(rinclude)
 
 #remove some species with no r data
 include<-include %>% filter(SciName %in% rinclude$species)
-dim(include) #811 species. Ok, sounds good.
+dim(include) #811 species.
 
 ##TRANSFER files to VM for convertion to mollweide
 #saveRDS(Aquaothers2, file = "/Users/ren/Documents/CODES/FoodProvision/Aquaothers2.rds")
 #saveRDS(include, file = "/Users/ren/Documents/CODES/FoodProvision/include.rds")
 #saveRDS(land_shp_moll, file = "/Users/ren/Documents/CODES/FoodProvision/land_shp_moll.rds")
 
-# ###Nov22, transform to mollweide
-# ##OPTION 1
-# land_shp <-st_read("/Users/ren/Documents/CODES/FoodProvision/landshp_moll/spatial-datasets-land-land_50.shp")
-# ocean_low_res_moll<-raster::raster("/Users/ren/Documents/CODES/FoodProvision/ocean-low-res-moll.tiff")
-# land_shp_moll <- land_shp %>% st_transform(crs = projection(ocean_low_res_moll))
-# 
-# aquamaps_mollweide<-Aquaothers2 %>% select(SpeciesID,CenterLat,CenterLong,probability)
-# dim(aquamaps_mollweide)
-# 
-# colnames(Aquaothers2)
-# head(Aquaothers2)
-# 
-# sfc_as_cols <- function(x, names = c("x","y")) {
-#   stopifnot(inherits(x,"sf") && inherits(sf::st_geometry(x),"sfc_POINT"))
-#   ret <- sf::st_coordinates(x)
-#   ret <- tibble::as_tibble(ret)
-#   stopifnot(length(names) == ncol(ret))
-#   x <- x[ , !names(x) %in% names]
-#   ret <- setNames(ret,names)
-#   dplyr::bind_cols(x,ret)
-# }
-# 
-# tmp <- aquamaps_mollweide %>%
-#   head(100000) %>%
-#   sf::st_as_sf(coords=c("CenterLong","CenterLat")) %>%
-#   sf::st_set_crs("+proj=longlat +datum=WGS84") %>%
-#   sf::st_wrap_dateline(options = c("WRAPDATELINE=YES", "DATELINEOFFSET=180"), quiet = TRUE) %>%
-#   sf::st_transform("+proj=moll") %>%
-#   sfc_as_cols() %>%
-#   as_tibble()
-# 
-# tmp2 <- tmp %>%
-#   #group_by(x, y) %>%
-#   group_by(x, y, SpeciesID) %>%
-#   summarize(mean(probability))
-# 
-# dim(tmp2)
-# head(tmp2)
-# names(tmp2) <- c("CenterLong","CenterLat","SpeciesID","probability")
-# 
-# Aqua3<-merge(tmp2,include,by="SpeciesID")
-# head(Aqua3)
-# length(unique(Aqua3$SpeciesID))
-# 
-# Aqua3 <- Aqua3 %>% group_by(SpeciesID) %>% mutate(totalprob=sum(probability))
-# Aqua3stack<-Aqua3 %>% group_by(CenterLat,CenterLong) %>% mutate(Kcell=sum(probability*K/totalprob)) %>% summarise(S=sum(probability*K/totalprob), Fstat=weighted.mean(Fstatus,Kcell), Bstat=weighted.mean(Bstatus,Kcell))
-# head(Aqua3stack) #S is total K per cell
-# Aqua3stack<-as.data.frame(Aqua3stack)
-# 
-# dim(Aqua3stack) #160639
-# head(Aqua3stack)
-# 
-# plot(Aqua3stack$CenterLon,Aqua3stack$CenterLat)
-# 
-# #check other plot
-# Aqua3stack %>% 
-#   as.data.frame(xy = T) %>% 
-#   filter(!is.na(S)) %>% 
-#   head(1000) %>% 
-#   #set_names(c("CenterLong", "CenterLat", "S")) %>% 
-#   #mutate(SpeciesID =i) %>% 
-#   ggplot(aes(x=CenterLong,y=CenterLat,fill=S)) +
-#   geom_raster()+
-#   geom_sf(data = land_shp_moll, inherit.aes = F)
-# 
-# raster_test <- Aqua3stack %>% 
-#   select(CenterLong, CenterLat, S) %>% raster::rasterFromXYZ(crs = "+proj=longlat +datum=WGS84") %>% 
-#   raster::projectRaster(crs = "+proj=moll") 
-# 
-# plot(raster_test)
-# ###############
-# 
-# ggplot(Aqua3stack, aes(x=CenterLong,y=CenterLat,fill=S)) +
-#   geom_raster()+
-#   geom_sf(data = land_shp_moll, inherit.aes = F)
-# 
-# Aqua3stack %>% select(CenterLat,CenterLong,S) %>% head(1000) %>%
-#   ggplot(aes(x=CenterLong,y=CenterLat,fill=S)) +
-#   geom_raster()+
-#   geom_sf(data = land_shp_moll, inherit.aes = F)
-# 
-# 
-# # ##OPTION 2: Best option
-# # Aquaothers2 %>% 
-# #   filter(SpeciesID == "Fis-29302") %>% 
-# #   select(CenterLong, CenterLat, probability)%>% 
-# #   raster::rasterFromXYZ(crs = "+proj=longlat +datum=WGS84") %>% 
-# #   raster::projectRaster(crs = "+proj=moll") %>%
-# #   as.data.frame(xy = T) %>% 
-# #   filter(!is.na(probability)) %>% 
-# #   set_names(c("lon", "lat", "prob")) %>% 
-# #   mutate(spp_id =  "Fis-29302") 
-# 
-# head(include)
-# dim(include)
-# 
-# #ok, we can use the SpeciesID column in the "include" file to run our loop.
-# sp_dist_mollweide_datalist = list()
-# head(Aquaothers2)
-# 
-# for (i in include$SpeciesID[1:5]) {
-#   sp_dist_mollweide<-Aquaothers2 %>% 
-#     filter(SpeciesID == i) %>% 
-#     select(CenterLong, CenterLat, probability)%>% 
-#     raster::rasterFromXYZ(crs = "+proj=longlat +datum=WGS84") %>% 
-#     raster::projectRaster(crs = "+proj=moll") %>%
-#     as.data.frame(xy = T) %>% 
-#     filter(!is.na(probability)) %>% 
-#     set_names(c("CenterLong", "CenterLat", "probability")) %>% 
-#     mutate(SpeciesID =i) 
-#   sp_dist_mollweide_datalist [[i]] <- sp_dist_mollweide# add it to your list
-# }
-# 
-# Aquaothers2_mollweide = do.call(rbind, sp_dist_mollweide_datalist)
-# head(Aquaothers2_mollweide)
-# dim(Aquaothers2_mollweide)
-# 
-# Aquaothers2_mollweide %>% filter(SpeciesID==include$SpeciesID[5]) %>%
-# ggplot(aes(x=CenterLong,y=CenterLat,fill=probability)) +
-#   geom_raster()+
-#   geom_sf(data = land_shp_moll, inherit.aes = F)
-# 
-# Aqua3_mollweide<-merge(Aquaothers2_mollweide,include,by="SpeciesID")
-# Aqua3_mollweide <- Aqua3_mollweide %>% group_by(SpeciesID) %>% mutate(totalprob=sum(probability))
-# head(Aqua3_mollweide)
-# Aqua3stack_mollweide<-Aqua3_mollweide %>% group_by(CenterLat,CenterLong) %>% mutate(Kcell=sum(probability*K/totalprob)) %>% summarise(S=sum(probability*K/totalprob), Fstat=weighted.mean(Fstatus,Kcell), Bstat=weighted.mean(Bstatus,Kcell))
-# head(Aqua3stack_mollweide) #S is total K per cell
-# Aqua3stack_mollweide<-as.data.frame(Aqua3stack_mollweide)
-# head(Aqua3stack_mollweide)
-# dim(Aqua3stack_mollweide)
-# 
-# Aqua3stack_mollweide %>% select(CenterLat,CenterLong,S) %>% #tail(1000) %>%
-#   ggplot(aes(x=CenterLong,y=CenterLat,fill=S)) +
-#   geom_raster()+
-#   geom_sf(data = land_shp_moll, inherit.aes = F)
-# 
-# 
-# tmp <- Aqua3stack_mollweide %>%
-#   group_by(CenterLong, CenterLat) %>% 
-#   summarise(S = sum(S, na.rm = T)) 
-# 
-# tmp %>% head(1000) %>% 
-#   ggplot(aes(x=CenterLong,y=CenterLat,fill=S)) + geom_raster()
-# 
-# 
-# ##
-# Aquaothers2 %>% head()
-# 
-# i<-include$SpeciesID[2]
-# i
-# 
-# raster_test <- Aquaothers2 %>% 
-#   filter(SpeciesID == i) %>% 
-#   select(CenterLong, CenterLat, probability)%>% 
-#   raster::rasterFromXYZ(crs = "+proj=longlat +datum=WGS84") %>% 
-#   raster::projectRaster(crs = "+proj=moll") 
-# 
-# dim(raster_test)
-# plot(raster_test)
-# 
-# raster_test %>% 
-#   as.data.frame(xy = T) %>% 
-#   filter(!is.na(probability)) %>% 
-#   set_names(c("CenterLong", "CenterLat", "probability")) %>% 
-#   mutate(SpeciesID =i) %>% 
-#   ggplot(aes(x=CenterLong,y=CenterLat,fill=probability)) +
-#   geom_raster()+
-#   geom_sf(data = land_shp_moll, inherit.aes = F)
-# 
-# #plot same as Juan
-# 
-# z_pal <- list(breaks = c(0,0.5e5,1e5,1.5e5,2e5,2.5e5,3e5,5e5),
-#               labels = c("0-0.5e5", "0.5-1e5", "1-1.5e5", "1.5-2e5", "2-2.5e5", "2.5-3e5", "3-5e5"),
-#               colors = rev(c("#d73027","#fdae61","#fee090","#e0f3f8","#abd9e9","#74add1", "#4575b4")))
-# land_shp <-st_read("/Users/ren/Documents/CODES/FoodProvision/landshp_moll/spatial-datasets-land-land_50.shp")
-# 
-# land_shp_moll <- land_shp %>% st_transform(crs = projection(ocean_low_res_moll))
-# 
-# raster_test %>% 
-#   raster::projectRaster(ocean_low_res_moll) %>% 
-#   tmap::tm_shape()+
-#   tmap::tm_raster(title = "K (MT)",
-#                   palette  = z_pal$colors,
-#                   breaks = z_pal$breaks,
-#                   labels = z_pal$labels,
-#                   legend.is.portrait = T,
-#                   legend.reverse = T)+
-#   tmap::tm_shape(land_shp_moll)+
-#   tmap::tm_fill(col = "black", border.col = "transparent")+
-#   tmap::tm_layout(title = "Carrying capacity (MT per 0.5x0.5 degree)",
-#                   title.position = c("center", .95),
-#                   inner.margins = c(0.12, 0, 0.08, 0.04),
-#                   frame = F,
-#                   legend.position = c(.99, "center"))
-# 
-# 
-# ##
-# empty_raster <- raster(res = 0.5)
-# cells <- cellFromXY(empty_raster, as.matrix(Aqua3stack_mollweide[,2:1]))
-# empty_raster[cells] <- Aqua3stack_mollweide[,3]
-# plot(empty_raster,main="Carrying capacity per cell (MT)")
-# 
-# tmp2<-readRDS("/Users/ren/Documents/CODES/FoodProvision/tmp2.rds")
-# head(tmp2)
-# 
-# tmp2 %>% filter(SpeciesID=="Fis-114088") %>% head()
-# 
-# Aquaothers2<-tmp2
 ##Add K to the Aquaothers2
 head(Aquaothers2)
 
@@ -504,15 +296,14 @@ head(Aqua3)
 dim(Aqua3)
 length(unique(Aqua3$SpeciesID))
 
-
 Aqua3 <- Aqua3 %>% group_by(SpeciesID) %>% mutate(totalprob=sum(probability))
 Aqua3stack<-Aqua3 %>% group_by(CenterLat,CenterLong) %>% mutate(Kcell=sum(probability*K/totalprob)) %>% summarise(S=sum(probability*K/totalprob), Fstat=weighted.mean(Fstatus,Kcell), Bstat=weighted.mean(Bstatus,Kcell))
 head(Aqua3stack) #S is total K per cell
 Aqua3stack<-as.data.frame(Aqua3stack)
 
-dim(Aqua3stack) #160639
+dim(Aqua3stack) #160647
 head(Aqua3stack)
-# 
+
 # raster_test <- Aqua3stack %>% 
 #   select(CenterLong, CenterLat, S)%>% 
 #   raster::rasterFromXYZ(crs = "+proj=longlat +datum=WGS84") %>% 
@@ -812,11 +603,7 @@ unique(ManagementLayer2$SpeciesID)
 
 ##---reshape the management layer
 ##NOTE: This can take some time so I will save the output and just load it. 
-##when new species is added, rerun the "cast" code below
-
-#THIS IS NOT RIGHT because we have several stocks per species --- REVISED BELOW
-#ManagementLayer3<-cast(ManagementLayer2,lon+lat~SpeciesID)
-#saveRDS(ManagementLayer3, file = "/Users/ren/Documents/CODES/FoodProvision/ManagementLayer3.rds")
+##when new species is added, rerun the code below
 
 #attempt failed --- memory not enough
 #ManagementLayer4<-cast(ManagementLayer2trans,lon+lat~stockid)
@@ -847,7 +634,7 @@ plot(ManagementLayer4$'BGRDRSE')
 ReferenceStockSpeciesID<-ManagementLayer2 %>% select(stockid,SpeciesID) %>% group_by(stockid,SpeciesID) %>% summarise(n=n())
 ReferenceStockSpeciesID2<-ReferenceStockSpeciesID %>% filter(is.na(SpeciesID)==F)
 dim(ReferenceStockSpeciesID2)
-#534 of the species in Costello et al. species list have stock assessments
+#536 of the species in Costello et al. species list have stock assessments
 
 #normalization function
 NormFunction<-function(rawfile){
@@ -927,7 +714,7 @@ empty_raster <- raster(res = 0.5)
 cells <- cellFromXY(empty_raster, as.matrix(AquaManaged_other[,1:2]))
 empty_raster[cells] <- summanagedlayer
 head(empty_raster)
-plot(PlotFunction(empty_raster),main="Management",axes=F,box=F)
+plot(empty_raster,main="Management",axes=F,box=F)
 
 #Alternative management layer plot based on ggplot
 ManagementLayerPlot<-cbind(AquaManaged_other[,1:2], summanagedlayer)
@@ -1122,7 +909,7 @@ dim(MegaData)
 
 #Load r then remove SciName entry in "include" if they have no r information
 #this is the growth parameter
-r_rev<-read.csv("/Users/ren/Documents/CODES/FoodProvision/Parameters/r_data_whitneycheck - rsave_whitneycheck.csv")
+r_rev<-read.csv("/Users/ren/Documents/GitHub/FoodProvision2019/Parameters/r_data_whitneycheck - rsave_whitneycheck.csv")
 head(r_rev)
 dim(r_rev)
 r_data<-r_rev %>% filter(species %in% MegaData$SciName) %>% select(species, r_mean,ln_r_mu,ln_r_sd,r,r_lower_bound,r_upper_bound) %>% mutate(stdev=(r_upper_bound-r_lower_bound)/4)
@@ -1141,7 +928,7 @@ head(MegaData)
 # plot(xx,yy)
 # #To do: plot all r curve!
 
-mfile<-read.csv("/Users/ren/Documents/CODES/FoodProvision/Parameters/mobility_data_paper - data.csv")
+mfile<-read.csv("/Users/ren/Documents/GitHub/FoodProvision2019/Parameters/mobility_data_paper - data.csv")
 mfile$m_fin<-mfile$m_index
 mfile<-mfile %>% mutate(m_fin=replace(m_fin,m_fin==1,0.1),
                         m_fin=replace(m_fin,m_fin==2,0.3),
@@ -1157,18 +944,6 @@ mfile<-mfile %>% select(SciName,m_fin)
 MegaData<-left_join(MegaData,mfile,by="SciName")
 head(MegaData)
 dim(MegaData)
-
-# #Old code
-# #load file with m estimate
-# #mfile<-read.csv("/Users/ren/Documents/CODES/FoodProvision/SpeciesNamesCostello_m.csv")
-# mfile<-read.csv("/Users/ren/Documents/CODES/FoodProvision/mobility_data - data.csv")
-# mfile$m<-mfile$m_final
-# mfile<-mfile %>% mutate(m=replace(m,m==1,0.1),
-#                         m=replace(m,m==2,0.3),
-#                         m=replace(m,m==3,0.9))
-# mfile<-mfile %>% select(SpeciesID,m)
-# MegaData<-left_join(MegaData,mfile,by="SpeciesID")
-# head(MegaData)
 
 #ER is exploitation rate, E is escapement. This is for stock-assessed.
 ERmanage<-read.csv("/Users/ren/Documents/CODES/FoodProvision/MatchedER - MatchedERFin.csv")
@@ -1220,20 +995,30 @@ head(MegaData)
 MegaData<-MegaData %>% mutate(Efin_msy= (Efin*(Manage==0)+ Emsy*(Manage==1)))
 head(MegaData)
 
-##add scorched earth + current E for others, and scorched earth + MSY
-MegaData<-MegaData %>% mutate(Escorched_current= (((1-r_fin)*(Manage==0))+ (Efin*(Manage==1))), Escorched_msy= (((1-r_fin)*(Manage==0))+ (Emsy*(Manage==1))))
-head(MegaData)
+# ##add scorched earth + current E for others, and scorched earth + MSY
+# MegaData<-MegaData %>% mutate(Escorched_current= (((1-r_fin)*(Manage==0))+ (Efin*(Manage==1))), Escorched_msy= (((1-r_fin)*(Manage==0))+ (Emsy*(Manage==1))))
+# head(MegaData)
 
-#50% of the poorly managed will be managed at msy
-MegaData$randomnum<-runif(dim(MegaData)[1])
-head(MegaData)
-MegaData<-MegaData %>% mutate(Efinhalf_msy= (Efin*(Manage==0 & randomnum<=0.5)+ Emsy*(Manage==0 & randomnum>0.5)+ Emsy*(Manage==1)))
-head(MegaData)
+# #50% of the poorly managed will be managed at msy
+# MegaData$randomnum<-runif(dim(MegaData)[1])
+# head(MegaData)
+# MegaData<-MegaData %>% mutate(Efinhalf_msy= (Efin*(Manage==0 & randomnum<=0.5)+ Emsy*(Manage==0 & randomnum>0.5)+ Emsy*(Manage==1)))
+# head(MegaData)
 
 #BAU1: check Fstatus (then F current forever)
 MegaData <- MegaData %>% mutate(Efin_BAU1=Efin*(Manage==1)+Efin*((Fstatus>1 | Bstatus<1) & Manage==0)+ (1-r_fin+(BK2012*r_fin))*(Fstatus<1 & Bstatus>1 & Manage==0))
 head(MegaData)
 plot(MegaData$Efin,MegaData$Efin_BAU1)
+
+min(MegaData$Efin)
+#E should not be less than 0
+MegaData$Efin_BAU1[MegaData$Efin_BAU1<0] <- 0
+MegaData$Efin[MegaData$Efin<0] <- 0
+MegaData$Emsy[MegaData$Emsy<0] <- 0
+MegaData$Efin_msy[MegaData$Efin_msy<0] <- 0
+MegaData$EBvK01fin[MegaData$EBvK01fin<0] <- 0
+MegaData$EBvK01_msy[MegaData$EBvK01_msy<0] <- 0
+
 
 # #check this later
 # halfearth<-MegaData %>% filter(Manage==0) %>% select(MSYfin,Efin,Emsy) %>% mutate(ERratio=(1-Efin)/(1-Emsy))
@@ -1295,7 +1080,7 @@ sum(MegaData$Kfin) #total K
 
 #Ropt, Hopt
 head(MegaData)
-MegaData$Ropt<-((MegaData$m_fin*MegaData$r_fin) + (((2*MegaData$Efin)-2)*MegaData$m_fin)) / (((MegaData$Efin-1)*MegaData$r_fin)+(((2*MegaData$Efin)-2)*MegaData$m_fin))
+MegaData$Ropt<-((MegaData$m_fin*MegaData$r_fin) + (((2*MegaData$Efin_BAU1)-2)*MegaData$m_fin)) / (((MegaData$Efin_BAU1-1)*MegaData$r_fin)+(((2*MegaData$Efin_BAU1)-2)*MegaData$m_fin))
 hist(MegaData$Ropt,xlab="Ropt",main="")
 
 #SI plot for paper
@@ -1307,6 +1092,7 @@ head(optimalMPAsize)
 dim(optimalMPAsize)
 #hist(optimalMPAsize,xlab="Ropt",main="")
 mu<-median(optimalMPAsize$Ropt)
+mu
 mean(optimalMPAsize$Ropt)
 optimalMPAsize<-as.data.frame(optimalMPAsize)
 p<-ggplot(optimalMPAsize, aes(x=Ropt)) +geom_histogram()+
@@ -1331,12 +1117,12 @@ dev.off()
 
 
 #Given Ropt, what is Hopt???
-MegaData$Hopt<-((1-MegaData$Efin)*((MegaData$m_fin*MegaData$Kfin*(1-MegaData$Ropt))/(MegaData$Ropt-(MegaData$Efin*MegaData$Ropt)+MegaData$m_fin))*(1-(((1-MegaData$Efin)*(1-MegaData$Ropt)*MegaData$m_fin)/((MegaData$Ropt-(MegaData$Efin*MegaData$Ropt)+MegaData$m_fin)*MegaData$r_fin)))) - ((1-MegaData$Efin)*((MegaData$r_fin+MegaData$Efin-1)/MegaData$r_fin)*MegaData$Kfin)
+MegaData$Hopt<-((1-MegaData$Efin_BAU1)*((MegaData$m_fin*MegaData$Kfin*(1-MegaData$Ropt))/(MegaData$Ropt-(MegaData$Efin_BAU1*MegaData$Ropt)+MegaData$m_fin))*(1-(((1-MegaData$Efin_BAU1)*(1-MegaData$Ropt)*MegaData$m_fin)/((MegaData$Ropt-(MegaData$Efin_BAU1*MegaData$Ropt)+MegaData$m_fin)*MegaData$r_fin)))) - ((1-MegaData$Efin_BAU1)*((MegaData$r_fin+MegaData$Efin_BAU1-1)/MegaData$r_fin)*MegaData$Kfin)
 hist(MegaData$Hopt)
 
 ##What proportion of MSY is managed vs unmanaged?
 MegaData %>% group_by(Manage) %>% summarise(msy=sum(MSYfin)) %>% mutate(proportion=msy/sum(msy))
-#35% of the stocks have stock assessment
+#34.3% of the stocks have stock assessment
 
 #install.packages("nls2")
 #install.packages("minpack.lm")
@@ -1395,7 +1181,7 @@ for (i in 1:dim(ZonationMegaData)[1]){
   dH<-vector()
   Rvec<-vector()
   count<-0
-  E<-ZonationMegaData$Efin[i]
+  E<-ZonationMegaData$Efin_BAU1[i]
   m_fin<-ZonationMegaData$m_fin[i]
   K<-ZonationMegaData$Kfin[i]
   r_fin<-ZonationMegaData$r_fin[i]
@@ -1435,7 +1221,7 @@ dev.off()
 ZonationMegaData$xparam<-xparam
 #ZonationMegaData$Tparam<-Tparam
 head(ZonationMegaData)
-ZonationMegaData$ExploitationRate<-1-ZonationMegaData$Efin
+ZonationMegaData$ExploitationRate<-1-ZonationMegaData$Efin_BAU1
 ForZonationMegaData<-ZonationMegaData %>% select(stockid,Kfin,Ropt,Hopt,xparam,ExploitationRate,Kfin,m_fin,r_fin)
 head(ForZonationMegaData)
 write.csv(ForZonationMegaData, file = "/Users/ren/Documents/CODES/FoodProvision/ForZonationMegaData_Unmanaged_R1.csv")
@@ -1450,7 +1236,7 @@ for (i in 1:dim(Zonation_others)[1]){
   dH<-vector()
   Rvec<-vector()
   count<-0
-  E<-Zonation_others$Efin[i]
+  E<-Zonation_others$Efin_BAU1[i]
   m_fin<-Zonation_others$m_fin[i]
   K<-Zonation_others$Kfin[i]
   r_fin<-Zonation_others$r_fin[i]
@@ -1477,111 +1263,112 @@ for (i in 1:dim(Zonation_others)[1]){
 dev.off()
 Zonation_others$w2param<-w2param
 Zonation_others$yparam<-yparam
-Zonation_others$ExploitationRate<-1-Zonation_others$Efin
+Zonation_others$ExploitationRate<-1-Zonation_others$Efin_BAU1
 ForZonationMegaData_Managed<-Zonation_others %>% select(stockid,Kfin,Ropt,Hopt,w2param,yparam,ExploitationRate,Kfin,m_fin,r_fin)
 write.csv(ForZonationMegaData_Managed, file = "/Users/ren/Documents/CODES/FoodProvision/ForZonationMegaData_Managed_R1.csv")
 
-####For Zonation BAU1---------BAU1 -------------BAU1
-#Ropt, Hopt
-MegaData$Ropt<-((MegaData$m*MegaData$r) + (((2*MegaData$Efin_BAU1)-2)*MegaData$m)) / (((MegaData$Efin_BAU1-1)*MegaData$r)+(((2*MegaData$Efin_BAU1)-2)*MegaData$m))
-
-#Given Ropt, what is Hopt???
-MegaData$Hopt<-((1-MegaData$Efin_BAU1)*((MegaData$m*MegaData$Kfin*(1-MegaData$Ropt))/(MegaData$Ropt-(MegaData$Efin_BAU1*MegaData$Ropt)+MegaData$m))*(1-(((1-MegaData$Efin_BAU1)*(1-MegaData$Ropt)*MegaData$m)/((MegaData$Ropt-(MegaData$Efin_BAU1*MegaData$Ropt)+MegaData$m)*MegaData$r)))) - ((1-MegaData$Efin_BAU1)*((MegaData$r+MegaData$Efin_BAU1-1)/MegaData$r)*MegaData$Kfin)
-
-#derive parameters for Juan// Zonation
-ZonationMegaData<-MegaData %>% filter(Ropt>0) %>% filter(Ropt<=1)
-
-#other parameters
-Zonation_others<- MegaData %>% filter(! (stockid %in% ZonationMegaData$stockid))
-
-#THIS IS FOR ALL THE SPECIES #unmanaged
-xparam<-vector()
-FracMPA<-seq(0,1,0.0001)
-pdf("/Users/ren/Documents/CODES/FoodProvision/Results/curvefit.pdf")
-for (i in 1:dim(ZonationMegaData)[1]){
-  dH<-vector()
-  Rvec<-vector()
-  count<-0
-  E<-ZonationMegaData$Efin_BAU1[i]
-  m<-ZonationMegaData$m[i]
-  K<-ZonationMegaData$Kfin[i]
-  r<-ZonationMegaData$r[i]
-  Hopt<-ZonationMegaData$Hopt[i]
-  Ropt<-ZonationMegaData$Ropt[i]
-  for (R in FracMPA){
-    count<-count+1
-    dH[count]<-((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r)))) - ((1-E)*((r+E-1)/r)*K)
-    Rvec[count]<-R
-  }
-  Mycurve<-cbind(Rvec,dH)
-  Mycurve<-as.data.frame(Mycurve)
-  
-  maxposition<-which(Mycurve$dH==max(Mycurve$dH))
-  
-  x  <- Mycurve$Rvec[1:maxposition]
-  y <- Mycurve$dH[1:maxposition]
-
-  nlsFit <- nlsLM(y ~Hopt*(x/Ropt)^b2,start=list(b2=0.5))
-  newdata <- data.frame(x = seq(min(x),max(x),len=100))
-
-  plot(x,y,pch=19,main=ZonationMegaData$stockid[i])+
-    lines(newdata$x,predict(nlsFit,newdata=newdata),col="red")  
-
-  xparam[i]<-coef(nlsFit)
-}
-dev.off()
-
-ZonationMegaData$xparam<-xparam
-head(ZonationMegaData)
-ZonationMegaData$ExploitationRate<-1-ZonationMegaData$Efin_BAU1
-ForZonationMegaData_BAU1<-ZonationMegaData %>% select(stockid,Kfin,Ropt,Hopt,xparam,ExploitationRate,Kfin,m,r)
-write.csv(ForZonationMegaData_BAU1, file = "/Users/ren/Documents/CODES/FoodProvision/ForZonationMegaData_Unmanaged_BAU1.csv")
-
-
-#THIS IS FOR OTHER SPECIES #MANAGED
-w2param<-vector()
-yparam<-vector()
-FracMPA<-seq(0,1,0.0001)
-pdf("/Users/ren/Documents/CODES/FoodProvision/Results/curvefitMANAGED.pdf")
-for (i in 1:dim(Zonation_others)[1]){
-  dH<-vector()
-  Rvec<-vector()
-  count<-0
-  E<-Zonation_others$Efin_BAU1[i]
-  m<-Zonation_others$m[i]
-  K<-Zonation_others$Kfin[i]
-  r<-Zonation_others$r[i]
-  Hopt<-Zonation_others$Hopt[i]
-  Ropt<-Zonation_others$Ropt[i]
-  for (R in FracMPA){
-    count<-count+1
-    dH[count]<-((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r)))) - ((1-E)*((r+E-1)/r)*K)
-    Rvec[count]<-R
-  }
-  Mycurve<-cbind(Rvec,dH)
-  Mycurve<-as.data.frame(Mycurve)
-
-  maxposition<-which(Mycurve$dH==max(Mycurve$dH))
-  x  <- Mycurve$Rvec
-  y <- Mycurve$dH
-  nlsFit <- nlsLM(y ~(w2*(x^y1)),start=list(w2=(y[2]/x[2])-0.1,y1=0.5))
-  newdata <- data.frame(x = seq(min(x),max(x),len=100))
-  plot(x,y,pch=19,main=Zonation_others$stockid[i])+
-    lines(newdata$x,predict(nlsFit,newdata=newdata),col="red")  
-  w2param[i]<-coef(nlsFit)[1]
-  yparam[i]<-coef(nlsFit)[2]
-}
-dev.off()
-Zonation_others$w2param<-w2param
-Zonation_others$yparam<-yparam
-Zonation_others$ExploitationRate<-1-Zonation_others$Efin_BAU1
-ForZonationMegaData_Managed_BAU1<-Zonation_others %>% select(stockid,Kfin,Ropt,Hopt,w2param,yparam,ExploitationRate,Kfin,m,r)
-write.csv(ForZonationMegaData_Managed_BAU1, file = "/Users/ren/Documents/CODES/FoodProvision/ForZonationMegaData_Managed_BAU1.csv")
-
+# ####For Zonation BAU1---------BAU1 -------------BAU1
+# #Ropt, Hopt
+# MegaData$Ropt<-((MegaData$m*MegaData$r) + (((2*MegaData$Efin_BAU1)-2)*MegaData$m)) / (((MegaData$Efin_BAU1-1)*MegaData$r)+(((2*MegaData$Efin_BAU1)-2)*MegaData$m))
+# 
+# #Given Ropt, what is Hopt???
+# MegaData$Hopt<-((1-MegaData$Efin_BAU1)*((MegaData$m*MegaData$Kfin*(1-MegaData$Ropt))/(MegaData$Ropt-(MegaData$Efin_BAU1*MegaData$Ropt)+MegaData$m))*(1-(((1-MegaData$Efin_BAU1)*(1-MegaData$Ropt)*MegaData$m)/((MegaData$Ropt-(MegaData$Efin_BAU1*MegaData$Ropt)+MegaData$m)*MegaData$r)))) - ((1-MegaData$Efin_BAU1)*((MegaData$r+MegaData$Efin_BAU1-1)/MegaData$r)*MegaData$Kfin)
+# 
+# #derive parameters for Juan// Zonation
+# ZonationMegaData<-MegaData %>% filter(Ropt>0) %>% filter(Ropt<=1)
+# 
+# #other parameters
+# Zonation_others<- MegaData %>% filter(! (stockid %in% ZonationMegaData$stockid))
+# 
+# #THIS IS FOR ALL THE SPECIES #unmanaged
+# xparam<-vector()
+# FracMPA<-seq(0,1,0.0001)
+# pdf("/Users/ren/Documents/CODES/FoodProvision/Results/curvefit.pdf")
+# for (i in 1:dim(ZonationMegaData)[1]){
+#   dH<-vector()
+#   Rvec<-vector()
+#   count<-0
+#   E<-ZonationMegaData$Efin_BAU1[i]
+#   m<-ZonationMegaData$m[i]
+#   K<-ZonationMegaData$Kfin[i]
+#   r<-ZonationMegaData$r[i]
+#   Hopt<-ZonationMegaData$Hopt[i]
+#   Ropt<-ZonationMegaData$Ropt[i]
+#   for (R in FracMPA){
+#     count<-count+1
+#     dH[count]<-((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r)))) - ((1-E)*((r+E-1)/r)*K)
+#     Rvec[count]<-R
+#   }
+#   Mycurve<-cbind(Rvec,dH)
+#   Mycurve<-as.data.frame(Mycurve)
+#   
+#   maxposition<-which(Mycurve$dH==max(Mycurve$dH))
+#   
+#   x  <- Mycurve$Rvec[1:maxposition]
+#   y <- Mycurve$dH[1:maxposition]
+# 
+#   nlsFit <- nlsLM(y ~Hopt*(x/Ropt)^b2,start=list(b2=0.5))
+#   newdata <- data.frame(x = seq(min(x),max(x),len=100))
+# 
+#   plot(x,y,pch=19,main=ZonationMegaData$stockid[i])+
+#     lines(newdata$x,predict(nlsFit,newdata=newdata),col="red")  
+# 
+#   xparam[i]<-coef(nlsFit)
+# }
+# dev.off()
+# 
+# ZonationMegaData$xparam<-xparam
+# head(ZonationMegaData)
+# ZonationMegaData$ExploitationRate<-1-ZonationMegaData$Efin_BAU1
+# ForZonationMegaData_BAU1<-ZonationMegaData %>% select(stockid,Kfin,Ropt,Hopt,xparam,ExploitationRate,Kfin,m,r)
+# write.csv(ForZonationMegaData_BAU1, file = "/Users/ren/Documents/CODES/FoodProvision/ForZonationMegaData_Unmanaged_BAU1.csv")
+# 
+# 
+# #THIS IS FOR OTHER SPECIES #MANAGED
+# w2param<-vector()
+# yparam<-vector()
+# FracMPA<-seq(0,1,0.0001)
+# pdf("/Users/ren/Documents/CODES/FoodProvision/Results/curvefitMANAGED.pdf")
+# for (i in 1:dim(Zonation_others)[1]){
+#   dH<-vector()
+#   Rvec<-vector()
+#   count<-0
+#   E<-Zonation_others$Efin_BAU1[i]
+#   m<-Zonation_others$m[i]
+#   K<-Zonation_others$Kfin[i]
+#   r<-Zonation_others$r[i]
+#   Hopt<-Zonation_others$Hopt[i]
+#   Ropt<-Zonation_others$Ropt[i]
+#   for (R in FracMPA){
+#     count<-count+1
+#     dH[count]<-((1-E)*((m*K*(1-R))/(R-(E*R)+m))*(1-(((1-E)*(1-R)*m)/((R-(E*R)+m)*r)))) - ((1-E)*((r+E-1)/r)*K)
+#     Rvec[count]<-R
+#   }
+#   Mycurve<-cbind(Rvec,dH)
+#   Mycurve<-as.data.frame(Mycurve)
+# 
+#   maxposition<-which(Mycurve$dH==max(Mycurve$dH))
+#   x  <- Mycurve$Rvec
+#   y <- Mycurve$dH
+#   nlsFit <- nlsLM(y ~(w2*(x^y1)),start=list(w2=(y[2]/x[2])-0.1,y1=0.5))
+#   newdata <- data.frame(x = seq(min(x),max(x),len=100))
+#   plot(x,y,pch=19,main=Zonation_others$stockid[i])+
+#     lines(newdata$x,predict(nlsFit,newdata=newdata),col="red")  
+#   w2param[i]<-coef(nlsFit)[1]
+#   yparam[i]<-coef(nlsFit)[2]
+# }
+# dev.off()
+# Zonation_others$w2param<-w2param
+# Zonation_others$yparam<-yparam
+# Zonation_others$ExploitationRate<-1-Zonation_others$Efin_BAU1
+# ForZonationMegaData_Managed_BAU1<-Zonation_others %>% select(stockid,Kfin,Ropt,Hopt,w2param,yparam,ExploitationRate,Kfin,m,r)
+# write.csv(ForZonationMegaData_Managed_BAU1, file = "/Users/ren/Documents/CODES/FoodProvision/ForZonationMegaData_Managed_BAU1.csv")
 
 ###PLOT K using the new data!!!!!!!!!!!!!!!!!!!!!!!!
 #files needed: Aquaothers2, MegaData 
-#saveRDS(Aquaothers2, file = "/Users/ren/Documents/CODES/FoodProvision/Aquaothers2.rds")
+saveRDS(Aquaothers2, file = "/Users/ren/Documents/CODES/FoodProvision/Aquaothers2.rds")
+saveRDS(Aquaothers2, file = "/Users/ren/Documents/CODES/FoodProvision/MegaData.rds")
+
 Aquaothers2<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/Aquaothers2.rds")
 MegaData<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/MegaData.rds")
 
@@ -1965,14 +1752,24 @@ saveRDS(Cleanmegacell, file = "/Users/ren/Documents/CODES/FoodProvision/Cleanmeg
 saveRDS(MegaData, file = "/Users/ren/Documents/CODES/FoodProvision/MegaData.rds")
 saveRDS(CleanCoordmegacell, file = "/Users/ren/Documents/CODES/FoodProvision/CleanCoordmegacell.rds")
 
-MegaData_UncertaintyAnalysis<-MegaData %>% mutate(ExploitationRate_BAU1=1-Efin_BAU1, ExploitationRate_AllMSY=1-Emsy, ExploitationRate_BAU2=1-Efin
-                                                  ) %>% 
-  select(SpeciesID,Manage,stockid,SciName,m_fin,Kfin,r_fin,r_thorson,ln_r_mu,ln_r_sd,r_fishbase,stdev, ExploitationRate_BAU1,ExploitationRate_AllMSY,ExploitationRate_BAU2)
+MegaData_UncertaintyAnalysis<-MegaData %>% mutate(ExploitationRate_BAU1=1-Efin_BAU1, 
+                                                  ExploitationRate_OAcons=1-Efin,
+                                                  ExploitationRate_AllMSY=1-Emsy, 
+                                                  ExploitationRate_EfinMSY=1-Efin_msy,
+                                                  ExploitationRate_WormOA=1-EBvK01fin,
+                                                  ExploitationRate_WormMSY=1-EBvK01_msy) %>% 
+select(SpeciesID,Manage,stockid,SciName,m_fin,Kfin,r_fin,r_thorson,ln_r_mu,ln_r_sd,r_fishbase,stdev, 
+       ExploitationRate_BAU1, 
+       ExploitationRate_OAcons,
+       ExploitationRate_AllMSY, 
+       ExploitationRate_EfinMSY,
+       ExploitationRate_WormOA,
+       ExploitationRate_WormMSY)
 head(MegaData_UncertaintyAnalysis)
+plot(MegaData_UncertaintyAnalysis$ExploitationRate_WormMSY)
 write.csv(MegaData_UncertaintyAnalysis, file = "/Users/ren/Documents/CODES/FoodProvision/MegaData_UncertaintyAnalysis.csv")
 
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 
 ###Compute spillover---PIXEL-LEVEL spillover
 dim(Cleanmegacell)
