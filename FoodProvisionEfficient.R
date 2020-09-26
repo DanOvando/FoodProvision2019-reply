@@ -29,6 +29,7 @@ library(rasterVis)
 library(tmap)
 library(leaflet)
 library(rootSolve)
+library(viridis) 
 
 #load the expert data and save as RDS for faster loading
 #Aquaexpert<-read.csv("/Users/ren/Documents/CODES/FoodProvision/Aquamaps/spatial-datasets_Aquamaps_complete_current_data_all_hcaf_species_native_expert.csv")
@@ -74,6 +75,9 @@ head(Costello2012)
 
 #MSY from costello of RAM, FAO, and SOFIA
 Costello2012 %>% group_by(Dbase,CatchShare) %>% summarise(sum(MSY))
+
+#head(CostelloData)
+#CostelloData$SciName_Orig<-CostelloData$SciName
 
 CostelloDataPrime<- CostelloData %>%
   mutate(SciName=replace(SciName, SciName=="Sardinops melanostictus", "Sardinops sagax")) %>%
@@ -728,7 +732,7 @@ ManagementLayerPlotFin<- ManagementLayerPlot %>%
   as.data.frame(xy = T) %>%
   filter(!is.na(summanagedlayer)) %>%
   set_names(c("lon", "lat", "Count")) %>%
-  ggplot(aes(x=lon,y=lat,fill=Count)) + scale_fill_gradient(low="white", high="#00539CFF")+#guides(fill=guide_legend())+
+  ggplot(aes(x=lon,y=lat,fill=Count)) + scale_fill_viridis()+#option="plasma")+#scale_fill_gradient(color=viridis)+#scale_fill_gradient(low="white", high="#00539CFF")+#guides(fill=guide_legend())+
   theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank())+
   geom_raster()+
   geom_sf(data = land_shp_moll,fill="darkgray", lwd = 0.1,  inherit.aes = F)
@@ -935,6 +939,7 @@ mfile<-mfile %>% mutate(m_fin=replace(m_fin,m_fin==1,0.1),
                         m_fin=replace(m_fin,m_fin==3,0.9))
 
 head(mfile)
+dim(mfile)
 SI_r_and_m_data<-left_join(r_data,mfile,by="SciName")
 head(SI_r_and_m_data)
 dim(SI_r_and_m_data)
@@ -1427,11 +1432,16 @@ SI_totalkpercell<-Aqua3stackRev %>%
   mutate(tmp = K^(1/root)) %>% 
   ggplot()+
   geom_raster(aes(lon, lat, fill = tmp))+
-  scale_fill_gradient2(labels = function(x){x^root},
-                       low = "white",
-                       high = "#00539CFF", space = "Lab",
-                       name="K (MT/cell)",
-                       limits=c(0,max(Aqua3stackRev$S)^(1/root)))+
+  scale_fill_viridis(
+    labels = function(x){x^root},
+    name="K (MT/cell)",
+    limits=c(0,max(Aqua3stackRev$S)^(1/root))
+  )+
+  #scale_fill_gradient2(labels = function(x){x^root},
+  #                     low = "white",
+  #                     high = "#00539CFF", space = "Lab",
+  #                     name="K (MT/cell)",
+  #                     limits=c(0,max(Aqua3stackRev$S)^(1/root)))+
   theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank())+ #"bottom
   labs(title = "", fill = "", y = "", x = "")+
   #geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
@@ -1620,11 +1630,16 @@ SI_totalkpercell_m01<-Aqua3stackRev %>%
   mutate(tmp = K^(1/root)) %>% 
   ggplot()+
   geom_raster(aes(lon, lat, fill = tmp))+
-  scale_fill_gradient2(labels = function(x){x^root},
-                       low = "white",
-                       high = "#00539CFF", space = "Lab",
-                       name="K (MT/cell)",
-                       limits=c(0,max(Aqua3stackRev$S)^(1/root)))+
+  scale_fill_viridis(
+    labels = function(x){x^root},
+    name="K (MT/cell)",
+    limits=c(0,max(Aqua3stackRev$S)^(1/root))
+  )+
+  # scale_fill_gradient2(labels = function(x){x^root},
+  #                      low = "white",
+  #                      high = "#00539CFF", space = "Lab",
+  #                      name="K (MT/cell)",
+  #                      limits=c(0,max(Aqua3stackRev$S)^(1/root)))+
   theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank())+ #"bottom
   labs(title = "", fill = "", y = "", x = "")+
   #geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
@@ -1677,11 +1692,16 @@ SI_totalkpercell_m3<-Aqua3stackRev %>%
   mutate(tmp = K^(1/root)) %>% 
   ggplot()+
   geom_raster(aes(lon, lat, fill = tmp))+
-  scale_fill_gradient2(labels = function(x){x^root},
-                       low = "white",
-                       high = "#00539CFF", space = "Lab",
-                       name="K (MT/cell)",
-                       limits=c(0,max(Aqua3stackRev$S)^(1/root)))+
+  scale_fill_viridis(
+    labels = function(x){x^root},
+    name="K (MT/cell)",
+    limits=c(0,max(Aqua3stackRev$S)^(1/root))
+  )+
+  # scale_fill_gradient2(labels = function(x){x^root},
+  #                      low = "white",
+  #                      high = "#00539CFF", space = "Lab",
+  #                      name="K (MT/cell)",
+  #                      limits=c(0,max(Aqua3stackRev$S)^(1/root)))+
   theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank())+ #"bottom
   labs(title = "", fill = "", y = "", x = "")+
   #geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
@@ -1733,11 +1753,16 @@ SI_totalkpercell_m9<-Aqua3stackRev %>%
   mutate(tmp = K^(1/root)) %>% 
   ggplot()+
   geom_raster(aes(lon, lat, fill = tmp))+
-  scale_fill_gradient2(labels = function(x){x^root},
-                       low = "white",
-                       high = "#00539CFF", space = "Lab",
-                       name="K (MT/cell)",
-                       limits=c(0,max(Aqua3stackRev$S)^(1/root)))+
+  scale_fill_viridis(
+    labels = function(x){x^root},
+    name="K (MT/cell)",
+    limits=c(0,max(Aqua3stackRev$S)^(1/root))
+  )+
+  # scale_fill_gradient2(labels = function(x){x^root},
+  #                      low = "white",
+  #                      high = "#00539CFF", space = "Lab",
+  #                      name="K (MT/cell)",
+  #                      limits=c(0,max(Aqua3stackRev$S)^(1/root)))+
   theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank())+ #"bottom
   labs(title = "", fill = "", y = "", x = "")+
   #geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
@@ -1758,7 +1783,9 @@ MegaData_UncertaintyAnalysis<-MegaData %>% mutate(ExploitationRate_BAU1=1-Efin_B
                                                   ExploitationRate_EfinMSY=1-Efin_msy,
                                                   ExploitationRate_WormOA=1-EBvK01fin,
                                                   ExploitationRate_WormMSY=1-EBvK01_msy) %>% 
-select(SpeciesID,Manage,stockid,SciName,m_fin,Kfin,r_fin,r_thorson,ln_r_mu,ln_r_sd,r_fishbase,stdev, 
+select(SpeciesID,stockid,SciName,
+       Manage,Fstatus,Bstatus,Emanage,ER,bvk_fin,BK2012,
+       m_fin,Kfin,r_fin,r_thorson,ln_r_mu,ln_r_sd,r_fishbase,stdev, 
        ExploitationRate_BAU1, 
        ExploitationRate_OAcons,
        ExploitationRate_AllMSY, 
