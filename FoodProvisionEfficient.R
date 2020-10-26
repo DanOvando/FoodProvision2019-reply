@@ -2,6 +2,7 @@
 #Last checked: 5 May 2020
 #Author: Reniel Cabral
 
+#Extra notes:
 #this is the equation I used for the derivative of delta h wrt R for assumption #2
 #(1-(1-E)^(1/(1-x)))*((m*k*(1-x))/((1-(1-E)^(1/(1-x)))*x+m))*(1- (((1-(1-E)^(1/(1-x)))*(1-x)*m)/((((1-(1-E)^(1/(1-x)))*x)+m)*r)))
 
@@ -9,8 +10,9 @@
 gc()
 rm(list = ls())
 
-saveme<-0 #if 1, meaning save activated
+saveme<-0 #if 1, activate saving of plots
 
+#libraries
 library(raster)
 library(tidyverse)
 library(sf)
@@ -37,7 +39,7 @@ library(viridis)
 Aquaexpert2<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/Aquamaps/Aquaexpert.rds")
 head(Aquaexpert2)
 
-#stack the species distribution by summing the probabilities then plot
+#stack all the species distribution by summing the probabilities, then plot
 speciesstack<-Aquaexpert2 %>% group_by(CenterLat,CenterLong) %>% summarise(S=sum(probability))
 speciesstack2<-as.data.frame(speciesstack)
 empty_raster <- raster(res = 0.5)
@@ -51,7 +53,6 @@ plot(empty_raster,main="Sum of all species suitability, expert")
 Aquaothers2<-readRDS(file = "/Users/ren/Documents/CODES/FoodProvision/Aquamaps/Aquaothers.rds")
 Aquaothers2<-rbind(Aquaothers2,Aquaexpert2)
 head(Aquaothers2)
-dim(Aquaothers2)
 
 speciesstackothers<-Aquaothers2 %>% group_by(CenterLat,CenterLong) %>% summarise(S=sum(probability))
 speciesstack2others<-as.data.frame(speciesstackothers)
@@ -60,7 +61,7 @@ cellsothers <- cellFromXY(empty_rasterothers, as.matrix(speciesstack2others[,2:1
 empty_rasterothers[cellsothers] <- speciesstack2others[,3]
 plot(empty_rasterothers,main="Sum of all species suitability")
 
-#Load Costello et al. 2016 database
+#Load Costello et al. (2016) database
 #CostelloData<-read.csv("/Users/ren/Documents/CODES/FoodProvision/Aquamaps/UnlumpedProjectionData.csv")
 CostelloData<-read.csv("/Users/ren/Documents/CODES/FoodProvision/Aquamaps/UnlumpedProjectionData.csv", stringsAsFactors = FALSE)
 #CostelloData<-read.csv("/Users/ren/Documents/CODES/FoodProvision/Aquamaps/ProjectionData.csv")
@@ -76,9 +77,7 @@ head(Costello2012)
 #MSY from costello of RAM, FAO, and SOFIA
 Costello2012 %>% group_by(Dbase,CatchShare) %>% summarise(sum(MSY))
 
-#head(CostelloData)
-#CostelloData$SciName_Orig<-CostelloData$SciName
-
+#Manually change species name with related species to match Aquamaps species range data
 CostelloDataPrime<- CostelloData %>%
   mutate(SciName=replace(SciName, SciName=="Sardinops melanostictus", "Sardinops sagax")) %>%
   mutate(SciName=replace(SciName, SciName=="Sardinops caeruleus", "Sardinops sagax")) %>%
@@ -173,10 +172,6 @@ dim(CostelloK)
 
 plot(CostelloK$BK2012)
 
-#check why "Trachurus murphyi" has no 2050 data.. because all are RAM stocks
-#CostelloDataPrime %>% filter(Year=="2050", Policy=="BAU", Scenario=="All Stocks", Dbase!="RAM") %>%
-#group_by(SciName) %>% filter(SciName=="Trachurus murphyi")
-
 Costello2050<-CostelloDataPrime %>% filter(Year=="2050", Policy=="BAU", Scenario=="All Stocks", CatchShare==0, Dbase!="RAM") %>%
   #group_by(SciName) %>% summarize(catch2050=sum(Catch), biomass2050=sum(Biomass), k2050=sum(k)) %>% mutate(ER2050=catch2050/biomass2050, bvk2050=biomass2050/k2050)
   group_by(SciName) %>% summarize(catch2050=sum(Catch), biomass2050=sum(Biomass), k2050=sum(k)) %>% mutate(bvk2050=biomass2050/k2050)
@@ -200,6 +195,7 @@ rankedsp<-CostelloPresent[order(-CostelloPresent$K),]
 #there is an <NA> in the SciName --- remove that
 rankedsp<-rankedsp %>% filter(!SciName=="<NA>")
 
+#check
 "Sardinops sagax" %in% rankedsp$SciName
 
 head(rankedsp,5)
@@ -212,6 +208,7 @@ spnamelookup<-as.data.frame(spnamelookup)
 head(spnamelookup)
 dim(spnamelookup) 
 
+#check
 "Herklotsichthys quadrimaculatus" %in% c(as.character(spnamelookup$resolved_scientific_name),
                           as.character(spnamelookup$aquamaps_sci_name),
                           as.character(spnamelookup$worms_sci_name),
@@ -231,6 +228,7 @@ include <-rankedsp %>% filter((SciName %in% spnamelookup$resolved_scientific_nam
 dim(include)
 head(include)#these are the species in Costello DB included 
 
+#check
 "Clupea bentincki" %in% include$SciName
 dim(include)
 
@@ -244,7 +242,7 @@ dim(include)
 # #write.csv(Add_data, file = "/Users/ren/Documents/CODES/FoodProvision/AdditionalSpecies_RevisionPNAS.csv")
 
 #what are the species in costello db not included?
-rankedsp %>% filter(!(rankedsp$SciName %in% include$SciName)) %>% select(SciName)
+rankedsp %>% filter(!(rankedsp$SciName %in% include$SciName)) %>% dplyr::select(SciName)
 #Clean species name mismatch
 
 #what are the species ID of these?
@@ -280,7 +278,7 @@ head(include)
 #this is the growth parameter
 r_rev<-read.csv("/Users/ren/Documents/GitHub/FoodProvision2019/Parameters/r_data_whitneycheck - rsave_whitneycheck.csv")
 head(r_rev)
-rinclude<-r_rev %>% filter(r>0 | r_mean>0) %>% select(species)
+rinclude<-r_rev %>% filter(r>0 | r_mean>0) %>% dplyr::select(species)
 dim(rinclude)
 
 #remove some species with no r data
@@ -336,7 +334,7 @@ head(Aqua3stack)
 # dev.off()
 # }
 # 
-# #plot same as Juan
+# #plot
 # crs(empty_raster) <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
 # maxValue(empty_raster)
 # z_pal <- list(breaks = c(0,0.5e5,1e5,1.5e5,2e5,2.5e5,3e5,5e5),
@@ -377,7 +375,7 @@ head(Aqua3stack)
 # dev.off()
 # }
 # 
-# #-----plot same as Juan, F/Fmsy
+# #-----plot, F/Fmsy
 # crs(empty_raster) <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
 # maxValue(empty_raster)
 # z_pal <- list(breaks = c(0,1,2,3,15),
@@ -417,7 +415,7 @@ head(Aqua3stack)
 # dev.off()
 # }
 # 
-# #-----plot same as Juan, B/Bmsy
+# #-----plot, B/Bmsy
 # crs(empty_raster) <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0" 
 # maxValue(empty_raster)
 # z_pal <- list(breaks = c(0,1,2,3),
@@ -538,7 +536,7 @@ Aqua3 %>% group_by(SpeciesID) %>% summarize(sumtest=sum(normprob))
 
 #RUN ONLY ONCE / NO RUN, JUST LOAD (the commented code is important)
 coords2<-coords
-Aqua3Important<-Aqua3 %>% select(SpeciesID,CenterLat,CenterLong,normprob)
+Aqua3Important<-Aqua3 %>% dplyr::select(SpeciesID,CenterLat,CenterLong,normprob)
 colnames(Aqua3Important)[which(names(Aqua3Important) == "CenterLat")] <- "lat"
 colnames(Aqua3Important)[which(names(Aqua3Important) == "CenterLong")] <- "lon"
 dim(Aqua3Important)
@@ -597,10 +595,10 @@ CostelloDataPrime %>% filter(SciName=="Trachurus murphyi", Year==2050)
 
 #ManagementLayer2<-left_join(ManagementLayer,include,by="SciName") %>% select(lon,lat,SpeciesID)
 #try to add stockid
-ManagementLayer2<-left_join(ManagementLayer,include,by="SciName") %>% select(lon,lat,stockid,SpeciesID)
+ManagementLayer2<-left_join(ManagementLayer,include,by="SciName") %>% dplyr::select(lon,lat,stockid,SpeciesID)
 ManagementLayer2$Value<-1
 head(ManagementLayer2) 
-ManagementLayer2trans<-ManagementLayer2 %>% select(lon,lat,stockid,Value)
+ManagementLayer2trans<-ManagementLayer2 %>% dplyr::select(lon,lat,stockid,Value)
 head(ManagementLayer2trans)
 unique(ManagementLayer2$stockid)
 unique(ManagementLayer2$SpeciesID)
@@ -635,7 +633,7 @@ plot(ManagementLayer4$'BGRDRSE')
 
 #what are the species ids of the stocks?
 #Reference- stockid and SpeciesID
-ReferenceStockSpeciesID<-ManagementLayer2 %>% select(stockid,SpeciesID) %>% group_by(stockid,SpeciesID) %>% summarise(n=n())
+ReferenceStockSpeciesID<-ManagementLayer2 %>% dplyr::select(stockid,SpeciesID) %>% group_by(stockid,SpeciesID) %>% summarise(n=n())
 ReferenceStockSpeciesID2<-ReferenceStockSpeciesID %>% filter(is.na(SpeciesID)==F)
 dim(ReferenceStockSpeciesID2)
 #536 of the species in Costello et al. species list have stock assessments
@@ -672,16 +670,16 @@ Aqua4other<-cbind(Aqua4[c("id", "lon", "lat")],Aqua4other)
 head(Aqua4other)
 
 #I just want the coordinates
-AquaPoor_other<- Aqua4other %>% select(c(lon,lat))
-AquaManaged_other<- Aqua4other %>% select(c(lon,lat))
+AquaPoor_other<- Aqua4other %>% dplyr::select(c(lon,lat))
+AquaManaged_other<- Aqua4other %>% dplyr::select(c(lon,lat))
 
 #separating managed and unmanaged
 #managed
 for (j in ReferenceStockSpeciesID2$stockid){
   i<-ReferenceStockSpeciesID2$SpeciesID[which(ReferenceStockSpeciesID2$stockid==j)]
   #i="Fis-10768"
-  Layer1<-Aqua4other %>% select(c(lon,lat,i))
-  Layer2<-ManagementLayer4 %>% select(c(lon,lat,j))
+  Layer1<-Aqua4other %>% dplyr::select(c(lon,lat,i))
+  Layer2<-ManagementLayer4 %>% dplyr::select(c(lon,lat,j))
   Layer3<-left_join(Layer1,Layer2,by=c("lon","lat"))
   Layer3[is.na(Layer3)] <- 0
   AquaManaged_other<-AquaManaged_other %>% mutate(myval=Layer3[,3]*(Layer3[,4]==1))
