@@ -1,6 +1,6 @@
 Please read this document before proceeding to use the other files.
 
-This is the repository oage for the code and the data used in the paper
+This is the repository page for the code and the data used in the paper
 "A global network of marine protected areas for food"
 by: R.B. Cabral, D. Bradley, J. Mayorga, W. Goodell, A.M. Friedlander, E. Sala, C. Costello, S.D. Gaines
 (in press, PNAS)
