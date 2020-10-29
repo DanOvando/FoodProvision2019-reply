@@ -1,0 +1,15 @@
+---
+title: "response"
+author: "Dan Ovando"
+date: "10/27/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Look, we get it. You like MPAs. They're great. We love MPAs too. The merits of MPAs are many. LIST MERITS. Improving fisheries does not have to be one of those for them to be worth doing. So stop producing assumption-driven analyses that try to make that the case. Do some actual empirical analysis. Drop the veneer. we're going to love MPAs no matter what the answer is.
+
+
+seems like this might be part of it. There's clearly only fishing pressure in about 15% of the oceans in their analysis? Since they assume effort concentrates outside, goes  up a bit when you close that first 5%, then basically doesn't change at all until you hit the last 10%?

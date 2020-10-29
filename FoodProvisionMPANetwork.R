@@ -17,6 +17,7 @@ library(pryr)
 library(ggplot2)
 library(cowplot)
 library(reshape)
+library(here)
 
 ##Define scenarios. 
 scenario<-"BAU1" # Business as usual scenario used in our paper. Based on Costello et al. "concervation concern" scenario.
@@ -27,12 +28,12 @@ scenario<-"BAU1" # Business as usual scenario used in our paper. Based on Costel
 #scenario<-"EBvK01_msy" #"Collapse+MSY" scenario
 
 #Load files
-MegaData<-readRDS(file = "~/foodGCEfile/MegaData.rds")
-Cleanmegacell<-readRDS(file = "~/foodGCEfile/Cleanmegacell_mollweide.rds")
-CleanCoordmegacell<-readRDS(file = "~/foodGCEfile/CleanCoordmegacell_mollweide.rds")
-KprotectedPerCell_Library<-readRDS(file = "~/foodGCEfile/KprotectedPerCell_Library_mollweide.rds")
-MPA_coord<-readRDS(file="~/foodGCEfile/MPA_coord_mollweide.rds")
-land_shp_moll<-readRDS(file = "~/foodGCEfile/land_shp_moll.rds")
+MegaData<-readRDS(file = here("MegaData.rds"))
+Cleanmegacell<-readRDS(file = "Cleanmegacell_mollweide.rds")
+CleanCoordmegacell<-readRDS(file = "CleanCoordmegacell_mollweide.rds")
+KprotectedPerCell_Library<-readRDS(file = "KprotectedPerCell_Library_mollweide.rds")
+MPA_coord<-readRDS(file="MPA_coord_mollweide.rds")
+land_shp_moll<-readRDS(file = "land_shp_moll.rds")
 head(MPA_coord)
 dim(MPA_coord)
 
@@ -151,35 +152,35 @@ stopImplicitCluster()
 #saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas10_BAU1_mollweide.rds") 
 
 if(scenario=="BAU1"){   
-  saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH100_BAU1_mollweide.rds")
-  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_BAU1_mollweide.rds")
-  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_BAU1_mollweide.rds")  
+  saveRDS(PerSpDeltaH,file = "PerSpDeltaH100_BAU1_mollweide.rds")
+  saveRDS(NetworkResult,file = "NetworkResult100_BAU1_mollweide.rds")
+  saveRDS(PriorityAreas,file = "PriorityAreas100_BAU1_mollweide.rds")  
 }else if(scenario=="all managed"){  
-  saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH100_allmanaged.rds")
-  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_allmanaged.rds")
-  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_allmanaged.rds") 
+  saveRDS(PerSpDeltaH,file = "PerSpDeltaH100_allmanaged.rds")
+  saveRDS(NetworkResult,file = "NetworkResult100_allmanaged.rds")
+  saveRDS(PriorityAreas,file = "PriorityAreas100_allmanaged.rds") 
 }else if(scenario=="OAconstant"){
-  saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH100_OAconstant_mollweide.rds")
-  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_OAconstant_mollweide.rds")
-  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_OAconstant_mollweide.rds")   
+  saveRDS(PerSpDeltaH,file = "PerSpDeltaH100_OAconstant_mollweide.rds")
+  saveRDS(NetworkResult,file = "NetworkResult100_OAconstant_mollweide.rds")
+  saveRDS(PriorityAreas,file = "PriorityAreas100_OAconstant_mollweide.rds")   
 }else if(scenario=="Efin_msy"){
-  saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH100_Efin_msy_mollweide.rds")
-  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_Efin_msy_mollweide.rds")
-  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_Efin_msy_mollweide.rds")  
+  saveRDS(PerSpDeltaH,file = "PerSpDeltaH100_Efin_msy_mollweide.rds")
+  saveRDS(NetworkResult,file = "NetworkResult100_Efin_msy_mollweide.rds")
+  saveRDS(PriorityAreas,file = "PriorityAreas100_Efin_msy_mollweide.rds")  
 }else if(scenario=="EBvK01fin"){
-  saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH100_EBvK01fin_mollweide.rds")
-  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_EBvK01fin_mollweide.rds")
-  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_EBvK01fin_mollweide.rds") 
+  saveRDS(PerSpDeltaH,file = "PerSpDeltaH100_EBvK01fin_mollweide.rds")
+  saveRDS(NetworkResult,file = "NetworkResult100_EBvK01fin_mollweide.rds")
+  saveRDS(PriorityAreas,file = "PriorityAreas100_EBvK01fin_mollweide.rds") 
 }else if(scenario=="EBvK01_msy"){
-  saveRDS(PerSpDeltaH,file = "~/foodGCEfile/PerSpDeltaH100_EBvK01_msy_mollweide.rds")
-  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_EBvK01_msy_mollweide.rds")
-  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_EBvK01_msy_mollweide.rds") 
+  saveRDS(PerSpDeltaH,file = "PerSpDeltaH100_EBvK01_msy_mollweide.rds")
+  saveRDS(NetworkResult,file = "NetworkResult100_EBvK01_msy_mollweide.rds")
+  saveRDS(PriorityAreas,file = "PriorityAreas100_EBvK01_msy_mollweide.rds") 
 }
 
-NetworkResult<-readRDS(file = "~/foodGCEfile/NetworkResult100.rds")
-PriorityAreas<-readRDS(file = "~/foodGCEfile/PriorityAreas100.rds")
+NetworkResult<-readRDS(file = "NetworkResult100.rds")
+PriorityAreas<-readRDS(file = "PriorityAreas100.rds")
 
-PerSpDeltaH<-readRDS(file = "~/foodGCEfile/PerSpDeltaH100.rds")
+PerSpDeltaH<-readRDS(file = "PerSpDeltaH100.rds")
 dim(PerSpDeltaH)
 plot(rowSums(PerSpDeltaH))#this will give us the same result 
 
@@ -224,15 +225,15 @@ GlobalMap
 #ggsave("~/foodGCEfile/FoodResults/FoodProvPriorities10_BAU1.png", width = 12, height = 6, units = 'in', dpi= 300)
 
 if(scenario=="BAU1"){   
-  ggsave("~/foodGCEfile/FoodResults/FoodProvPriorities100_BAU1.png", width = 12, height = 6, units = 'in', dpi= 300)
+  ggsave(here("FoodResults","FoodProvPriorities100_BAU1.png"), width = 12, height = 6, units = 'in', dpi= 300)
 }else if(scenario=="all managed"){
-  ggsave("~/foodGCEfile/FoodResults/FoodProvPriorities100_allmanaged.png", width = 12, height = 6, units = 'in', dpi= 600)
+  ggsave(here("FoodResults","FoodProvPriorities100_allmanaged.png"), width = 12, height = 6, units = 'in', dpi= 600)
 }else if(scenario=="OAconstant"){
-  ggsave("~/foodGCEfile/FoodResults/FoodProvPriorities100_OAconstant.png", width = 12, height = 6, units = 'in', dpi= 600)
+  ggsave(here("FoodResults","FoodProvPriorities100_OAconstant.png"), width = 12, height = 6, units = 'in', dpi= 600)
 }else if(scenario=="Efin_msy"){
-  ggsave("~/foodGCEfile/FoodResults/FoodProvPriorities100_Efin_msy.png", width = 12, height = 6, units = 'in', dpi= 600)
+  ggsave(here("FoodResults","FoodProvPriorities100_Efin_msy.png"), width = 12, height = 6, units = 'in', dpi= 600)
 }else if(scenario=="EBvK01fin"){
-  ggsave("~/foodGCEfile/FoodResults/FoodProvPriorities100_EBvK01fin.png", width = 12, height = 6, units = 'in', dpi= 600)
+  ggsave(here("FoodResults","FoodProvPriorities100_EBvK01fin.png"), width = 12, height = 6, units = 'in', dpi= 600)
 }else if(scenario=="EBvK01_msy"){
-  ggsave("~/foodGCEfile/FoodResults/FoodProvPriorities100_EBvK01_msy.png", width = 12, height = 6, units = 'in', dpi= 600)
+  ggsave(here("FoodResults","FoodProvPriorities100_EBvK01_msy.png"), width = 12, height = 6, units = 'in', dpi= 600)
 }
