@@ -20,7 +20,10 @@ library(reshape)
 library(here)
 
 ##Define scenarios. 
-scenario<-"BAU1" # Business as usual scenario used in our paper. Based on Costello et al. "concervation concern" scenario.
+
+scenes <- c("BAU1","OAconstant","all managed","Efin_msy","EBvK01fin", "EBvK01_msy")
+
+# scenario<-"BAU1" # Business as usual scenario used in our paper. Based on Costello et al. "concervation concern" scenario.
 #scenario<-"OAconstant" # Costello et al. "all stocks" scenario.
 #scenario<-"all managed" #All MSY scenario
 #scenario<-"Efin_msy" #Costello et al. "all stock" + MSY scenario
@@ -70,6 +73,10 @@ K<-MegaData$Kfin #k per species
 m<-MegaData$m #mobility per species
 r<-MegaData$r
 
+for (s in scenes){
+  
+  scenario <- scenes[s]
+
 if (scenario=="all managed"){
   E<-MegaData$Emsy
 }else if(scenario=="OAconstant"){
@@ -99,7 +106,7 @@ PerSpDeltaH<-matrix(nrow=nmax,ncol=1342)
 PerSpDeltaH_EEZ<-matrix(nrow=nmax,ncol=1342)
 PerSpDeltaH_HS<-matrix(nrow=nmax,ncol=1342)
 
-cores<-detectCores()
+cores<-detectCores() - 2
 registerDoParallel(cores)
 for (i in 1:nmax){ 
   MPAselectPrev<-rowSums(KprotectedPerCell_Library[,which(MPAselect0==1),drop=FALSE])
@@ -236,4 +243,6 @@ if(scenario=="BAU1"){
   ggsave(here("FoodResults","FoodProvPriorities100_EBvK01fin.png"), width = 12, height = 6, units = 'in', dpi= 600)
 }else if(scenario=="EBvK01_msy"){
   ggsave(here("FoodResults","FoodProvPriorities100_EBvK01_msy.png"), width = 12, height = 6, units = 'in', dpi= 600)
+}
+
 }
