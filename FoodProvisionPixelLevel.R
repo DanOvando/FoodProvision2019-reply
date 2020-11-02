@@ -3,8 +3,8 @@
 #Author: Reniel Cabral
 #December 2019
 
-gc()
-rm(list = ls())
+# gc()
+# rm(list = ls())
 
 library(doParallel)
 library(raster)
@@ -17,13 +17,13 @@ library(cowplot)
 library(reshape)
 
 #MOLLWEIDE
-MegaData<-readRDS(file = "~/foodGCEfile/MegaData.rds")
-Cleanmegacell<-readRDS(file = "~/foodGCEfile/Cleanmegacell_mollweide.rds")
-CleanCoordmegacell<-readRDS(file = "~/foodGCEfile/CleanCoordmegacell_mollweide.rds")
-KprotectedPerCell_Library<-readRDS(file = "~/foodGCEfile/KprotectedPerCell_Library_mollweide.rds")
-MPA_coord<-readRDS(file="~/foodGCEfile/MPA_coord_mollweide.rds") #this is my code
+MegaData<-readRDS(file = "MegaData.rds")
+Cleanmegacell<-readRDS(file = "Cleanmegacell_mollweide.rds")
+CleanCoordmegacell<-readRDS(file = "CleanCoordmegacell_mollweide.rds")
+KprotectedPerCell_Library<-readRDS(file = "KprotectedPerCell_Library_mollweide.rds")
+MPA_coord<-readRDS(file="MPA_coord_mollweide.rds") #this is my code
 #MPA_coord<-readRDS(file="~/foodGCEfile/MPA_coord_mollweide_JuanMatched.rds") #juan's code
-land_shp_moll<-readRDS(file = "~/foodGCEfile/land_shp_moll.rds")
+land_shp_moll<-readRDS(file = "land_shp_moll.rds")
 head(MPA_coord)
 dim(MPA_coord)
 
@@ -68,7 +68,7 @@ hbau<-hbau*(hbau>0)
 HBAU<-sum(hbau)
 HBAU
 
-cores<-detectCores()
+cores<-detectCores() - 2
 registerDoParallel(cores)
 MPAselectPrev<-rowSums(KprotectedPerCell_Library[,which(MPAselect0==1),drop=FALSE])#needed since there are existing MPAs!!!
 result <- foreach(iter = 1:length(celltoiterate), .combine = rbind) %dopar% {
@@ -85,4 +85,4 @@ stopImplicitCluster()
 head(result) #this is the ranking --- use this ranking to prioritize
 
 #save pixel-level result
-saveRDS(result,file = "~/foodGCEfile/pixellevelfoodresult_mollweide.rds")
+saveRDS(result,file = "pixellevelfoodresult_mollweide.rds")

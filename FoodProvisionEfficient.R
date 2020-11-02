@@ -7,8 +7,8 @@
 #(1-(1-E)^(1/(1-x)))*((m*k*(1-x))/((1-(1-E)^(1/(1-x)))*x+m))*(1- (((1-(1-E)^(1/(1-x)))*(1-x)*m)/((((1-(1-E)^(1/(1-x)))*x)+m)*r)))
 
 #Clear memory
-gc()
-rm(list = ls())
+# gc()
+# rm(list = ls())
 
 saveme<-0 #if 1, activate saving of plots
 

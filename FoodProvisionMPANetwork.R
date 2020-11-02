@@ -4,8 +4,8 @@
 #December 2019
 
 ##Clean environment
-gc()
-rm(list = ls())
+# gc()
+# rm(list = ls())
 
 ##Load libraries
 library(doParallel)
@@ -73,9 +73,11 @@ K<-MegaData$Kfin #k per species
 m<-MegaData$m #mobility per species
 r<-MegaData$r
 
+cores<-detectCores() - 2
+registerDoParallel(cores)
 for (s in scenes){
   
-  scenario <- scenes[s]
+  scenario <- s
 
 if (scenario=="all managed"){
   E<-MegaData$Emsy
@@ -106,10 +108,10 @@ PerSpDeltaH<-matrix(nrow=nmax,ncol=1342)
 PerSpDeltaH_EEZ<-matrix(nrow=nmax,ncol=1342)
 PerSpDeltaH_HS<-matrix(nrow=nmax,ncol=1342)
 
-cores<-detectCores() - 2
-registerDoParallel(cores)
+
 for (i in 1:nmax){ 
   MPAselectPrev<-rowSums(KprotectedPerCell_Library[,which(MPAselect0==1),drop=FALSE])
+  
   result <- foreach(iter = 1:length(celltoiterate), .combine = rbind) %dopar% {
     MPAselect<-MPAselect0
     MPAselect[celltoiterate[iter]]<-1
@@ -159,9 +161,9 @@ stopImplicitCluster()
 #saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas10_BAU1_mollweide.rds") 
 
 if(scenario=="BAU1"){   
-  saveRDS(PerSpDeltaH,file = "PerSpDeltaH100_BAU1_mollweide.rds")
-  saveRDS(NetworkResult,file = "NetworkResult100_BAU1_mollweide.rds")
-  saveRDS(PriorityAreas,file = "PriorityAreas100_BAU1_mollweide.rds")  
+  saveRDS(PerSpDeltaH,file = "PerSpDeltaH100e_bau1.rds")
+  saveRDS(NetworkResult,file = "NetworkResult100_bau1.rds")
+  saveRDS(PriorityAreas,file = "PriorityAreas100_bau1.rds")  
 }else if(scenario=="all managed"){  
   saveRDS(PerSpDeltaH,file = "PerSpDeltaH100_allmanaged.rds")
   saveRDS(NetworkResult,file = "NetworkResult100_allmanaged.rds")
@@ -184,10 +186,12 @@ if(scenario=="BAU1"){
   saveRDS(PriorityAreas,file = "PriorityAreas100_EBvK01_msy_mollweide.rds") 
 }
 
-NetworkResult<-readRDS(file = "NetworkResult100.rds")
-PriorityAreas<-readRDS(file = "PriorityAreas100.rds")
+} #close loops
 
-PerSpDeltaH<-readRDS(file = "PerSpDeltaH100.rds")
+# NetworkResult<-readRDS(file = "NetworkResult100.rds")
+# PriorityAreas<-readRDS(file = "PriorityAreas100.rds")
+
+# PerSpDeltaH<-readRDS(file = "PerSpDeltaH100.rds")
 dim(PerSpDeltaH)
 plot(rowSums(PerSpDeltaH))#this will give us the same result 
 
@@ -196,7 +200,7 @@ PICKSIZE<-100
 BenefitCurve<-as.data.frame(NetworkResult)/1000000
 MPAsize<-(length(MPAposition)+1)*100/dim(Cleanmegacell)[1]
 #(MPAinEEZ+1)*100/length(EEZposition)#there is +1 because the next pixel starts with +1
-BenefitCurve$MPA <- rescale(seq.int(nmax), to = c(MPAsize, 100))
+BenefitCurve$MPA <- scales::rescale(seq.int(nmax), to = c(MPAsize, 100))
 zerozero<-data.frame(0,0)
 names(zerozero)<-c("NetworkResult","MPA")
 zerozero[1,]<-c(-HBAU/(1000000),100)
@@ -245,4 +249,3 @@ if(scenario=="BAU1"){
   ggsave(here("FoodResults","FoodProvPriorities100_EBvK01_msy.png"), width = 12, height = 6, units = 'in', dpi= 600)
 }
 
-}
