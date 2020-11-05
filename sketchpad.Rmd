@@ -36,7 +36,7 @@ run_cabral_et_al <- FALSE
 
 run_case_study <- FALSE
 
-get_fao_data <- FALSE
+get_fao_data <- TRUE
 
 run_ram_exmaple <- TRUE
 
