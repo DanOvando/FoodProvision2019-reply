@@ -1,0 +1,1571 @@
+---
+title: "response"
+author: "Dan Ovando"
+date: "10/27/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load data}
+
+#copied and then modified to allow reproducibility from FoodGlobalAnalysis_EffortRedistribute_clean.R supplied by Ren through
+# https://ucsb.box.com/s/mj6gnsh111c0nrdw1yt4nutvkts76zi4
+#
+library(doParallel)
+library(raster)
+library(rgdal)
+library(maptools)
+library(dplyr)
+library(pryr)
+library(ggplot2)
+library(cowplot)
+library(reshape)
+library(data.table)
+library(here)
+library(scales)
+library(tidyverse)
+library(countrycode)
+
+rename <- dplyr::rename
+
+run_cabral_et_al <- FALSE
+
+run_case_study <- FALSE
+
+get_fao_data <- FALSE
+
+run_ram_exmaple <- TRUE
+
+results_name <- "v0.5"
+
+results_path <- here("results", results_name)
+
+if (!dir.exists(results_path)){
+  dir.create(results_path, recursive = TRUE)
+}
+
+if (!dir.exists("data")){
+
+     download.file(
+      "https://www.dropbox.com/s/j6gpyd3h52z18bi/food-provision-data.zip?dl=1",
+      destfile = here("tmp.zip"),
+      mode = "wb"
+    )
+
+    unzip(here("tmp.zip")) # unzip = 'unzip' needed for windows
+    
+    file.rename("food-provision-data","data")
+    
+    file.remove("tmp.zip")
+    
+    if (dir.exists("__MACOSX")){
+      unlink("__MACOSX", recursive = TRUE)
+    }
+  
+}
+
+##SELECT SCENARIO --- there are four scenarios
+scenario<-"BAU1"
+#scenario<-"OAconstant"
+#scenario<-"EBvK01fin"
+#scenario<-"all managed"
+
+#Load MOLLWEIDE projected data
+MegaData<-readRDS(file = here("data","MegaData.rds"))
+Cleanmegacell<-readRDS(file = here("data","Cleanmegacell_mollweide.rds"))
+CleanCoordmegacell<-readRDS(file = here("data","CleanCoordmegacell_mollweide.rds"))
+KprotectedPerCell_Library<-readRDS(file = here("data","KprotectedPerCell_Library_mollweide.rds"))
+MPA_coord<-readRDS(file= here("data","MPA_coord_mollweide.rds")) #this is my code
+land_shp_moll<-readRDS(file = here("data","land_shp_moll.rds"))
+head(MPA_coord)
+dim(MPA_coord)
+
+#get MPA positions
+CleanCoordmegacell_MPA<-left_join(CleanCoordmegacell,MPA_coord,by=c("lon","lat"))
+head(CleanCoordmegacell_MPA)
+dim(CleanCoordmegacell_MPA)
+sum(CleanCoordmegacell_MPA$MPA,na.rm=T)
+
+#positions of 1s (MPAs)
+MPAposition<-which(CleanCoordmegacell_MPA$MPA==1)
+head(MPAposition)
+length(MPAposition)#2931 --- 2.44% are MPAs
+length(MPAposition)*100/dim(Cleanmegacell)[1]
+
+##TRY new approach
+numcell<-dim(Cleanmegacell)[1]
+celltoiterateFULL<-1:numcell
+MPAselect0<-matrix(0, nrow=numcell, ncol=1)
+PriorityAreas<-c()
+NetworkResult<-vector()
+
+#Make MPAselect0==1 for MPAs
+MPAselect0[MPAposition]<-1
+head(MPAselect0)
+sum(MPAselect0)
+
+#remove MPAs from celltoiterateFULL
+celltoiterateFULL<-celltoiterateFULL[-MPAposition]
+celltoiterate<-celltoiterateFULL
+ncell<-length(celltoiterate)
+
+###Compute spillover---PIXEL-LEVEL spillover 
+K<-MegaData$Kfin # K per species
+m<-MegaData$m # mobility per species
+r<-MegaData$r
+
+if (scenario=="all managed"){
+  E<-MegaData$Emsy
+}else if(scenario=="OAconstant"){
+  E<-MegaData$Efin
+}else if(scenario=="BAU1"){  
+  E<-MegaData$Efin_BAU1
+}else if(scenario=="Efin_msy"){ 
+  E<-MegaData$Efin_msy
+}else if(scenario=="EBvK01fin"){ 
+  E<-MegaData$EBvK01fin 
+}
+
+ER<-1-E
+ER<-1*(ER>1) + ER*(ER<=1)
+max(ER)
+min(ER)
+
+MPAselect<-MPAselect0
+R<-rowSums(KprotectedPerCell_Library[,which(MPAselect==1),drop=FALSE])
+ER_redistribute<-1-(1-ER)^(1/(1-R))
+
+
+b_outside_bau <-
+  ((m * K * (1 - R)) / (ER_redistribute * R + m)) * (1 - (ER_redistribute * (1 - R) * m) /
+                                                       ((ER_redistribute + m) * r)) # so the only place space is coming in here is in summing the proportion of patches protected. Where is the optimal order thing coming in? It's not, since all that it's optimizing is the order in terms of K, there's not "net effect" in terms of where anything goes. Fuck me.
+
+hbau<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
+hbau<-hbau*(hbau>0)
+HBAU<-sum(hbau)
+HBAU
+
+PICKSIZE<-100 #number of MPA sites selected
+
+nmax<-floor(length(celltoiterate)/PICKSIZE)
+nmax #this is the number of iterations needed for PICKSIZE at a time!
+
+Eevolve<-matrix(nrow=nmax,ncol=dim(MegaData)[1])
+# k_per_cell <- t(as.datKprotectedPerCell_Library)
+
+if (run_cabral_et_al){
+  
+  cores<-detectCores() - 2
+registerDoParallel(cores)
+for (i in 1:nmax){ 
+  MPAselectPrev<-rowSums(KprotectedPerCell_Library[,which(MPAselect0==1),drop=FALSE])
+  a <- Sys.time()
+  result <- foreach(iter = 1:length(celltoiterate), .combine = rbind) %dopar% {
+    MPAselect<-MPAselect0
+    MPAselect[celltoiterate[iter]]<-1
+    R<-MPAselectPrev+KprotectedPerCell_Library[,celltoiterate[iter]]
+    ER_redistribute<-1-(1-ER)^(1/(1-R))
+    
+    
+    hmpa<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
+    hmpa<-hmpa*(hmpa>0)
+    HMPA<-sum(hmpa)
+    HMPA-HBAU
+  }
+  Sys.time() - a
+  
+  #1. find the location of the top 1000 highest pixel-level
+  myorderHightoLow<-order(-result)#positions
+  cellselected<-myorderHightoLow[1:PICKSIZE] #but these are the position of the temporary pixels, not our reference pixels
+  #convert coord to scale comparable to priority areas
+  Prioritycellselected<-celltoiterate[cellselected]
+  
+  #3. block those additional 100 in MPAselect
+  MPAselect0[Prioritycellselected]<-1
+  
+  #4. save them for our priority areas
+  PriorityAreas<-append(PriorityAreas,Prioritycellselected)
+  
+  #5. Calculate food prov of the additional 100 cells
+  MPAselect<-MPAselect0
+  R<-rowSums(KprotectedPerCell_Library[,which(MPAselect==1),drop=FALSE])
+  ER_redistribute<-1-(1-ER)^(1/(1-R))
+
+  hmpa<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
+  hmpa<-hmpa*(hmpa>0)
+  HMPA<-sum(hmpa)
+  
+  #save result. Comment other parts not needed now.
+  NetworkResult[i]<-HMPA-HBAU
+  Eevolve[i,]<-ER_redistribute
+  
+  #pass this to the top
+  celltoiterate<-celltoiterateFULL[!celltoiterateFULL %in% PriorityAreas]#celltoiterateFULL[-PriorityAreas]#bacause Prioritycellselected are real numbers, not rank
+  
+  print(c(i,NetworkResult[i]))
+  rm(result,myorderHightoLow,cellselected,Prioritycellselected, MPAselect,R,hmpa,HMPA)
+}
+plot(NetworkResult)
+stopImplicitCluster()
+
+if(scenario=="BAU1"){
+  saveRDS(NetworkResult,file = file.path(results_path,"NetworkResult100_BAU1_mollweide.rds"))
+  saveRDS(PriorityAreas,file = file.path(results_path, "PriorityAreas100_BAU1_mollweide.rds"))
+}else if(scenario=="all managed"){  
+  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_allmanaged_redistribute.rds")
+  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_allmanaged_redistribute.rds") 
+}else if(scenario=="OAconstant"){
+  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_OAconstant_mollweide_redistribute.rds")
+  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_OAconstant_mollweide_redistribute.rds")   
+}else if(scenario=="EBvK01fin"){
+  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_EBvK01fin_mollweide_redistribute.rds")
+  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_EBvK01fin_mollweide_redistribute.rds") 
+}
+
+  
+} else {
+  
+  NetworkResult <-readRDS(file = file.path(results_path,"NetworkResult100_BAU1_mollweide.rds"))
+  
+  PriorityAreas <- readRDS(file = file.path(results_path,"PriorityAreas100_BAU1_mollweide.rds") )
+  
+}
+
+PICKSIZE<-100
+BenefitCurve<-as.data.frame(NetworkResult)/1000000
+MPAsize<-(length(MPAposition)+1)*100/dim(Cleanmegacell)[1]
+#(MPAinEEZ+1)*100/length(EEZposition)#there is +1 because the next pixel starts with +1
+BenefitCurve$MPA <- rescale(seq.int(nmax), to = c(MPAsize, 100))
+zerozero<-data.frame(0,0)
+names(zerozero)<-c("NetworkResult","MPA")
+zerozero[1,]<-c(-HBAU/(1000000),100)
+BenefitCurve<-rbind(BenefitCurve,zerozero)
+theme_set(theme_cowplot())
+benefitplot<-ggplot(BenefitCurve, aes(MPA, NetworkResult)) +geom_line(col="blue")+# theme_classic()+
+  labs(x="% EEZ protected",y="Change in catch (MMT)",title=paste("Global (max =", round(max(BenefitCurve$NetworkResult),2),"MMT)"))#+geom_hline(yintercept = 0)
+benefitplot
+
+Priority<-as.data.frame(PriorityAreas)
+Priority$rank <- ((seq.int(nrow(Priority))/ncell))*100
+
+#add dh
+NetworkResult_prime<-as.data.frame(NetworkResult)
+dH_prime<-NetworkResult_prime %>% mutate(dH = NetworkResult - lag(NetworkResult, default = 0))
+plot(dH_prime$dH)
+Priority$NetworkResult<-rep(NetworkResult, each=PICKSIZE) ## this is adding delta H
+Priority$dH<-rep(dH_prime$dH/PICKSIZE, each=PICKSIZE) ## this is adding delta H
+head(Priority)
+dim(Priority)
+
+PriorityFrame <- as.data.frame(seq.int(nrow(CleanCoordmegacell)))
+names(PriorityFrame) <- "PriorityAreas"
+#add the priority
+PriorityFrame2<-left_join(PriorityFrame,Priority, by="PriorityAreas")
+PriorityFrame2[is.na(PriorityFrame2)] <- 0
+head(PriorityFrame2)
+dim(PriorityFrame2)
+
+ShortCoord<-CleanCoordmegacell
+ShortCoord$rank<-PriorityFrame2$rank
+ShortCoord$NetworkResult<- PriorityFrame2$NetworkResult#this is for deriving dh
+ShortCoord$dH<- PriorityFrame2$dH#this is for deriving dh
+ShortCoord$ID<-row.names(ShortCoord)
+
+dim(ShortCoord)
+head(ShortCoord)
+
+ShortCoord_Sort <- ShortCoord[order(-ShortCoord$rank),] %>% filter(rank!=-1000)
+
+ShortCoord_Sort$sign<-ShortCoord_Sort$dH>0
+InflectPoint<-min(which(ShortCoord_Sort$sign == TRUE))
+InflectMPA<-ShortCoord_Sort$rank[InflectPoint]
+
+MPAcoverage<-ShortCoord_Sort %>% ggplot(aes(x=lon,y=lat,fill=rank)) + #scale_fill_gradient2(low="darkred", mid="white",high="#00539CFF",midpoint = 0, space = "Lab",na.value = "grey50", guide = "colourbar", aesthetics = "fill",name=expression(paste(Delta, "H (MT)")))+
+  scale_fill_gradientn(colours = c("forestgreen", "white", "orange"), limits=c(0,100), values = scales::rescale(c(min(ShortCoord_Sort$rank), InflectMPA, max(ShortCoord_Sort$rank))),name="Protection sequence")+
+  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank(),legend.position=c(0.63, 0.05), legend.direction = "horizontal")+ #"bottom
+  geom_raster()+
+  geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+MPAcoverage
+
+```
+
+
+Look, we get it. You like MPAs. They're great. We love MPAs too. The merits of MPAs are many. LIST MERITS. Improving fisheries does not have to be one of those for them to be worth doing. So stop producing assumption-driven analyses that try to make that the case. Do some actual empirical analysis. Drop the veneer. we're going to love MPAs no matter what the answer is.
+
+
+seems like this might be part of it. There's clearly only fishing pressure in about 15% of the oceans in their analysis? Since they assume effort concentrates outside, goes  up a bit when you close that first 5%, then basically doesn't change at all until you hit the last 10%?
+
+whenisgood dgkxra9
+
+# DD movement
+
+m(1 - R)(bin - R / (1 - R)bout)
+
+
+```{r}
+
+
+b_in <- 100
+
+grid <- expand_grid(m = c(0.3,.1,.9),
+                    r = seq(0,1, by = .1), 
+                    b_out = seq(0,100, by = 1)) %>% 
+  mutate(b_trans = (m * (1 - r)) * (b_in - (r / (1 - r)) * b_out)) %>% 
+  mutate(b_moved = b_trans / b_in,
+         b_out_new = b_out + b_moved,
+         check  = b_in / r - b_out / (1 - r))
+
+grid %>% 
+  ggplot(aes(r,b_out / b_in, fill = b_trans))  + 
+  geom_tile() + 
+  facet_wrap(~m) + 
+  scale_fill_viridis_c()
+
+
+grid %>% 
+  ggplot(aes(r,b_out / b_in, fill = b_out_new / b_out))  + 
+  geom_tile() + 
+  facet_wrap(~m) + 
+  scale_fill_viridis_c()
+
+
+grid %>% 
+  ggplot(aes(b_out, b_trans)) + 
+  geom_point() + 
+  facet_wrap(~m)
+
+
+```
+
+
+
+```{r}
+b_in <- 100
+
+grid <- expand_grid(m = c(0.3,.1,.9),
+                    r = seq(0,1, by = .1), 
+                    b_1 = seq(0,100, by = 1),
+                    b_2 = seq(0,100, by = 1)) %>% 
+  mutate(b_trans_to_2 = (m * (1 - r)) * (b_1 - (r / (1 - r)) * b_2)) %>% 
+  mutate(b_trans_to_1 = (m * (1 - r)) * (b_2 - (r / (1 - r)) * b_1)) %>% 
+  mutate(total = b_trans_to_2 + b_trans_to_1)
+
+
+# grid %>% 
+#   filter(b_1 == b_2) %>% 
+#   View()
+
+grid %>% 
+  filter(b_1 == b_2) %>% 
+  ggplot() +
+  geom_histogram(aes(b_trans_to_2 / b_trans_to_1))
+
+
+```
+
+
+Weird in a lot of ways. Goes negative, there's no distance. 
+
+Let's try and look at some K's
+
+Lutjanus griseus
+
+Sigh. So a POP MPA off of California affects Japan. 
+
+
+```{r}
+
+
+snap <- which(MegaData$SciName == "Trichiurus lepturus")[1]
+
+ShortCoord<-CleanCoordmegacell
+
+check <- mean(KprotectedPerCell_Library[snap,] > 0)
+
+
+tmp <- ShortCoord %>% 
+  mutate(k_per_cell = as.numeric(KprotectedPerCell_Library[snap,])) %>% 
+  mutate(k_per_cell = ifelse(k_per_cell == 0, NA, k_per_cell))
+
+tmp %>% 
+  ggplot(aes(lon, lat, fill = k_per_cell)) + 
+  geom_raster() +
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+
+
+```
+
+
+
+breakdown of MSY
+```{r}
+MegaData %>% 
+  group_by(Manage) %>% 
+  summarise(msy = sum(MSYfin)) %>% 
+  ggplot(aes(Manage, msy)) + 
+  geom_col()
+
+
+
+```
+
+compare ER BAU to costello database
+
+
+```{r}
+upsides_data <- readRDS(here("data","projection_data.rds")) %>%
+  janitor::clean_names() %>%
+  filter(policy == "BAU",
+         dbase == "FAO",
+         # year == 2050, 
+         scenario == "Con. Concern") %>% 
+  mutate(u = catch / biomass)
+
+wtf <- upsides_data %>% 
+  group_by(sci_name) %>% 
+  summarise(mean_u = mean(u, na.rm = TRUE))
+
+a = upsides_data %>%
+  # filter( id_orig == "11562-FAO-27-38") %>%
+  ggplot(aes(year, bv_bmsy, group = id_orig)) +
+  geom_line()
+
+MegaData %>% 
+  filter(Manage == 0) %>% 
+  ggplot(aes(1 - Emsy, 1 - EBvK01fin)) + 
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0)
+
+check <- MegaData %>% 
+  select(SciName, Manage, stockid, Efin_BAU1) %>% 
+  mutate(u_bau = 1 - Efin_BAU1) %>% 
+  left_join(wtf, by = c("SciName" = "sci_name"))
+
+check %>% 
+  ggplot(aes(u_bau, mean_u)) + 
+  geom_point() + 
+  geom_abline(aes(slope = 1, intercept = 0)) + 
+  scale_x_continuous("U BAU Cabral") + 
+  scale_y_continuous(name = "U BAU Costello")
+
+
+
+```
+
+
+# Compare to upsides
+
+
+```{r}
+
+upsides <- read_csv(here("data","upsides","ProjectionData.csv")) %>% 
+janitor::clean_names()
+
+mega_data <-MegaData %>%
+  janitor::clean_names()
+
+
+upsides <- upsides %>% 
+  filter(sci_name %in% unique(mega_data$sci_name))
+
+
+# let's compare MSYs first
+
+global_things <- upsides %>% 
+  filter(
+         policy == "Historic", 
+         scenario == "Historic") %>% 
+  filter(year == 2012) %>% 
+  group_by(sci_name) %>% 
+  summarise(msy = sum(msy),
+            g = mean(g)) %>% 
+  ungroup()
+
+
+mega_data <- mega_data %>% 
+  left_join(global_things, by = "sci_name") %>% 
+  dplyr::rename(msy_fin = ms_yfin,
+                msy_total = ms_ytotal)
+
+
+check_n <- mega_data %>% 
+  group_by(manage, sci_name) %>% 
+   count()
+   
+
+mega_data %>% 
+  ggplot(aes(msy, msy_fin)) + 
+  geom_point() + 
+  geom_abline(aes(slope = 1, intercept = 0))
+
+mega_data %>% 
+  group_by(sci_name) %>% 
+  summarise(msy = unique(msy), msy_fin = sum(msy)) %>% 
+  ggplot(aes(msy, msy_fin)) + 
+  geom_point() + 
+  geom_abline(aes(slope = 1, intercept = 0))
+
+
+mega_data %>% 
+  ggplot(aes(msy, msy_total)) + 
+  geom_point() + 
+  geom_abline(aes(slope = 1, intercept = 0))
+
+# now let's comapare the R's
+
+mega_data %>% 
+  ggplot(aes(r, g)) + 
+  geom_point() + 
+  geom_abline(aes(slope = 1, intercept = 0))
+
+
+
+```
+
+
+## Let's try and comapre BAU
+
+```{r}
+upsides_bau <- upsides %>% 
+  filter(
+         policy == "BAU", 
+         scenario == "Con. Concern") %>% 
+  filter(year == max(year)) %>% 
+  dplyr::rename(bvbmsy_upsides = bv_bmsy) %>% 
+  mutate(manage = ifelse(dbase == "FAO",0, 1))
+
+msy_weighted_upsides_bau <- upsides_bau %>% 
+  group_by(sci_name, manage) %>% 
+  summarise(msy_weighted_bvbmsy_upsides = weighted.mean(bvbmsy_upsides, w = msy))
+
+upsides_bau %>% 
+  ggplot(aes(bvbmsy_upsides, fv_fmsy)) + 
+  geom_point()
+
+# Need to calculate EQ conditions now.... fun. 
+
+
+cabral_foo <- function(r,k,R,u,m, years = 100){
+  
+  # r = .2
+  # 
+  # k = 100
+  # 
+  # R = 0
+  # 
+  # u = r / 2
+  # 
+  # m = .3
+  # 
+  # years = 100
+  
+  b_in <- rep(k,years)
+  
+  b_out <- rep(k,years)
+  
+  for (i in 2:years){
+    
+    
+    mu <- m * (1 - R)
+    
+    b_in[i] <-
+      b_in[i - 1] + R * r * (b_in[i - 1] + b_out[i - 1]) * (1 - (b_in[i - 1] + b_out[i - 1]) / k) - mu * (b_in[i - 1] - (R / (1 -
+                                                                                                                                R)) * b_out[i - 1])
+    
+    b_out[i] <-
+      (1 - u) * b_out[i - 1] + (1 - R) * r * (b_in[i - 1] + b_out[i - 1]) * (1 - (b_in[i - 1] + b_out[i - 1]) / k) + mu * (b_in[i - 1] - (R / (1 - R)) * b_out[i - 1])
+    
+    
+    
+  } # close for loop
+  
+  out <- tibble(b_in = b_in, b_out = b_out, b = b_in + b_out) %>% 
+    mutate(b_bmsy = b / (k / 2))
+    
+}
+
+mega_data <- mega_data %>% 
+  mutate(u_bau  = 1 - efin_bau1) 
+
+mega_data$u_bau <-1*(mega_data$u_bau>1) + mega_data$u_bau*(mega_data$u_bau<=1)
+
+hist(mega_data$u_bau)
+
+
+mega_data <- mega_data %>% 
+  mutate(bau = pmap(list(r = r, k = k, m = m, u = u_bau, R = 0), cabral_foo))
+
+mega_data <- mega_data %>% 
+  mutate(bvbmsy_bau = map_dbl(bau, ~last(.x$b_bmsy)))
+
+mega_data %>% 
+  ggplot(aes(u_bau,bvbmsy_bau, color = r)) + 
+  geom_point() + 
+  scale_color_viridis_c()
+
+compare_baus <- mega_data %>% 
+  left_join(upsides_bau %>% select(sci_name, bvbmsy_upsides, manage), by = c("sci_name", "manage"))
+
+compare_baus %>% 
+  ggplot(aes(bvbmsy_bau,bvbmsy_upsides, color = manage == 1)) + 
+  geom_abline(aes(slope = 1, intercept = 0)) +
+  geom_point(aes( size = sqrt(msy)), alpha = 0.75) + 
+  geom_smooth() + 
+  facet_wrap(~manage)
+
+mega_data %>% 
+  group_by(manage, sci_name) %>% 
+  unique() %>% 
+  count()
+
+
+compare_weighted_baus <- mega_data %>% 
+  left_join(msy_weighted_upsides_bau, by = c("sci_name", "manage"))
+
+compare_weighted_baus %>% 
+  ggplot(aes(bvbmsy_bau,msy_weighted_bvbmsy_upsides, color = manage == 1)) + 
+  geom_abline(aes(slope = 1, intercept = 0)) +
+  geom_point(aes( size = sqrt(msy)), alpha = 0.75) + 
+  geom_smooth() + 
+  facet_wrap(~manage)
+  
+```
+
+So, the issue here is that it looks like they're collapsing down to an average BAU? but there's clearly a massive amount of noise. So, if it's just randomly distributed and MSY is the same everywhere, then you'd expect the upside to be proportional to the average MSY, not the total MSY. 
+
+# case study
+
+As an exmaple of a species with crazy distribution chub mackeral
+
+
+```{r}
+# MegaData<-readRDS(file = "MegaData.rds")
+
+tmpmega <- MegaData %>% 
+  filter(Manage == 0) %>% 
+  sample_n(1)
+
+# snap <- which(MegaData$SciName == tmpmega$SciName[1])[1]
+
+snap <- which(MegaData$SciName == "Scomber japonicus" & MegaData$Manage == 0)[1]
+
+
+ShortCoord<-CleanCoordmegacell
+
+check <- mean(KprotectedPerCell_Library[snap,] > 0)
+
+
+tmp <- ShortCoord %>% 
+  mutate(k_per_cell = as.numeric(KprotectedPerCell_Library[snap,])) %>% 
+  mutate(k_per_cell = ifelse(k_per_cell == 0, NA, k_per_cell))
+
+tmp %>% 
+  ggplot(aes(lon, lat, fill = k_per_cell)) + 
+  geom_raster() +
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+
+
+```
+
+
+Let's compare that distribution to the catch
+
+```{r}
+rename <- dplyr::rename
+
+if (get_fao_data) {
+  if (!dir.exists(here("data", "fao"))) {
+    dir.create(here("data", "fao"))
+
+    download.file(
+      "http://www.fao.org/fishery/static/Data/Capture_2019.1.0.zip",
+      destfile = here("data", "fao.zip"),
+      mode = "wb"
+    )
+
+    unzip(here("data", "fao.zip"), exdir = here("data", "fao"))
+
+    file.remove(here("data", "fao.zip"))
+
+    download.file(
+      "http://www.fao.org/fishery/static/ASFIS/ASFIS_sp.zip",
+      destfile = here("data", "asfis.zip"),
+      mode = "wb"
+    )
+
+    unzip(here("data", "asfis.zip"), exdir = here("data", "fao"))
+
+    file.remove(here("data", "asfis.zip"))
+
+
+  }
+
+
+  asfis <-
+    read_delim(here("data", "fao", "ASFIS_sp_2020.txt"), delim = ",") %>%
+    janitor::clean_names() %>%
+    rename(isscaap_code = isscaap) %>%
+    select(isscaap_code, scientific_name, taxocode) %>%
+    unique()
+
+  # major issue with NEIs here. There is no database that has both isscaap group and isscaap code, so you need
+  # to do a complicated merge based on scientific name.
+
+  fao_capture <-
+    read_csv(here("data", "fao", "TS_FI_CAPTURE.csv")) %>%
+    janitor::clean_names()
+
+  sp_groups <-
+    read_csv(here("data", "fao", "CL_FI_SPECIES_GROUPS.csv")) %>%
+    janitor::clean_names() %>%
+    select(x3alpha_code:identifier, contains("_en"), author:cpc_group) %>%
+    rename(species_name_en = name_en) %>%
+    left_join(asfis, by = c("taxonomic_code" = "taxocode"))
+
+  # sp_groups %>%
+  #   group_by(x3alpha_code) %>%
+  #   summarise(ni = n_distinct(isscaap_group)) %>%
+  #   arrange(desc(ni))
+
+  country_groups <-
+    read_csv(here("data", "fao", "CL_FI_COUNTRY_GROUPS.csv")) %>%
+    janitor::clean_names() %>%
+    mutate(un_code = as.numeric(un_code)) %>%
+    select(un_code:iso3_code, contains("_en")) %>%
+    rename(country_name_en = name_en,
+           country_official_name_en = official_name_en)
+
+  fao_areas <-
+    read_csv(here("data", "fao", "CL_FI_WATERAREA_GROUPS.csv")) %>%
+    janitor::clean_names() %>%
+    mutate(fishing_area = as.numeric(code)) %>%
+    select(fishing_area, contains("_en"), contains("group"))
+
+  fao_capture <- fao_capture %>%
+    left_join(sp_groups, by = c("species" = "x3alpha_code"))
+
+  fao_capture <- fao_capture %>%
+    left_join(country_groups, by = c("country" = "un_code")) %>%
+    left_join(fao_areas, by = "fishing_area")
+
+  fao_capture$fao_country_name <-
+    countrycode::countrycode(fao_capture$country_name_en, "country.name", "un.name.en")
+
+  fao_capture <- fao_capture %>%
+    mutate(country = case_when(
+      is.na(fao_country_name) ~ country_name_en,
+      TRUE ~ fao_country_name
+    )) %>%
+    mutate(continent = countrycode::countrycode(country, "country.name", "continent"))
+
+  fao_capture <- fao_capture %>%
+    rename(
+      isscaap_number = isscaap_code,
+      common_name = species_name_en,
+      capture = quantity,
+      capture_units = unit,
+      fao_area_code = fishing_area,
+      fao_area = name_en
+    ) %>%
+    mutate(fao_stock = paste(common_name, country, fao_area, sep = '_'))
+
+  fao_capture <- fao_capture %>%
+    group_by(fao_stock) %>%
+    nest() %>%
+    ungroup() %>%
+    mutate(id = 1:nrow(.)) %>%
+    unnest(cols = data)
+
+  fao_capture <- fao_capture %>%
+    select(id, fao_stock, everything())
+
+  fao <- fao_capture %>%
+    filter(capture_units == "t",
+           isscaap_number < 67)
+
+  assign("fao", fao, envir = .GlobalEnv)
+
+
+  fao_stock_lookup <- fao %>%
+    select(scientific_name,
+           common_name,
+           country,
+           fao_area,
+           fao_area_code) %>%
+    unique()
+
+  assign("fao_stock_lookup", fao_stock_lookup, envir = .GlobalEnv)
+
+
+  fao_species <- fao %>%
+    select(scientific_name, common_name, isscaap_group, isscaap_number) %>%
+    unique()
+
+  assign("fao_species", fao_species, envir = .GlobalEnv)
+
+  fao_genus <-
+    str_split(fao_species$scientific_name, ' ', simplify = TRUE)[, 1]
+
+  fao_genus <-  fao_species %>%
+    mutate(genus = fao_genus) %>%
+    group_by(genus, isscaap_group) %>%
+    count() %>%
+    group_by(genus) %>%
+    filter(n == max(n)) %>%
+    select(-n) %>%
+    ungroup()
+
+  write_rds(fao_capture, file = here("data", "fao", "fao-capture.rds"))
+
+
+} else {
+  fao_capture <-
+    read_rds(file = here("data", "fao", "fao-capture.rds"))
+
+
+}
+
+a = fao_capture %>% 
+  filter(scientific_name == "Scomber japonicus", 
+         year > 2010)
+
+a %>% 
+  group_by(country, fao_area) %>% 
+  summarise(tc = sum(capture)) %>% 
+  arrange(desc(tc)) %>%  
+ungroup() %>% 
+  mutate(pc = tc / sum(tc)) %>% 
+  filter(tc > .1) %>% 
+  ggplot(aes(country, pc, fill = fao_area)) + 
+  geom_col() + 
+  coord_flip()
+```
+
+```{r}
+
+MegaData<-readRDS(file = here("data","MegaData.rds"))
+Cleanmegacell<-readRDS(file = here("data","Cleanmegacell_mollweide.rds"))
+CleanCoordmegacell<-readRDS(file = here("data","CleanCoordmegacell_mollweide.rds"))
+KprotectedPerCell_Library<-readRDS(file = here("data","KprotectedPerCell_Library_mollweide.rds"))
+MPA_coord<-readRDS(file= here("data","MPA_coord_mollweide.rds")) #this is my code
+land_shp_moll<-readRDS(file = here("data","land_shp_moll.rds"))
+head(MPA_coord)
+dim(MPA_coord)
+head(MPA_coord)
+dim(MPA_coord)
+
+loc <-
+  which(MegaData$SciName == "Scomber japonicus" &
+          MegaData$Manage == 0)
+
+# loc <-
+#   which((1 - MegaData$Efin_BAU1) > .3 &
+#           MegaData$Manage == 0)[1]
+
+MegaData <- MegaData[loc, ]
+
+KprotectedPerCell_Library <- KprotectedPerCell_Library[loc, ]
+
+#get MPA positions
+CleanCoordmegacell_MPA <-
+  left_join(CleanCoordmegacell, MPA_coord, by = c("lon", "lat"))
+head(CleanCoordmegacell_MPA)
+dim(CleanCoordmegacell_MPA)
+sum(CleanCoordmegacell_MPA$MPA, na.rm = T)
+
+#positions of 1s (MPAs)
+MPAposition <- which(CleanCoordmegacell_MPA$MPA == 1)
+head(MPAposition)
+length(MPAposition)#2931 --- 2.44% are MPAs
+length(MPAposition) * 100 / dim(Cleanmegacell)[1]
+
+##TRY new approach
+numcell <- dim(Cleanmegacell)[1]
+celltoiterateFULL <- 1:numcell
+MPAselect0 <- matrix(0, nrow = numcell, ncol = 1)
+PriorityAreas <- c()
+NetworkResult <- vector()
+
+#Make MPAselect0==1 for MPAs
+MPAselect0[MPAposition] <- 1
+head(MPAselect0)
+sum(MPAselect0)
+
+#remove MPAs from celltoiterateFULL
+celltoiterateFULL <- celltoiterateFULL[-MPAposition]
+celltoiterate <- celltoiterateFULL
+ncell <- length(celltoiterate)
+
+
+###Compute spillover---PIXEL-LEVEL spillover
+K <- MegaData$Kfin # K per species
+m <- MegaData$m # mobility per species
+r <- MegaData$r
+
+if (scenario == "all managed") {
+  E <- MegaData$Emsy
+} else if (scenario == "OAconstant") {
+  E <- MegaData$Efin
+} else if (scenario == "BAU1") {
+  E <- MegaData$Efin_BAU1
+} else if (scenario == "Efin_msy") {
+  E <- MegaData$Efin_msy
+} else if (scenario == "EBvK01fin") {
+  E <- MegaData$EBvK01fin
+}
+
+ER <- 1 - E
+ER <- 1 * (ER > 1) + ER * (ER <= 1)
+max(ER)
+min(ER)
+
+MPAselect <- MPAselect0
+R <-
+  rowSums(KprotectedPerCell_Library[, which(MPAselect == 1), drop = FALSE])
+ER_redistribute <- 1 - (1 - ER) ^ (1 / (1 - R))
+
+hbau <-
+  na.omit(ER_redistribute * ((m * K * (1 - R)) / ((ER_redistribute * R) +
+                                                    m)) * (1 - ((
+                                                      ER_redistribute * (1 - R) * m
+                                                    ) / (((ER_redistribute * R) + m
+                                                    ) * r))))
+hbau <- hbau * (hbau > 0)
+HBAU <- sum(hbau)
+HBAU
+
+PICKSIZE <- 100 #number of MPA sites selected
+
+nmax <- floor(length(celltoiterate) / PICKSIZE)
+nmax #this is the number of iterations needed for PICKSIZE at a time!
+
+Eevolve <- matrix(nrow = nmax, ncol = dim(MegaData)[1])
+
+
+if (run_case_study){
+cores <- detectCores() - 2
+registerDoParallel(cores)
+for (i in 1:nmax) {
+  MPAselectPrev <-
+    rowSums(KprotectedPerCell_Library[, which(MPAselect0 == 1), drop = FALSE])
+  result <-
+    foreach(iter = 1:length(celltoiterate),
+            .combine = rbind) %dopar% {
+              # print(iter)
+              # MPAselect <- MPAselect0
+              # MPAselect[celltoiterate[iter]] <- 1
+              R <- MPAselectPrev + KprotectedPerCell_Library[, celltoiterate[iter]]
+              ER_redistribute <- 1 - (1 - ER) ^ (1 / (1 - R))
+              
+              b_out <-
+                ((m * K * (1 - R)) / (ER_redistribute * R + m)) * (1 - (ER_redistribute * (1 - R) * m) /
+                                                                     ((ER_redistribute + m) * r)) # so the only place space is coming in here is in summing the proportion of patches protected. Where is the optimal order thing coming in? It's not, since all that it's optimizing is the order in terms of K, there's not "net effect" in terms of where anything goes. Fuck me. 
+              
+              hmpa <-
+                (ER_redistribute * ((m * K * (1 - R)) / ((
+                  ER_redistribute * R
+                ) + m)) * (1 - ((
+                  ER_redistribute * (1 - R) * m
+                ) / (((ER_redistribute * R) + m
+                ) * r))))
+              
+              
+              # out <- tibble(b_out = b_out, hmpa = hmpa, ER_redistribute = ER_redistribute, K = K)
+              # write_rds(out, file = here("storage",paste0("i",i,"_", "iter",iter,".rds")))
+              hmpa <- hmpa * (hmpa > 0)
+              HMPA <- sum(hmpa)
+              HMPA - HBAU
+            }
+  
+  #1. find the location of the top 1000 highest pixel-level
+  myorderHightoLow <- order(-result)#positions
+  cellselected <-
+    myorderHightoLow[1:PICKSIZE] #but these are the position of the temporary pixels, not our reference pixels
+  #convert coord to scale comparable to priority areas
+  Prioritycellselected <- celltoiterate[cellselected]
+  
+  #3. block those additional 100 in MPAselect
+  MPAselect0[Prioritycellselected] <- 1
+  
+  #4. save them for our priority areas
+  PriorityAreas <- append(PriorityAreas, Prioritycellselected)
+  
+  #5. Calculate food prov of the additional 100 cells
+  MPAselect <- MPAselect0
+  R <-
+    rowSums(KprotectedPerCell_Library[, which(MPAselect == 1), drop = FALSE])
+  ER_redistribute <- 1 - (1 - ER) ^ (1 / (1 - R))
+  
+  hmpa <-
+    na.omit(ER_redistribute * ((m * K * (1 - R)) / ((
+      ER_redistribute * R
+    ) + m)) * (1 - ((
+      ER_redistribute * (1 - R) * m
+    ) / (((ER_redistribute * R) + m
+    ) * r))))
+  hmpa <- hmpa * (hmpa > 0)
+  HMPA <- sum(hmpa)
+  
+  #save result. Comment other parts not needed now.
+  NetworkResult[i] <- HMPA - HBAU
+  Eevolve[i, ] <- ER_redistribute
+  
+  #pass this to the top
+  celltoiterate <-
+    celltoiterateFULL[!celltoiterateFULL %in% PriorityAreas]#celltoiterateFULL[-PriorityAreas]#bacause Prioritycellselected are real numbers, not rank
+  
+  print(c(i, NetworkResult[i]))
+  rm(
+    result,
+    myorderHightoLow,
+    cellselected,
+    Prioritycellselected,
+    MPAselect,
+    R,
+    hmpa,
+    HMPA
+  )
+}
+
+
+  saveRDS(NetworkResult,file = file.path(results_path,"cs_NetworkResult100_BAU1_mollweide.rds"))
+  saveRDS(PriorityAreas,file = file.path(results_path, "cs_PriorityAreas100_BAU1_mollweide.rds"))  
+
+} else {
+  
+    NetworkResult <- readRDS(file = file.path(results_path,"cs_NetworkResult100_BAU1_mollweide.rds"))
+    PriorityAreas <- readRDS(file =  file.path(results_path,"cs_PriorityAreas100_BAU1_mollweide.rds") )
+
+  
+}
+plot(NetworkResult)
+
+PICKSIZE<-100
+BenefitCurve<-as.data.frame(NetworkResult)/1000000
+MPAsize<-(length(MPAposition)+1)*100/dim(Cleanmegacell)[1]
+#(MPAinEEZ+1)*100/length(EEZposition)#there is +1 because the next pixel starts with +1
+BenefitCurve$MPA <- scales::rescale(seq.int(nmax), to = c(MPAsize, 100))
+zerozero<-data.frame(0,0)
+names(zerozero)<-c("NetworkResult","MPA")
+zerozero[1,]<-c(-HBAU/(1000000),100)
+BenefitCurve<-rbind(BenefitCurve,zerozero)
+theme_set(theme_cowplot())
+benefitplot<-ggplot(BenefitCurve, aes(MPA, NetworkResult)) +geom_line(col="blue")+# theme_classic()+
+  labs(x="% EEZ protected",y="Change in catch (MMT)",title=paste("Global (max =", round(max(BenefitCurve$NetworkResult),2),"MMT)"))#+geom_hline(yintercept = 0)
+benefitplot
+
+Priority<-as.data.frame(PriorityAreas)
+Priority$rank <- ((seq.int(nrow(Priority))/ncell))*100
+
+#add dh
+NetworkResult_prime<-as.data.frame(NetworkResult)
+dH_prime<-NetworkResult_prime %>% mutate(dH = NetworkResult - lag(NetworkResult, default = 0))
+plot(dH_prime$dH)
+Priority$NetworkResult<-rep(NetworkResult, each=PICKSIZE) ## this is adding delta H
+Priority$dH<-rep(dH_prime$dH/PICKSIZE, each=PICKSIZE) ## this is adding delta H
+head(Priority)
+dim(Priority)
+
+PriorityFrame <- as.data.frame(seq.int(nrow(CleanCoordmegacell)))
+names(PriorityFrame) <- "PriorityAreas"
+#add the priority
+PriorityFrame2<-left_join(PriorityFrame,Priority, by="PriorityAreas")
+PriorityFrame2[is.na(PriorityFrame2)] <- 0
+head(PriorityFrame2)
+dim(PriorityFrame2)
+
+ShortCoord<-CleanCoordmegacell
+ShortCoord$rank<-PriorityFrame2$rank
+ShortCoord$NetworkResult<- PriorityFrame2$NetworkResult#this is for deriving dh
+ShortCoord$dH<- PriorityFrame2$dH#this is for deriving dh
+ShortCoord$ID<-row.names(ShortCoord)
+
+dim(ShortCoord)
+head(ShortCoord)
+
+ShortCoord_Sort <- ShortCoord[order(-ShortCoord$rank),] %>% filter(rank!=-1000)
+
+ShortCoord_Sort$sign<-ShortCoord_Sort$dH>0
+InflectPoint<-min(which(ShortCoord_Sort$sign == TRUE))
+InflectMPA<-ShortCoord_Sort$rank[InflectPoint]
+
+MPAcoverage<-ShortCoord_Sort %>% filter(rank < 5) %>%  ggplot(aes(x=lon,y=lat,fill=rank)) + #scale_fill_gradient2(low="darkred", mid="white",high="#00539CFF",midpoint = 0, space = "Lab",na.value = "grey50", guide = "colourbar", aesthetics = "fill",name=expression(paste(Delta, "H (MT)")))+
+  # scale_fill_viridis_c( values = scales::rescale(c(min(ShortCoord_Sort$rank), InflectMPA, max(ShortCoord_Sort$rank)))) +
+  scale_fill_gradientn(colours = c("forestgreen", "white", "orange"), limits=c(0,100), values = scales::rescale(c(min(ShortCoord_Sort$rank), InflectMPA, max(ShortCoord_Sort$rank))),name="Protection sequence")+
+  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank(),legend.position=c(0.63, 0.05), legend.direction = "horizontal")+ #"bottom
+  geom_raster()+
+  geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+MPAcoverage
+
+ggsave(file.path(results_path,"MPAcoverage.pdf"), MPAcoverage, width = 20, height = 10)
+
+
+```
+
+
+# Assess footprints and global MPA coverage
+
+Could you try and polygonize this thing?
+
+So here's the idea. One issue here is the massive spatial footprint of the unassessed stocks. Expressed as a percentage of the ocean then, you can cover a huge area before you start to negatively affect a stock. But, the problem is most stocks have much smaller ranges, and the key question is the average size of an MPA relative to a more realstic footprint of a stock. Now, if MPAs are randomly placed across the globe, then this doesn't matter, since the average portion of a stock covered by an MPA should be the same at any resolution. But, once things get patchy that changes. Then, it's possible for one patch containing say 30% of what you thought to be the stock to actually be covering 100% of a smaller stock. Or to make it more extreme, suppose that each stock had a footprint equal to the resolution of the MPA datset. In that case, every cell would either be closed to fishing, or have no MPA, so the net benefit would be zero, since either you can't fish that stock, or that stock is independent of the MPA next to it. 
+
+Let's try and measure the footprint of the different stocks. 
+
+
+```{r}
+MegaData<-readRDS(file = here("data","MegaData.rds")) %>% 
+  janitor::clean_names()
+
+KprotectedPerCell_Library <-
+  readRDS(file = here("data","KprotectedPerCell_Library_mollweide.rds"))
+
+footprint <- as.data.table(KprotectedPerCell_Library)
+
+tmp <- ShortCoord %>% 
+  mutate(k_per_cell = as.numeric(KprotectedPerCell_Library[1,])) %>% 
+    sf::st_as_sf(coords = c("lon", "lat"),
+               crs = sf::st_crs(land_shp_moll)) %>% 
+  filter(k_per_cell > 0) 
+
+
+# a really rough measure of footpring is just the number of positive cells
+
+raw_footprint <- rowSums(footprint > 0)
+
+foo <- function(x){
+  y = x / max(x)
+}
+
+k_footprint <-  colSums(apply(footprint,1,foo)) # colsums since for some reason this flips things 
+
+# k footprint is a measure of how concentrated the population is. If every cell has the same k, then k_footpring == raw_footprint. But, if 99.9% of K is in 1 cell and the rest is in 1000 other cells, K footpring will be small
+
+
+footprint <- MegaData %>% 
+  select(sci_name, manage) %>% 
+  mutate(footprint = raw_footprint,
+         k_footprint = k_footprint)
+
+footprint %>% 
+  ggplot(aes(footprint, fill = manage == 1)) + 
+  geom_density() + 
+  scale_x_log10(name = "Footprint Size (note log 10)")
+
+
+footprint %>% 
+  ggplot(aes(k_footprint, fill = manage == 1)) + 
+  geom_density() + 
+  scale_x_log10(name = "K Footprint Size (note log 10)")
+
+# 
+
+
+# now, load in the protected thingy and try and calculate the actual area protected in each step, and then plot the percent of each stocks footprint protected globally
+
+
+  complete_network_result <- readRDS(file = file.path(results_path,"NetworkResult100_BAU1_mollweide.rds"))
+ 
+  complete_priority_areas <-  readRDS(file = file.path(results_path,"PriorityAreas100_BAU1_mollweide.rds"))  
+
+plot(complete_network_result)
+
+# assuming that this is just in number of cells then, for each stock's footprint, express inflection points as percent of footprint
+
+
+head(footprint)
+
+
+footprint <- footprint %>% 
+  mutate(five_percent = (0.05 * length(complete_priority_areas)) / k_footprint,
+         twenty_five_percent = (0.25 * length(complete_priority_areas)) / k_footprint)
+
+footprint %>% 
+  ggplot(aes(five_percent, fill = manage == 1)) + 
+  geom_histogram() + 
+  scale_x_log10()
+  
+```
+
+So this is saying expressed purely as a number of cells, covering 5% of the planet in an MPA would be bigger than the entire footprint of almost every stock in RAM. Similar to unassessed, but much less so. Is this useful? I don't know. 
+
+Where you put MPAs matters, and their size relative to available habitat matters. The bigger you assume the stock's footprint is, the bigger you can make the MPA that benefits them. So, aprt of the reason that they can grow the MPA as a fraction of global stock so fast is that the unassessed stocks are most of MSY and are massive, and the foorprint analysis shows that. 
+
+You could overlay the RAM stocks with the footprint at different levels of total protection, and for those stocks, see what fraction of them are inside MPAs at different levels. But I'm guessing that they avoid the RAM areas due to low F, but we'll see. 
+
+Now the reason that this looks excessive is that they are picking and choosing specific MPAs for specific stocks, so even at 5% no one fishery has 5% of its K protected. But it illustrates the point?
+
+Now this also doesn't tell you anything about the distance of the footprint covered, which would of course be a lot bigger. But that's a slightly different issue, as in it's sort of silly to give credit to catches in China from an MPA off of Baja
+
+```{r}
+NetworkResult<-readRDS(file = file.path(results_path, "NetworkResult100_BAU1_mollweide.rds"))
+PriorityAreas<-readRDS(file = file.path(results_path, "PriorityAreas100_BAU1_mollweide.rds"))
+
+#OAconstant
+#NetworkResult<-readRDS(file = "~/foodGCEfile/NetworkResult100_OAconstant_mollweide_redistribute.rds")
+#PriorityAreas<-readRDS(file = "~/foodGCEfile/PriorityAreas100_OAconstant_mollweide_redistribute.rds")
+
+#collapse
+#NetworkResult<-readRDS(file = "~/foodGCEfile/NetworkResult100_EBvK01fin_mollweide_redistribute.rds")
+#PriorityAreas<-readRDS(file = "~/foodGCEfile/PriorityAreas100_EBvK01fin_mollweide_redistribute.rds")
+
+#MSY
+#NetworkResult<-readRDS(file = "~/foodGCEfile/NetworkResult100_allmanaged_redistribute.rds")
+#PriorityAreas<-readRDS(file = "~/foodGCEfile/PriorityAreas100_allmanaged_redistribute.rds")
+
+#BENEFIT CURVE FOR 100 at a time? Next block for 1000 at a time.
+PICKSIZE<-100
+BenefitCurve<-as.data.frame(NetworkResult)/1000000
+MPAsize<-(length(MPAposition)+1)*100/dim(Cleanmegacell)[1]
+#(MPAinEEZ+1)*100/length(EEZposition)#there is +1 because the next pixel starts with +1
+BenefitCurve$MPA <- rescale(seq.int(nmax), to = c(MPAsize, 100))
+zerozero<-data.frame(0,0)
+names(zerozero)<-c("NetworkResult","MPA")
+zerozero[1,]<-c(-HBAU/(1000000),100)
+BenefitCurve<-rbind(BenefitCurve,zerozero)
+theme_set(theme_cowplot())
+benefitplot<-ggplot(BenefitCurve, aes(MPA, NetworkResult)) +geom_line(col="blue")+# theme_classic()+
+  labs(x="% EEZ protected",y="Change in catch (MMT)",title=paste("Global (max =", round(max(BenefitCurve$NetworkResult),2),"MMT)"))#+geom_hline(yintercept = 0)
+benefitplot
+
+Priority<-as.data.frame(PriorityAreas)
+Priority$rank <- ((seq.int(nrow(Priority))/ncell))*100
+
+#add dh
+NetworkResult_prime<-as.data.frame(NetworkResult)
+dH_prime<-NetworkResult_prime %>% mutate(dH = NetworkResult - lag(NetworkResult, default = 0))
+plot(dH_prime$dH)
+Priority$NetworkResult<-rep(NetworkResult, each=PICKSIZE) ## this is adding delta H
+Priority$dH<-rep(dH_prime$dH/PICKSIZE, each=PICKSIZE) ## this is adding delta H
+head(Priority)
+dim(Priority)
+
+PriorityFrame <- as.data.frame(seq.int(nrow(CleanCoordmegacell)))
+names(PriorityFrame) <- "PriorityAreas"
+#add the priority
+PriorityFrame2<-left_join(PriorityFrame,Priority, by="PriorityAreas")
+PriorityFrame2[is.na(PriorityFrame2)] <- 0
+head(PriorityFrame2)
+dim(PriorityFrame2)
+
+ShortCoord<-CleanCoordmegacell
+ShortCoord$rank<-PriorityFrame2$rank
+ShortCoord$NetworkResult<- PriorityFrame2$NetworkResult#this is for deriving dh
+ShortCoord$dH<- PriorityFrame2$dH#this is for deriving dh
+ShortCoord$ID<-row.names(ShortCoord)
+
+dim(ShortCoord)
+head(ShortCoord)
+
+ShortCoord_Sort <- ShortCoord[order(-ShortCoord$rank),] %>% filter(rank!=-1000)
+
+ShortCoord_Sort$sign<-ShortCoord_Sort$dH>0
+InflectPoint<-min(which(ShortCoord_Sort$sign == TRUE))
+InflectMPA<-ShortCoord_Sort$rank[InflectPoint]
+
+MPAcoverage<-ShortCoord_Sort %>% filter(rank < 5) %>%  ggplot(aes(x=lon,y=lat,fill=rank)) + #scale_fill_gradient2(low="darkred", mid="white",high="#00539CFF",midpoint = 0, space = "Lab",na.value = "grey50", guide = "colourbar", aesthetics = "fill",name=expression(paste(Delta, "H (MT)")))+
+  scale_fill_gradientn(colours = c("forestgreen", "white", "orange"), limits=c(0,100), values = scales::rescale(c(min(ShortCoord_Sort$rank), InflectMPA, max(ShortCoord_Sort$rank))),name="Protection sequence")+
+  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank(),legend.position=c(0.63, 0.05), legend.direction = "horizontal")+ #"bottom
+  geom_raster()+
+  geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+MPAcoverage
+
+ggsave("total_mpa_coverage.pdf", MPAcoverage, width = 20, height = 10)
+
+```
+
+So basically, close half the coastal seas in the first 5%, close the second half in the last 95%
+
+
+
+```{r}
+
+test_polygon <- ShortCoord_Sort %>% filter(rank < 5) %>%
+  sf::st_as_sf(coords = c("lon", "lat"),
+               crs = sf::st_crs(land_shp_moll))
+
+test_polygon %>% 
+  ggplot() + 
+  geom_sf(aes(color = rank)) + 
+  scale_color_viridis_c()
+
+
+# buffer, then union. Then, calcualte area of each buffered thing, minus the difference of the area of the buffer and the min size? or something like that
+
+mpa_network <-  test_polygon %>% 
+  sample_n(25) %>% 
+  sf::st_buffer(dist = 1000000) %>%
+  sf::st_union(by_feature = FALSE) %>% 
+  sf::st_cast("POLYGON")
+
+mpa_network %>% 
+  sf::st_area()
+
+mpa_network %>% 
+  ggplot() + 
+  geom_sf()
+
+```
+
+
+```{r}
+# test <-
+#   fast_mpa(
+#     MPAselect = as.vector(MPAselect),
+#     celltoiterate = celltoiterate[iter],
+#     HBAU = HBAU,
+#     MPAselectPrev = MPAselectPrev,
+#     KprotectedPerCell = as.numeric(KprotectedPerCell_Library[,celltoiterate[iter]]),
+#     ER = ER,
+#     m = m ,
+#     R = R,
+#     r = r,
+#     K = K
+#   )
+```
+
+
+# What does the network look like for only managed RAM stocks?
+
+```{r load data}
+
+
+#Load MOLLWEIDE projected data
+MegaData<-readRDS(file = here("data","MegaData.rds"))
+Cleanmegacell<-readRDS(file = here("data","Cleanmegacell_mollweide.rds"))
+CleanCoordmegacell<-readRDS(file = here("data","CleanCoordmegacell_mollweide.rds"))
+KprotectedPerCell_Library<-readRDS(file = here("data","KprotectedPerCell_Library_mollweide.rds"))
+MPA_coord<-readRDS(file= here("data","MPA_coord_mollweide.rds")) #this is my code
+land_shp_moll<-readRDS(file = here("data","land_shp_moll.rds"))
+head(MPA_coord)
+dim(MPA_coord)
+
+#get MPA positions
+CleanCoordmegacell_MPA<-left_join(CleanCoordmegacell,MPA_coord,by=c("lon","lat"))
+head(CleanCoordmegacell_MPA)
+dim(CleanCoordmegacell_MPA)
+sum(CleanCoordmegacell_MPA$MPA,na.rm=T)
+
+#positions of 1s (MPAs)
+MPAposition<-which(CleanCoordmegacell_MPA$MPA==1)
+head(MPAposition)
+length(MPAposition)#2931 --- 2.44% are MPAs
+length(MPAposition)*100/dim(Cleanmegacell)[1]
+
+##TRY new approach
+numcell<-dim(Cleanmegacell)[1]
+celltoiterateFULL<-1:numcell
+MPAselect0<-matrix(0, nrow=numcell, ncol=1)
+PriorityAreas<-c()
+NetworkResult<-vector()
+
+#Make MPAselect0==1 for MPAs
+MPAselect0[MPAposition]<-1
+head(MPAselect0)
+sum(MPAselect0)
+
+#remove MPAs from celltoiterateFULL
+celltoiterateFULL<-celltoiterateFULL[-MPAposition]
+celltoiterate<-celltoiterateFULL
+ncell<-length(celltoiterate)
+
+###Compute spillover---PIXEL-LEVEL spillover 
+
+# trim down to only RAM
+
+managed <- MegaData$Manage == 1
+
+MegaData <- MegaData %>% 
+  filter(Manage == 1)
+
+K<-MegaData$Kfin # K per species
+m<-MegaData$m # mobility per species
+r<-MegaData$r
+
+KprotectedPerCell_Library <- KprotectedPerCell_Library[managed,]
+
+
+if (scenario=="all managed"){
+  E<-MegaData$Emsy
+}else if(scenario=="OAconstant"){
+  E<-MegaData$Efin
+}else if(scenario=="BAU1"){  
+  E<-MegaData$Efin_BAU1
+}else if(scenario=="Efin_msy"){ 
+  E<-MegaData$Efin_msy
+}else if(scenario=="EBvK01fin"){ 
+  E<-MegaData$EBvK01fin 
+}
+
+ER<-1-E
+ER<-1*(ER>1) + ER*(ER<=1)
+max(ER)
+min(ER)
+
+MPAselect<-MPAselect0
+R<-rowSums(KprotectedPerCell_Library[,which(MPAselect==1),drop=FALSE])
+ER_redistribute<-1-(1-ER)^(1/(1-R))
+
+
+b_outside_bau <-
+  ((m * K * (1 - R)) / (ER_redistribute * R + m)) * (1 - (ER_redistribute * (1 - R) * m) /
+                                                       ((ER_redistribute + m) * r)) # so the only place space is coming in here is in summing the proportion of patches protected. Where is the optimal order thing coming in? It's not, since all that it's optimizing is the order in terms of K, there's not "net effect" in terms of where anything goes. Fuck me.
+
+hbau<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
+hbau<-hbau*(hbau>0)
+HBAU<-sum(hbau)
+HBAU
+
+PICKSIZE<-100 #number of MPA sites selected
+
+nmax<-floor(length(celltoiterate)/PICKSIZE)
+nmax #this is the number of iterations needed for PICKSIZE at a time!
+
+Eevolve<-matrix(nrow=nmax,ncol=dim(MegaData)[1])
+# k_per_cell <- t(as.datKprotectedPerCell_Library)
+
+if (run_ram_exmaple){
+  
+  cores<-detectCores() - 2
+registerDoParallel(cores)
+for (i in 1:nmax){ 
+  MPAselectPrev<-rowSums(KprotectedPerCell_Library[,which(MPAselect0==1),drop=FALSE])
+  a <- Sys.time()
+  result <- foreach(iter = 1:length(celltoiterate), .combine = rbind) %dopar% {
+    MPAselect<-MPAselect0
+    MPAselect[celltoiterate[iter]]<-1
+    R<-MPAselectPrev+KprotectedPerCell_Library[,celltoiterate[iter]]
+    ER_redistribute<-1-(1-ER)^(1/(1-R))
+    
+    
+    hmpa<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
+    hmpa<-hmpa*(hmpa>0)
+    HMPA<-sum(hmpa)
+    HMPA-HBAU
+  }
+  Sys.time() - a
+  
+  #1. find the location of the top 1000 highest pixel-level
+  myorderHightoLow<-order(-result)#positions
+  cellselected<-myorderHightoLow[1:PICKSIZE] #but these are the position of the temporary pixels, not our reference pixels
+  #convert coord to scale comparable to priority areas
+  Prioritycellselected<-celltoiterate[cellselected]
+  
+  #3. block those additional 100 in MPAselect
+  MPAselect0[Prioritycellselected]<-1
+  
+  #4. save them for our priority areas
+  PriorityAreas<-append(PriorityAreas,Prioritycellselected)
+  
+  #5. Calculate food prov of the additional 100 cells
+  MPAselect<-MPAselect0
+  R<-rowSums(KprotectedPerCell_Library[,which(MPAselect==1),drop=FALSE])
+  ER_redistribute<-1-(1-ER)^(1/(1-R))
+
+  hmpa<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
+  hmpa<-hmpa*(hmpa>0)
+  HMPA<-sum(hmpa)
+  
+  #save result. Comment other parts not needed now.
+  NetworkResult[i]<-HMPA-HBAU
+  Eevolve[i,]<-ER_redistribute
+  
+  #pass this to the top
+  celltoiterate<-celltoiterateFULL[!celltoiterateFULL %in% PriorityAreas]#celltoiterateFULL[-PriorityAreas]#bacause Prioritycellselected are real numbers, not rank
+  
+  print(c(i,NetworkResult[i]))
+  rm(result,myorderHightoLow,cellselected,Prioritycellselected, MPAselect,R,hmpa,HMPA)
+}
+plot(NetworkResult)
+stopImplicitCluster()
+
+if(scenario=="BAU1"){
+  saveRDS(NetworkResult,file = file.path(results_path,"ram_NetworkResult100_BAU1_mollweide.rds"))
+  saveRDS(PriorityAreas,file = file.path(results_path, "ram_PriorityAreas100_BAU1_mollweide.rds"))
+}else if(scenario=="all managed"){  
+  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_allmanaged_redistribute.rds")
+  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_allmanaged_redistribute.rds") 
+}else if(scenario=="OAconstant"){
+  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_OAconstant_mollweide_redistribute.rds")
+  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_OAconstant_mollweide_redistribute.rds")   
+}else if(scenario=="EBvK01fin"){
+  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_EBvK01fin_mollweide_redistribute.rds")
+  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_EBvK01fin_mollweide_redistribute.rds") 
+}
+
+  
+} else {
+  
+  NetworkResult <-readRDS(file = file.path(results_path,"ram_NetworkResult100_BAU1_mollweide.rds"))
+  
+  PriorityAreas <- readRDS(file = file.path(results_path,"ram_PriorityAreas100_BAU1_mollweide.rds") )
+  
+}
+
+PICKSIZE<-100
+BenefitCurve<-as.data.frame(NetworkResult)/1000000
+MPAsize<-(length(MPAposition)+1)*100/dim(Cleanmegacell)[1]
+#(MPAinEEZ+1)*100/length(EEZposition)#there is +1 because the next pixel starts with +1
+BenefitCurve$MPA <- rescale(seq.int(nmax), to = c(MPAsize, 100))
+zerozero<-data.frame(0,0)
+names(zerozero)<-c("NetworkResult","MPA")
+zerozero[1,]<-c(-HBAU/(1000000),100)
+BenefitCurve<-rbind(BenefitCurve,zerozero)
+theme_set(theme_cowplot())
+benefitplot<-ggplot(BenefitCurve, aes(MPA, NetworkResult)) +geom_line(col="blue")+# theme_classic()+
+  labs(x="% EEZ protected",y="Change in catch (MMT)",title=paste("Global (max =", round(max(BenefitCurve$NetworkResult),2),"MMT)"))#+geom_hline(yintercept = 0)
+benefitplot
+
+Priority<-as.data.frame(PriorityAreas)
+Priority$rank <- ((seq.int(nrow(Priority))/ncell))*100
+
+#add dh
+NetworkResult_prime<-as.data.frame(NetworkResult)
+dH_prime<-NetworkResult_prime %>% mutate(dH = NetworkResult - lag(NetworkResult, default = 0))
+plot(dH_prime$dH)
+Priority$NetworkResult<-rep(NetworkResult, each=PICKSIZE) ## this is adding delta H
+Priority$dH<-rep(dH_prime$dH/PICKSIZE, each=PICKSIZE) ## this is adding delta H
+head(Priority)
+dim(Priority)
+
+PriorityFrame <- as.data.frame(seq.int(nrow(CleanCoordmegacell)))
+names(PriorityFrame) <- "PriorityAreas"
+#add the priority
+PriorityFrame2<-left_join(PriorityFrame,Priority, by="PriorityAreas")
+PriorityFrame2[is.na(PriorityFrame2)] <- 0
+head(PriorityFrame2)
+dim(PriorityFrame2)
+
+ShortCoord<-CleanCoordmegacell
+ShortCoord$rank<-PriorityFrame2$rank
+ShortCoord$NetworkResult<- PriorityFrame2$NetworkResult#this is for deriving dh
+ShortCoord$dH<- PriorityFrame2$dH#this is for deriving dh
+ShortCoord$ID<-row.names(ShortCoord)
+
+dim(ShortCoord)
+head(ShortCoord)
+
+ShortCoord_Sort <- ShortCoord[order(-ShortCoord$rank),] %>% filter(rank!=-1000)
+
+ShortCoord_Sort$sign<-ShortCoord_Sort$dH>0
+InflectPoint<-min(which(ShortCoord_Sort$sign == TRUE))
+InflectMPA<-ShortCoord_Sort$rank[InflectPoint]
+
+MPAcoverage<-ShortCoord_Sort %>% ggplot(aes(x=lon,y=lat,fill=rank)) + #scale_fill_gradient2(low="darkred", mid="white",high="#00539CFF",midpoint = 0, space = "Lab",na.value = "grey50", guide = "colourbar", aesthetics = "fill",name=expression(paste(Delta, "H (MT)")))+
+  scale_fill_gradientn(colours = c("forestgreen", "white", "orange"), limits=c(0,100), values = scales::rescale(c(min(ShortCoord_Sort$rank), InflectMPA, max(ShortCoord_Sort$rank))),name="Protection sequence")+
+  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank(),legend.position=c(0.63, 0.05), legend.direction = "horizontal")+ #"bottom
+  geom_raster()+
+  geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+MPAcoverage
+
+```
+
+
+

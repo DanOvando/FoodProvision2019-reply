@@ -3,4 +3,5 @@
 .RData
 .Ruserdata
 *Rproj
-*.rds
+data/*
+data/*
