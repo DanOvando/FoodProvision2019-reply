@@ -37,9 +37,9 @@ run_cabral_et_al <- FALSE
 
 run_case_study <- FALSE
 
-get_fao_data <- TRUE
+get_fao_data <- FALSE
 
-run_ram_exmaple <- TRUE
+run_ram_exmaple <- FALSE
 
 results_name <- "v0.5"
 
@@ -453,352 +453,111 @@ Look, we get it. You like MPAs. They're great. We love MPAs too. The merits of M
 
 seems like this might be part of it. There's clearly only fishing pressure in about 15% of the oceans in their analysis? Since they assume effort concentrates outside, goes  up a bit when you close that first 5%, then basically doesn't change at all until you hit the last 10%?
 
-whenisgood dgkxra9
-
-# DD movement
-
-m(1 - R)(bin - R / (1 - R)bout)
 
 
-```{r}
+# Assess footprints and global MPA coverage
 
+Space and distance matter: this is foundational to just about any MPA theory, that the outcome of MPAs depends on size and spacing relative to dispersal of the species. Now to the extent that the aquamaps layers represent the completely mixed stock, this matters less, but these footprints are massive
 
-b_in <- 100
+- demonstrate bias in footprint between assessed and unassessed stocks
 
-grid <- expand_grid(m = c(0.3,.1,.9),
-                    r = seq(0,1, by = .1), 
-                    b_out = seq(0,100, by = 1)) %>% 
-  mutate(b_trans = (m * (1 - r)) * (b_in - (r / (1 - r)) * b_out)) %>% 
-  mutate(b_moved = b_trans / b_in,
-         b_out_new = b_out + b_moved,
-         check  = b_in / r - b_out / (1 - r))
+In translating to the global map, this starts to matter, since the model moves back and forth between a "proportional" approach where MPA is just a fraction of K, to a spatial one, and summary statistics are based in part of percent of earth, not percent of K. 
 
-grid %>% 
-  ggplot(aes(r,b_out / b_in, fill = b_trans))  + 
-  geom_tile() + 
-  facet_wrap(~m) + 
-  scale_fill_viridis_c()
+So here's the idea. One issue here is the massive spatial footprint of the unassessed stocks. Expressed as a percentage of the ocean then, you can cover a huge area before you start to negatively affect a stock. But, the problem is most stocks have much smaller ranges, and the key question is the average size of an MPA relative to a more realstic footprint of a stock. Now, if MPAs are randomly placed across the globe, then this doesn't matter, since the average portion of a stock covered by an MPA should be the same at any resolution. But, once things get patchy that changes. Then, it's possible for one patch containing say 30% of what you thought to be the stock to actually be covering 100% of a smaller stock. Or to make it more extreme, suppose that each stock had a footprint equal to the resolution of the MPA datset. In that case, every cell would either be closed to fishing, or have no MPA, so the net benefit would be zero, since either you can't fish that stock, or that stock is independent of the MPA next to it. 
 
-
-grid %>% 
-  ggplot(aes(r,b_out / b_in, fill = b_out_new / b_out))  + 
-  geom_tile() + 
-  facet_wrap(~m) + 
-  scale_fill_viridis_c()
-
-
-grid %>% 
-  ggplot(aes(b_out, b_trans)) + 
-  geom_point() + 
-  facet_wrap(~m)
-
-
-```
-
+Let's try and measure the footprint of the different stocks. 
 
 
 ```{r}
-b_in <- 100
-
-grid <- expand_grid(m = c(0.3,.1,.9),
-                    r = seq(0,1, by = .1), 
-                    b_1 = seq(0,100, by = 1),
-                    b_2 = seq(0,100, by = 1)) %>% 
-  mutate(b_trans_to_2 = (m * (1 - r)) * (b_1 - (r / (1 - r)) * b_2)) %>% 
-  mutate(b_trans_to_1 = (m * (1 - r)) * (b_2 - (r / (1 - r)) * b_1)) %>% 
-  mutate(total = b_trans_to_2 + b_trans_to_1)
-
-
-# grid %>% 
-#   filter(b_1 == b_2) %>% 
-#   View()
-
-grid %>% 
-  filter(b_1 == b_2) %>% 
-  ggplot() +
-  geom_histogram(aes(b_trans_to_2 / b_trans_to_1))
-
-
-```
-
-
-Weird in a lot of ways. Goes negative, there's no distance. 
-
-Let's try and look at some K's
-
-Lutjanus griseus
-
-Sigh. So a POP MPA off of California affects Japan. 
-
-
-```{r}
-
-
-snap <- which(MegaData$SciName == "Trichiurus lepturus")[1]
-
-ShortCoord<-CleanCoordmegacell
-
-check <- mean(KprotectedPerCell_Library[snap,] > 0)
-
-
-tmp <- ShortCoord %>% 
-  mutate(k_per_cell = as.numeric(KprotectedPerCell_Library[snap,])) %>% 
-  mutate(k_per_cell = ifelse(k_per_cell == 0, NA, k_per_cell))
-
-tmp %>% 
-  ggplot(aes(lon, lat, fill = k_per_cell)) + 
-  geom_raster() +
-  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
-
-
-```
-
-
-
-breakdown of MSY
-```{r}
-MegaData %>% 
-  group_by(Manage) %>% 
-  summarise(msy = sum(MSYfin)) %>% 
-  ggplot(aes(Manage, msy)) + 
-  geom_col()
-
-
-
-```
-
-compare ER BAU to costello database
-
-
-```{r}
-upsides_data <- readRDS(here("data","projection_data.rds")) %>%
-  janitor::clean_names() %>%
-  filter(policy == "BAU",
-         dbase == "FAO",
-         # year == 2050, 
-         scenario == "Con. Concern") %>% 
-  mutate(u = catch / biomass)
-
-wtf <- upsides_data %>% 
-  group_by(sci_name) %>% 
-  summarise(mean_u = mean(u, na.rm = TRUE))
-
-a = upsides_data %>%
-  # filter( id_orig == "11562-FAO-27-38") %>%
-  ggplot(aes(year, bv_bmsy, group = id_orig)) +
-  geom_line()
-
-MegaData %>% 
-  filter(Manage == 0) %>% 
-  ggplot(aes(1 - Emsy, 1 - EBvK01fin)) + 
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0)
-
-check <- MegaData %>% 
-  select(SciName, Manage, stockid, Efin_BAU1) %>% 
-  mutate(u_bau = 1 - Efin_BAU1) %>% 
-  left_join(wtf, by = c("SciName" = "sci_name"))
-
-check %>% 
-  ggplot(aes(u_bau, mean_u)) + 
-  geom_point() + 
-  geom_abline(aes(slope = 1, intercept = 0)) + 
-  scale_x_continuous("U BAU Cabral") + 
-  scale_y_continuous(name = "U BAU Costello")
-
-
-
-```
-
-
-# Compare to upsides
-
-
-```{r}
-
-upsides <- read_csv(here("data","upsides","ProjectionData.csv")) %>% 
-janitor::clean_names()
-
-mega_data <-MegaData %>%
+MegaData<-readRDS(file = here("data","MegaData.rds")) %>% 
   janitor::clean_names()
 
+KprotectedPerCell_Library <-
+  readRDS(file = here("data","KprotectedPerCell_Library_mollweide.rds"))
 
-upsides <- upsides %>% 
-  filter(sci_name %in% unique(mega_data$sci_name))
+footprint <- as.data.table(KprotectedPerCell_Library)
 
-
-# let's compare MSYs first
-
-global_things <- upsides %>% 
-  filter(
-         policy == "Historic", 
-         scenario == "Historic") %>% 
-  filter(year == 2012) %>% 
-  group_by(sci_name) %>% 
-  summarise(msy = sum(msy),
-            g = mean(g)) %>% 
-  ungroup()
+tmp <- ShortCoord %>% 
+  mutate(k_per_cell = as.numeric(KprotectedPerCell_Library[1,])) %>% 
+    sf::st_as_sf(coords = c("lon", "lat"),
+               crs = sf::st_crs(land_shp_moll)) %>% 
+  filter(k_per_cell > 0) 
 
 
-mega_data <- mega_data %>% 
-  left_join(global_things, by = "sci_name") %>% 
-  dplyr::rename(msy_fin = ms_yfin,
-                msy_total = ms_ytotal)
+# a really rough measure of footpring is just the number of positive cells
 
+raw_footprint <- rowSums(footprint > 0)
 
-check_n <- mega_data %>% 
-  group_by(manage, sci_name) %>% 
-   count()
-   
-
-mega_data %>% 
-  ggplot(aes(msy, msy_fin)) + 
-  geom_point() + 
-  geom_abline(aes(slope = 1, intercept = 0))
-
-mega_data %>% 
-  group_by(sci_name) %>% 
-  summarise(msy = unique(msy), msy_fin = sum(msy)) %>% 
-  ggplot(aes(msy, msy_fin)) + 
-  geom_point() + 
-  geom_abline(aes(slope = 1, intercept = 0))
-
-
-mega_data %>% 
-  ggplot(aes(msy, msy_total)) + 
-  geom_point() + 
-  geom_abline(aes(slope = 1, intercept = 0))
-
-# now let's comapare the R's
-
-mega_data %>% 
-  ggplot(aes(r, g)) + 
-  geom_point() + 
-  geom_abline(aes(slope = 1, intercept = 0))
-
-
-
-```
-
-
-## Let's try and comapre BAU
-
-```{r}
-upsides_bau <- upsides %>% 
-  filter(
-         policy == "BAU", 
-         scenario == "Con. Concern") %>% 
-  filter(year == max(year)) %>% 
-  dplyr::rename(bvbmsy_upsides = bv_bmsy) %>% 
-  mutate(manage = ifelse(dbase == "FAO",0, 1))
-
-msy_weighted_upsides_bau <- upsides_bau %>% 
-  group_by(sci_name, manage) %>% 
-  summarise(msy_weighted_bvbmsy_upsides = weighted.mean(bvbmsy_upsides, w = msy))
-
-upsides_bau %>% 
-  ggplot(aes(bvbmsy_upsides, fv_fmsy)) + 
-  geom_point()
-
-# Need to calculate EQ conditions now.... fun. 
-
-
-cabral_foo <- function(r,k,R,u,m, years = 100){
-  
-  # r = .2
-  # 
-  # k = 100
-  # 
-  # R = 0
-  # 
-  # u = r / 2
-  # 
-  # m = .3
-  # 
-  # years = 100
-  
-  b_in <- rep(k,years)
-  
-  b_out <- rep(k,years)
-  
-  for (i in 2:years){
-    
-    
-    mu <- m * (1 - R)
-    
-    b_in[i] <-
-      b_in[i - 1] + R * r * (b_in[i - 1] + b_out[i - 1]) * (1 - (b_in[i - 1] + b_out[i - 1]) / k) - mu * (b_in[i - 1] - (R / (1 -
-                                                                                                                                R)) * b_out[i - 1])
-    
-    b_out[i] <-
-      (1 - u) * b_out[i - 1] + (1 - R) * r * (b_in[i - 1] + b_out[i - 1]) * (1 - (b_in[i - 1] + b_out[i - 1]) / k) + mu * (b_in[i - 1] - (R / (1 - R)) * b_out[i - 1])
-    
-    
-    
-  } # close for loop
-  
-  out <- tibble(b_in = b_in, b_out = b_out, b = b_in + b_out) %>% 
-    mutate(b_bmsy = b / (k / 2))
-    
+foo <- function(x){
+  y = x / max(x)
 }
 
-mega_data <- mega_data %>% 
-  mutate(u_bau  = 1 - efin_bau1) 
+k_footprint <-  colSums(apply(footprint,1,foo)) # colsums since for some reason this flips things 
 
-mega_data$u_bau <-1*(mega_data$u_bau>1) + mega_data$u_bau*(mega_data$u_bau<=1)
-
-hist(mega_data$u_bau)
+# k footprint is a measure of how concentrated the population is. If every cell has the same k, then k_footpring == raw_footprint. But, if 99.9% of K is in 1 cell and the rest is in 1000 other cells, K footpring will be small
 
 
-mega_data <- mega_data %>% 
-  mutate(bau = pmap(list(r = r, k = k, m = m, u = u_bau, R = 0), cabral_foo))
+footprint <- MegaData %>% 
+  select(sci_name, manage) %>% 
+  mutate(footprint = raw_footprint,
+         k_footprint = k_footprint)
 
-mega_data <- mega_data %>% 
-  mutate(bvbmsy_bau = map_dbl(bau, ~last(.x$b_bmsy)))
-
-mega_data %>% 
-  ggplot(aes(u_bau,bvbmsy_bau, color = r)) + 
-  geom_point() + 
-  scale_color_viridis_c()
-
-compare_baus <- mega_data %>% 
-  left_join(upsides_bau %>% select(sci_name, bvbmsy_upsides, manage), by = c("sci_name", "manage"))
-
-compare_baus %>% 
-  ggplot(aes(bvbmsy_bau,bvbmsy_upsides, color = manage == 1)) + 
-  geom_abline(aes(slope = 1, intercept = 0)) +
-  geom_point(aes( size = sqrt(msy)), alpha = 0.75) + 
-  geom_smooth() + 
-  facet_wrap(~manage)
-
-mega_data %>% 
-  group_by(manage, sci_name) %>% 
-  unique() %>% 
-  count()
+footprint %>% 
+  ggplot(aes(footprint, fill = manage == 1)) + 
+  geom_density() + 
+  scale_x_log10(name = "Footprint Size (note log 10)")
 
 
-compare_weighted_baus <- mega_data %>% 
-  left_join(msy_weighted_upsides_bau, by = c("sci_name", "manage"))
+footprint %>% 
+  ggplot(aes(k_footprint, fill = manage == 1)) + 
+  geom_density() + 
+  scale_x_log10(name = "K Footprint Size (note log 10)")
 
-compare_weighted_baus %>% 
-  ggplot(aes(bvbmsy_bau,msy_weighted_bvbmsy_upsides, color = manage == 1)) + 
-  geom_abline(aes(slope = 1, intercept = 0)) +
-  geom_point(aes( size = sqrt(msy)), alpha = 0.75) + 
-  geom_smooth() + 
-  facet_wrap(~manage)
+# 
+
+
+# now, load in the protected thingy and try and calculate the actual area protected in each step, and then plot the percent of each stocks footprint protected globally
+
+
+  complete_network_result <- readRDS(file = file.path(results_path,"NetworkResult100_BAU1_mollweide.rds"))
+ 
+  complete_priority_areas <-  readRDS(file = file.path(results_path,"PriorityAreas100_BAU1_mollweide.rds"))  
+
+plot(complete_network_result)
+
+# assuming that this is just in number of cells then, for each stock's footprint, express inflection points as percent of footprint
+
+
+head(footprint)
+
+
+footprint <- footprint %>% 
+  mutate(five_percent = (0.05 * length(complete_priority_areas)) / k_footprint,
+         twenty_five_percent = (0.25 * length(complete_priority_areas)) / k_footprint)
+
+footprint %>% 
+  ggplot(aes(five_percent, fill = manage == 1)) + 
+  geom_histogram() + 
+  scale_x_log10()
   
 ```
 
-So, the issue here is that it looks like they're collapsing down to an average BAU? but there's clearly a massive amount of noise. So, if it's just randomly distributed and MSY is the same everywhere, then you'd expect the upside to be proportional to the average MSY, not the total MSY. 
+So this is saying expressed purely as a number of cells, covering 5% of the planet in an MPA would be bigger than the entire footprint of almost every stock in RAM. Similar to unassessed, but much less so. Is this useful? I don't know. 
+
 
 # case study
 
-As an exmaple of a species with crazy distribution chub mackeral
+Let's consider some of the implications of the spatisl issue with a case study. Picking out XX here since caught exclusively in China but has an much broader aquamaps range. 
 
+- demonstrate that MPAs off of USA are having a big impact despite having zero catch there     - Both expands the threat to places it isn't and distributes the benefits from abating a non-existent threat
 
+actually maybe instead of one species, just run the analysis but only with species with essentially all of their catch in region 61
+
+Important to note that BAU would NOT assume expansion of fishing effort. Under the assumptions of the model, that should be the average fishing pressure across the entire system, so expanding that same fishing mortality to new systems would imply an increased F, not BAU conditionl on the model as its set up
 
 
 ```{r}
+MegaData<-readRDS(file = here("data","MegaData.rds")) 
 
 overfished_bau <- MegaData %>% 
   filter((1 - Efin_BAU1) > (r / 2))
@@ -1126,90 +885,11 @@ ggsave(file.path(results_path,"MPAcoverage.pdf"), MPAcoverage, width = 20, heigh
 ```
 
 
-# Assess footprints and global MPA coverage
-
-Could you try and polygonize this thing?
-
-So here's the idea. One issue here is the massive spatial footprint of the unassessed stocks. Expressed as a percentage of the ocean then, you can cover a huge area before you start to negatively affect a stock. But, the problem is most stocks have much smaller ranges, and the key question is the average size of an MPA relative to a more realstic footprint of a stock. Now, if MPAs are randomly placed across the globe, then this doesn't matter, since the average portion of a stock covered by an MPA should be the same at any resolution. But, once things get patchy that changes. Then, it's possible for one patch containing say 30% of what you thought to be the stock to actually be covering 100% of a smaller stock. Or to make it more extreme, suppose that each stock had a footprint equal to the resolution of the MPA datset. In that case, every cell would either be closed to fishing, or have no MPA, so the net benefit would be zero, since either you can't fish that stock, or that stock is independent of the MPA next to it. 
-
-Let's try and measure the footprint of the different stocks. 
 
 
-```{r}
-MegaData<-readRDS(file = here("data","MegaData.rds")) %>% 
-  janitor::clean_names()
+# Broader Implications
 
-KprotectedPerCell_Library <-
-  readRDS(file = here("data","KprotectedPerCell_Library_mollweide.rds"))
-
-footprint <- as.data.table(KprotectedPerCell_Library)
-
-tmp <- ShortCoord %>% 
-  mutate(k_per_cell = as.numeric(KprotectedPerCell_Library[1,])) %>% 
-    sf::st_as_sf(coords = c("lon", "lat"),
-               crs = sf::st_crs(land_shp_moll)) %>% 
-  filter(k_per_cell > 0) 
-
-
-# a really rough measure of footpring is just the number of positive cells
-
-raw_footprint <- rowSums(footprint > 0)
-
-foo <- function(x){
-  y = x / max(x)
-}
-
-k_footprint <-  colSums(apply(footprint,1,foo)) # colsums since for some reason this flips things 
-
-# k footprint is a measure of how concentrated the population is. If every cell has the same k, then k_footpring == raw_footprint. But, if 99.9% of K is in 1 cell and the rest is in 1000 other cells, K footpring will be small
-
-
-footprint <- MegaData %>% 
-  select(sci_name, manage) %>% 
-  mutate(footprint = raw_footprint,
-         k_footprint = k_footprint)
-
-footprint %>% 
-  ggplot(aes(footprint, fill = manage == 1)) + 
-  geom_density() + 
-  scale_x_log10(name = "Footprint Size (note log 10)")
-
-
-footprint %>% 
-  ggplot(aes(k_footprint, fill = manage == 1)) + 
-  geom_density() + 
-  scale_x_log10(name = "K Footprint Size (note log 10)")
-
-# 
-
-
-# now, load in the protected thingy and try and calculate the actual area protected in each step, and then plot the percent of each stocks footprint protected globally
-
-
-  complete_network_result <- readRDS(file = file.path(results_path,"NetworkResult100_BAU1_mollweide.rds"))
- 
-  complete_priority_areas <-  readRDS(file = file.path(results_path,"PriorityAreas100_BAU1_mollweide.rds"))  
-
-plot(complete_network_result)
-
-# assuming that this is just in number of cells then, for each stock's footprint, express inflection points as percent of footprint
-
-
-head(footprint)
-
-
-footprint <- footprint %>% 
-  mutate(five_percent = (0.05 * length(complete_priority_areas)) / k_footprint,
-         twenty_five_percent = (0.25 * length(complete_priority_areas)) / k_footprint)
-
-footprint %>% 
-  ggplot(aes(five_percent, fill = manage == 1)) + 
-  geom_histogram() + 
-  scale_x_log10()
-  
-```
-
-So this is saying expressed purely as a number of cells, covering 5% of the planet in an MPA would be bigger than the entire footprint of almost every stock in RAM. Similar to unassessed, but much less so. Is this useful? I don't know. 
+Point of all this then is that the use of aquamaps combined with the coarse resolution model creates some very odd MPA placement. Looking across all species then, the model suggests that we should close off Most of the west coast of the Americas in the first 5%, at a global increase in catch. 
 
 Where you put MPAs matters, and their size relative to available habitat matters. The bigger you assume the stock's footprint is, the bigger you can make the MPA that benefits them. So, aprt of the reason that they can grow the MPA as a fraction of global stock so fast is that the unassessed stocks are most of MSY and are massive, and the foorprint analysis shows that. 
 
@@ -1348,11 +1028,12 @@ mpa_network %>%
 ```
 
 
+
 # What does the network look like for only managed RAM stocks?
 
 ```{r load data}
 
-doParallel::stopImplicitCluster()
+
 #Load MOLLWEIDE projected data
 MegaData<-readRDS(file = here("data","MegaData.rds"))
 Cleanmegacell<-readRDS(file = here("data","Cleanmegacell_mollweide.rds"))
@@ -1360,20 +1041,20 @@ CleanCoordmegacell<-readRDS(file = here("data","CleanCoordmegacell_mollweide.rds
 KprotectedPerCell_Library<-readRDS(file = here("data","KprotectedPerCell_Library_mollweide.rds"))
 MPA_coord<-readRDS(file= here("data","MPA_coord_mollweide.rds")) #this is my code
 land_shp_moll<-readRDS(file = here("data","land_shp_moll.rds"))
-# head(MPA_coord)
-# dim(MPA_coord)
+head(MPA_coord)
+dim(MPA_coord)
 
 #get MPA positions
 CleanCoordmegacell_MPA<-left_join(CleanCoordmegacell,MPA_coord,by=c("lon","lat"))
-# head(CleanCoordmegacell_MPA)
-# dim(CleanCoordmegacell_MPA)
-# sum(CleanCoordmegacell_MPA$MPA,na.rm=T)
+head(CleanCoordmegacell_MPA)
+dim(CleanCoordmegacell_MPA)
+sum(CleanCoordmegacell_MPA$MPA,na.rm=T)
 
 #positions of 1s (MPAs)
 MPAposition<-which(CleanCoordmegacell_MPA$MPA==1)
-# head(MPAposition)
-# length(MPAposition)#2931 --- 2.44% are MPAs
-# length(MPAposition)*100/dim(Cleanmegacell)[1]
+head(MPAposition)
+length(MPAposition)#2931 --- 2.44% are MPAs
+length(MPAposition)*100/dim(Cleanmegacell)[1]
 
 ##TRY new approach
 numcell<-dim(Cleanmegacell)[1]
@@ -1384,6 +1065,8 @@ NetworkResult<-vector()
 
 #Make MPAselect0==1 for MPAs
 MPAselect0[MPAposition]<-1
+head(MPAselect0)
+sum(MPAselect0)
 
 #remove MPAs from celltoiterateFULL
 celltoiterateFULL<-celltoiterateFULL[-MPAposition]
@@ -1420,7 +1103,8 @@ if (scenario=="all managed"){
 
 ER<-1-E
 ER<-1*(ER>1) + ER*(ER<=1)
-
+max(ER)
+min(ER)
 
 MPAselect<-MPAselect0
 R<-rowSums(KprotectedPerCell_Library[,which(MPAselect==1),drop=FALSE])
@@ -1446,23 +1130,15 @@ Eevolve<-matrix(nrow=nmax,ncol=dim(MegaData)[1])
 
 if (run_ram_exmaple){
   
-cl <- parallel::makeCluster(parallel::detectCores() - 4)
-
-doParallel::registerDoParallel(cl)
-
-klib <- as.data.table(KprotectedPerCell_Library)
+  cores<-detectCores() - 2
+registerDoParallel(cores)
 for (i in 1:nmax){ 
   MPAselectPrev<-rowSums(KprotectedPerCell_Library[,which(MPAselect0==1),drop=FALSE])
   a <- Sys.time()
   result <- foreach(iter = 1:length(celltoiterate), .combine = rbind) %dopar% {
-    # MPAselect<-MPAselect0
-    # MPAselect[celltoiterate[iter]]<-1
-    loc <- celltoiterate[iter]
-    
-    # R<-MPAselectPrev+klib[,..loc]
-    
-    R<-MPAselectPrev+KprotectedPerCell_Library[,loc]
-
+    MPAselect<-MPAselect0
+    MPAselect[celltoiterate[iter]]<-1
+    R<-MPAselectPrev+KprotectedPerCell_Library[,celltoiterate[iter]]
     ER_redistribute<-1-(1-ER)^(1/(1-R))
     
     
@@ -1579,7 +1255,7 @@ ShortCoord_Sort$sign<-ShortCoord_Sort$dH>0
 InflectPoint<-min(which(ShortCoord_Sort$sign == TRUE))
 InflectMPA<-ShortCoord_Sort$rank[InflectPoint]
 
-MPAcoverage<-ShortCoord_Sort %>% filter(rank < 75 ) %>% ggplot(aes(x=lon,y=lat,fill=rank)) + #scale_fill_gradient2(low="darkred", mid="white",high="#00539CFF",midpoint = 0, space = "Lab",na.value = "grey50", guide = "colourbar", aesthetics = "fill",name=expression(paste(Delta, "H (MT)")))+
+MPAcoverage<-ShortCoord_Sort %>% ggplot(aes(x=lon,y=lat,fill=rank)) + #scale_fill_gradient2(low="darkred", mid="white",high="#00539CFF",midpoint = 0, space = "Lab",na.value = "grey50", guide = "colourbar", aesthetics = "fill",name=expression(paste(Delta, "H (MT)")))+
   scale_fill_gradientn(colours = c("forestgreen", "white", "orange"), limits=c(0,100), values = scales::rescale(c(min(ShortCoord_Sort$rank), InflectMPA, max(ShortCoord_Sort$rank))),name="Protection sequence")+
   theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank(),legend.position=c(0.63, 0.05), legend.direction = "horizontal")+ #"bottom
   geom_raster()+
@@ -1613,6 +1289,10 @@ set.seed(42)
 years <- 100
 
 tune_type <- "explt"
+
+resolution <-  20
+
+seasons <- 1
 
 # make up some habitat
 
@@ -1828,3 +1508,20 @@ We do not suggest that either one of these assumptions would always be correct,
 
 
 
+
+
+You could also try and re-run their analysis like this: convert u to f, calculate total F by patch (which will now be the same across all species?) and see what happens? Would be a very pessimistic case, but a nice bounding example. 
+
+# Density dependence timing
+
+if mpa = K abd fished = 0, your model assumes B/Bmsy = 1, as opposed to say two patches with 0 surplus production connected by movement. 
+
+# No uncertainty on the biggest thing - F!
+
+MSY to BAU range doesn't cut it
+
+# Models can disagree
+
+Look, reasonable people can have diffrent models, but there are some fundamental issues here. But, the biggest thing is that we feel it needs to be emphasized that these are simply reflections of model assumptions, not am "empirical" solution. Given the same task we would make different assumptions and come to different conclusions based on the same data. We've seen enough simulation modeling of the fishery impacts of MPAs. Particuarly for these kind of simple models, the time has passed for this kind of analysis, and we need tactical models for specific MPAs and empirical evaluations of their performance. 
+
+# MSY Bias
