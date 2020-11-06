@@ -1335,7 +1335,7 @@ mpa_network %>%
 
 ```{r load data}
 
-
+doParallel::stopImplicitCluster()
 #Load MOLLWEIDE projected data
 MegaData<-readRDS(file = here("data","MegaData.rds"))
 Cleanmegacell<-readRDS(file = here("data","Cleanmegacell_mollweide.rds"))
@@ -1343,20 +1343,20 @@ CleanCoordmegacell<-readRDS(file = here("data","CleanCoordmegacell_mollweide.rds
 KprotectedPerCell_Library<-readRDS(file = here("data","KprotectedPerCell_Library_mollweide.rds"))
 MPA_coord<-readRDS(file= here("data","MPA_coord_mollweide.rds")) #this is my code
 land_shp_moll<-readRDS(file = here("data","land_shp_moll.rds"))
-head(MPA_coord)
-dim(MPA_coord)
+# head(MPA_coord)
+# dim(MPA_coord)
 
 #get MPA positions
 CleanCoordmegacell_MPA<-left_join(CleanCoordmegacell,MPA_coord,by=c("lon","lat"))
-head(CleanCoordmegacell_MPA)
-dim(CleanCoordmegacell_MPA)
-sum(CleanCoordmegacell_MPA$MPA,na.rm=T)
+# head(CleanCoordmegacell_MPA)
+# dim(CleanCoordmegacell_MPA)
+# sum(CleanCoordmegacell_MPA$MPA,na.rm=T)
 
 #positions of 1s (MPAs)
 MPAposition<-which(CleanCoordmegacell_MPA$MPA==1)
-head(MPAposition)
-length(MPAposition)#2931 --- 2.44% are MPAs
-length(MPAposition)*100/dim(Cleanmegacell)[1]
+# head(MPAposition)
+# length(MPAposition)#2931 --- 2.44% are MPAs
+# length(MPAposition)*100/dim(Cleanmegacell)[1]
 
 ##TRY new approach
 numcell<-dim(Cleanmegacell)[1]
@@ -1367,8 +1367,6 @@ NetworkResult<-vector()
 
 #Make MPAselect0==1 for MPAs
 MPAselect0[MPAposition]<-1
-head(MPAselect0)
-sum(MPAselect0)
 
 #remove MPAs from celltoiterateFULL
 celltoiterateFULL<-celltoiterateFULL[-MPAposition]
@@ -1405,8 +1403,7 @@ if (scenario=="all managed"){
 
 ER<-1-E
 ER<-1*(ER>1) + ER*(ER<=1)
-max(ER)
-min(ER)
+
 
 MPAselect<-MPAselect0
 R<-rowSums(KprotectedPerCell_Library[,which(MPAselect==1),drop=FALSE])
@@ -1432,15 +1429,23 @@ Eevolve<-matrix(nrow=nmax,ncol=dim(MegaData)[1])
 
 if (run_ram_exmaple){
   
-  cores<-detectCores() - 2
-registerDoParallel(cores)
+cl <- parallel::makeCluster(parallel::detectCores() - 4)
+
+doParallel::registerDoParallel(cl)
+
+klib <- as.data.table(KprotectedPerCell_Library)
 for (i in 1:nmax){ 
   MPAselectPrev<-rowSums(KprotectedPerCell_Library[,which(MPAselect0==1),drop=FALSE])
   a <- Sys.time()
   result <- foreach(iter = 1:length(celltoiterate), .combine = rbind) %dopar% {
-    MPAselect<-MPAselect0
-    MPAselect[celltoiterate[iter]]<-1
-    R<-MPAselectPrev+KprotectedPerCell_Library[,celltoiterate[iter]]
+    # MPAselect<-MPAselect0
+    # MPAselect[celltoiterate[iter]]<-1
+    loc <- celltoiterate[iter]
+    
+    # R<-MPAselectPrev+klib[,..loc]
+    
+    R<-MPAselectPrev+KprotectedPerCell_Library[,loc]
+
     ER_redistribute<-1-(1-ER)^(1/(1-R))
     
     
@@ -1557,7 +1562,7 @@ ShortCoord_Sort$sign<-ShortCoord_Sort$dH>0
 InflectPoint<-min(which(ShortCoord_Sort$sign == TRUE))
 InflectMPA<-ShortCoord_Sort$rank[InflectPoint]
 
-MPAcoverage<-ShortCoord_Sort %>% ggplot(aes(x=lon,y=lat,fill=rank)) + #scale_fill_gradient2(low="darkred", mid="white",high="#00539CFF",midpoint = 0, space = "Lab",na.value = "grey50", guide = "colourbar", aesthetics = "fill",name=expression(paste(Delta, "H (MT)")))+
+MPAcoverage<-ShortCoord_Sort %>% filter(rank < 75 ) %>% ggplot(aes(x=lon,y=lat,fill=rank)) + #scale_fill_gradient2(low="darkred", mid="white",high="#00539CFF",midpoint = 0, space = "Lab",na.value = "grey50", guide = "colourbar", aesthetics = "fill",name=expression(paste(Delta, "H (MT)")))+
   scale_fill_gradientn(colours = c("forestgreen", "white", "orange"), limits=c(0,100), values = scales::rescale(c(min(ShortCoord_Sort$rank), InflectMPA, max(ShortCoord_Sort$rank))),name="Protection sequence")+
   theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank(),legend.position=c(0.63, 0.05), legend.direction = "horizontal")+ #"bottom
   geom_raster()+
