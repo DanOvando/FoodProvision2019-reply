@@ -38,6 +38,7 @@ library(tidyverse)
 library(countrycode)
 library(patchwork)
 library(marlin)
+library(sf)
 
 rename <- dplyr::rename
 
@@ -45,7 +46,7 @@ run_cabral_et_al <- FALSE
 
 run_case_study <- FALSE
 
-get_fao_data <- FALSE
+get_fao_data <- TRUE
 
 run_ram_exmaple <- FALSE
 
@@ -60,14 +61,14 @@ if (!dir.exists(results_path)){
 if (!dir.exists("data")){
 
      download.file(
-      "https://www.dropbox.com/s/j6gpyd3h52z18bi/food-provision-data.zip?dl=1",
+      "https://www.dropbox.com/s/v70jjje6wf3lvw4/food-provision-data.zip?dl=1",
       destfile = here("tmp.zip"),
       mode = "wb"
     )
 
     unzip(here("tmp.zip")) # unzip = 'unzip' needed for windows
     
-    file.rename("food-provision-data","data")
+    # file.rename("food-provision-data","data")
     
     file.remove("tmp.zip")
     
@@ -77,7 +78,7 @@ if (!dir.exists("data")){
   
 }
 
-if (get_fao_data) {
+if (get_fao_data | !dir.exists(here("data", "fao"))) {
   if (!dir.exists(here("data", "fao"))) {
     dir.create(here("data", "fao"))
 
@@ -490,8 +491,21 @@ MPAcoverage
 
 ```
 
+# Summary
 
-Intro laying out 1. we like MPAs 2. MPAs can benefit fisheries 3. Including high seas, totally likely that lots of ocean can be closed without reducing food. 4. but, problem is this paper overstates confidence in the exact magnitude of benefits of costs, and in the size and placement of food maximizing MPA. The idea that without any models, places where we think overfishing is higher are probably going to benefit more from MPAs, stands. But the steps needed to move beyond that to 55x55km cells are just too much. Time to move beyond simulations, and on to empirics. 
+Cabral et al. 2020 presents a global network of MPAs designed to maximize food production. To be clear, we believe that MPAs are an important part of the marine management toolbox, and in the right context can provide conservation and fishery benefits. We also do not dispute that properly designed MPAs may improve fishery yields in overfished fisheries. We agree that given the large size but low fishery catches of the world's open-oceans, one could likely close off of large portion of the world's oceans at minimal loss to global catch (though potentially with large distribution and equity impacts). Lastly we agree that given no other information, targeting areas where a) species probably live and b) those species are more likely to be overfished under BAU is likely a good strategy for identifying areas where MPAs may be able to benefit fisheries. 
+
+However, none of these general insights require explicit modeling. Our concern is that the the model used in Cabral et al. 2020 overstates the confidence that readers should have in the exact magnitude of benefits of costs, and in the size and placement of food maximizing MPAs. We summarize our reaons for this here, in particular that 
+
+1. Using species distribution models (SDMs) from Aquamaps as a proxy for both the extent and relative abundance in space of species is unrealistic and dramatically positively biases estimaates of MPA size for unassessed stocks when applied to the physical globe. 
+
+2. The roughly non-spatial nature of the operating model itself removes any consideration of distance, and requires the assumption that fishing mortality is evenly distributed across fishable areas. This allows MPAs to produce benefits across vast distances (e.g. MPAs in the Carribean benefiting stocks off of China), even when placed in areas where best available data suggests fishing pressure is negligable under BAU. This is likely to positively bias the optimal size and estimated benefits of MPA networks, particularly if MPAs are clustered in space and isolated stocks are spatially separated within the broader Aquamaps layer. 
+
+3. Evaluation of the models predictions for RAM stocks alone produces some questionable results, namely that most RAM stocks, which collectively produce roughly 50% of global captures, could have over 25% of their footprint covered in MPAs while actually increasing captures from these stocks. We also have some questions about the BAU policy as applied to RAM stocks, which do not appear to match those made in Costello et al. 2016
+
+
+
+
 
 <!-- Look, we get it. You like MPAs. They're great. We love MPAs too. The merits of MPAs are many. LIST MERITS. Improving fisheries does not have to be one of those for them to be worth doing. So stop producing assumption-driven analyses that try to make that the case. Do some actual empirical analysis. Drop the veneer. we're going to love MPAs no matter what the answer is. -->
 
@@ -1071,7 +1085,6 @@ china_cs_plot <- china_pio_plot + dh_outside_chinaish_plot + plot_annotation(tag
 
 china_cs_plot
 ```
-
 
 # Case Study - RAM closures
 
@@ -1748,7 +1761,6 @@ top_5_ram_stocks_protected_plot <- ram_stocks %>%
 ```{r ram-top5-protected-plot, fig.cap = "Histrogram of percent of Free's estimate of RAM footpring protected inside MPAs inside the top 5% ranking of catch increasing MPAs"}
 top_5_ram_stocks_protected_plot
 ```
-
 
 
 # Effort concentration

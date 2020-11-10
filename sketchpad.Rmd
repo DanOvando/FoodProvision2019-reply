@@ -1918,5 +1918,115 @@ scenes %>%
 
 ```
 
+# EEZs Protected
+
+```{r}
+library(sf)
+
+eezs <- sf::read_sf(here("data","World_EEZ_v11_20191118","eez_v11.shp")) %>% 
+  mutate(country_iso3c = countrycode(ISO_TER1, "iso3c",  "country.name")) %>% filter(!is.na(country_iso3c)) %>% 
+  sf::st_transform(sf::st_crs(land_shp_moll))
+
+a = eezs %>% 
+  filter(ISO_TER1 == "CHN") %>% 
+  ggplot() +
+  geom_sf(fill = "red") + 
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+
+# ggsave("test.png", a)
 
 
+bau_mpas <- ShortCoord_Sort %>%
+  sf::st_as_sf(coords = c("lon", "lat"),
+               crs = sf::st_crs(land_shp_moll)) 
+
+fao_country_captures <- fao_capture %>% 
+  filter(capture_units == "t") %>% 
+  group_by(country_name_en, iso3_code) %>% 
+  filter(year == max(year)) %>% 
+  summarise(capture = sum(capture, na.rm = TRUE)) %>% 
+  arrange(desc(capture)) %>% 
+  ungroup() %>% 
+  mutate(capture_rank = percent_rank(capture)) %>% 
+  arrange(desc(capture_rank)) %>% 
+  mutate(cumu_capture = cumsum(capture)) %>% 
+  mutate(first_half = cumu_capture < (max(cumu_capture) / 2))
+
+
+
+test <- sf::st_join(bau_mpas, eezs)
+
+test %>% 
+  filter(!is.na(ISO_TER1)) %>% 
+  filter(ISO_TER1 == "CHN") %>% 
+  ggplot(aes(color = country_iso3c)) + 
+  geom_sf(show.legend = FALSE) + 
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+
+
+
+global_eezs_protected <- test %>% 
+  filter(!is.na(ISO_TER1)) %>% 
+  summarise(percent_protected = mean(sign),
+            top_5_percent_protected = mean(sign == TRUE & rank  < 5)) 
+
+
+country_eezs_protected <- test %>% 
+  filter(!is.na(ISO_TER1)) %>% 
+  group_by(ISO_TER1, country_iso3c) %>% 
+  summarise(percent_protected = mean(sign),
+            top_5_percent_protected = mean(sign == TRUE & rank  < 5)) %>% 
+  arrange(desc(top_5_percent_protected)) %>% 
+  left_join(fao_country_captures, by = c("ISO_TER1" = "iso3_code")) %>% 
+  ungroup()
+
+top_producers_protected <- test %>% 
+  filter(!is.na(ISO_TER1)) %>% 
+  left_join(fao_country_captures, by = c("ISO_TER1" = "iso3_code")) %>% 
+  group_by(first_half) %>% 
+  summarise(percent_protected = mean(sign),
+            top_5_percent_protected = mean(sign == TRUE & rank  < 5)) %>% 
+  arrange(desc(top_5_percent_protected)) %>% 
+  ungroup()
+
+country_eezs_protected %>% 
+  ggplot(aes(top_5_percent_protected)) + 
+  geom_histogram()
+
+country_eezs_protected %>% 
+  filter(capture_rank > .5) %>% 
+  ggplot(aes(reorder(country_name_en, capture_rank), percent_protected)) + 
+  geom_col() + 
+  coord_flip()
+
+
+country_eezs_protected %>% 
+  filter(first_half == TRUE) %>% 
+  ggplot(aes(reorder(country_name_en, capture_rank), percent_protected)) + 
+  geom_col() + 
+  coord_flip()
+
+
+top_country_protected_plot <- country_eezs_protected %>% 
+  filter(cumu_capture < 60e6) %>% 
+  ggplot(aes(reorder(country_name_en, capture_rank), percent_protected)) + 
+  geom_col() + 
+  coord_flip() + 
+  scale_y_continuous(labels = percent, name = "Percent of EEZ in MPA")
+
+
+country_eezs_protected %>% 
+  mutate()
+
+
+```
+
+We acknowledge that a large focus of the text of Cabral et al. 2020 is on the potential for food increase from an additional 5% increase in MPA protection. However, we feel that a model must be judged across its entire range of predictions, or provide clear description in the text over what range the model should be viewed as credible. 
+
+One of the main reasons that Cabral et al. 2020 estimates that nearly 90% of the world's oceans can be closed without reducing global catch relative to BAU is that the open-ocean areas outside of EEZs make up a substantial part of the the global surface area of the world's oceans, and these systems produce relatively little of global marine captures. However, we were curious what was happening inside various EEZs under these BAU scenarios. 
+
+We merged the BAU MPA network produced by Cabral et al. 2020 with a shapefile of global EEZs. We then calculated the percentage of global and individual EEZs that the model states could be placed inside MPAs that would produce net increases in food production (`sign == TRUE`). 
+
+At the global level, the BAU scenario suggests that `r percent(global_eezs_protected$percent_protected)` of the world's EEZs could be placed in MPAs each of which produces a positive marginal change in harvest. Looking only at MPAs in the first 5% of ranked cells, only `r percent(global_eezs_protected$top_5_percent_protected)` of the world's EEZs are placed inside an MPA. 
+
+However, we can also look at the distribution of EEZ protection across a range of countries. Specifically, we will look at countries that collectively make up more 50% of the world's fishery captures
