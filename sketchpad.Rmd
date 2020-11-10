@@ -295,7 +295,7 @@ ER_redistribute<-1-(1-ER)^(1/(1-R))
 
 b_outside_bau <-
   ((m * K * (1 - R)) / (ER_redistribute * R + m)) * (1 - (ER_redistribute * (1 - R) * m) /
-                                                       ((ER_redistribute + m) * r)) # so the only place space is coming in here is in summing the proportion of patches protected. Where is the optimal order thing coming in? It's not, since all that it's optimizing is the order in terms of K, there's not "net effect" in terms of where anything goes. Fuck me.
+                                                       ((ER_redistribute + m) * r)) 
 
 hbau<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
 hbau<-hbau*(hbau>0)
@@ -447,13 +447,239 @@ MPAcoverage
 
 ```
 
+# bau comparisons
 
-Look, we get it. You like MPAs. They're great. We love MPAs too. The merits of MPAs are many. LIST MERITS. Improving fisheries does not have to be one of those for them to be worth doing. So stop producing assumption-driven analyses that try to make that the case. Do some actual empirical analysis. Drop the veneer. we're going to love MPAs no matter what the answer is.
+```{r, include=FALSE}
+
+upsides <- read_csv(here("data","upsides","ProjectionData.csv")) %>% 
+janitor::clean_names()
+
+upsides_bau <- upsides %>% 
+  filter(
+         policy == "BAU", 
+         scenario == "Con. Concern") %>% 
+  filter(year == max(year)) %>%
+  dplyr::rename(bvbmsy_upsides = bv_bmsy) %>% 
+  mutate(manage = ifelse(dbase == "FAO",0, 1))
+
+# upsides_bau %>% 
+#   filter(manage == 1, year > 2012) %>% 
+#   ggplot(aes(year, bvbmsy_upsides, group = id_orig)) +
+#   geom_line(alpha = 0.5)
+#   
+
+sum(upsides_bau$catch) # costello et al. 2016 58.2
+
+upsides$check <- (upsides$bv_bmsy * upsides$fv_fmsy) * upsides$msy
+
+mega_data <-readRDS(file = here("data","MegaData.rds")) %>% 
+  janitor::clean_names()
 
 
-seems like this might be part of it. There's clearly only fishing pressure in about 15% of the oceans in their analysis? Since they assume effort concentrates outside, goes  up a bit when you close that first 5%, then basically doesn't change at all until you hit the last 10%?
+upsides <- upsides %>% 
+  filter(sci_name %in% unique(mega_data$sci_name))
 
-whenisgood dgkxra9
+upsides_bau <- upsides %>% 
+  filter(
+         policy == "BAU", 
+         scenario == "Con. Concern") %>% 
+  filter(year == max(year)) %>% 
+  dplyr::rename(bvbmsy_upsides = bv_bmsy) %>% 
+  mutate(manage = ifelse(dbase == "FAO",0, 1))
+
+# let's compare MSYs first
+
+global_things <- upsides %>% 
+  filter(
+         policy == "Historic", 
+         scenario == "Historic") %>% 
+  filter(year == 2012) %>% 
+  group_by(sci_name) %>% 
+  summarise(msy = sum(msy),
+            g = mean(g)) %>% 
+  ungroup()
+
+
+mega_data <- mega_data %>% 
+  left_join(global_things, by = "sci_name") %>% 
+  dplyr::rename(msy_fin = ms_yfin,
+                msy_total = ms_ytotal)
+
+
+check_n <- mega_data %>% 
+  group_by(manage, sci_name) %>% 
+   count()
+   
+
+mega_data %>% 
+  ggplot(aes(msy, msy_fin)) + 
+  geom_point() + 
+  geom_abline(aes(slope = 1, intercept = 0))
+
+mega_data %>% 
+  group_by(sci_name) %>% 
+  summarise(msy = unique(msy), msy_fin = sum(msy)) %>% 
+  ggplot(aes(msy, msy_fin)) + 
+  geom_point() + 
+  geom_abline(aes(slope = 1, intercept = 0))
+
+
+mega_data %>% 
+  ggplot(aes(msy, msy_total)) + 
+  geom_point() + 
+  geom_abline(aes(slope = 1, intercept = 0))
+
+# now let's comapare the R's
+
+mega_data %>% 
+  ggplot(aes(r, g)) + 
+  geom_point() + 
+  geom_abline(aes(slope = 1, intercept = 0))
+
+upsides_bau <- upsides %>% 
+  filter(
+         policy == "BAU", 
+         scenario == "Con. Concern") %>% 
+  filter(year == max(year)) %>% 
+  dplyr::rename(bvbmsy_upsides = bv_bmsy,
+                fvfmsy_upsides = fv_fmsy) %>% 
+  mutate(manage = ifelse(dbase == "FAO",0, 1))
+
+ram_upsides_bau <- upsides_bau %>% 
+  filter(manage == 1) %>% 
+  mutate(f_bau_upsides = fvfmsy_upsides * g)
+
+ram_stockid <- str_split(ram_upsides_bau$id_orig, pattern = '-', simplify = TRUE)
+
+ram_upsides_bau$rough_stockid <- ram_stockid[,2]
+
+check <- mega_data %>% 
+  filter(manage == 1) %>% 
+  left_join(ram_upsides_bau %>% select(rough_stockid,bvbmsy_upsides,fvfmsy_upsides,f_bau_upsides), by = c("stockid" = "rough_stockid")) %>% 
+  mutate(f_bau  = 1 - efin_bau1) 
+
+check$f_bau <-1*(check$f_bau>1) + check$f_bau*(check$f_bau<=1)
+
+
+check %>% 
+  ggplot(aes(f_bau, f_bau_upsides)) + 
+  geom_point()
+
+msy_weighted_upsides_bau <- upsides_bau %>% 
+  group_by(sci_name, manage) %>% 
+  summarise(msy_weighted_bvbmsy_upsides = weighted.mean(bvbmsy_upsides, w = msy),
+            msy_weighted_fvfmsy_upsides = weighted.mean(fvfmsy_upsides, w = msy))
+
+upsides_bau %>% 
+  ggplot(aes(bvbmsy_upsides, fvfmsy_upsides)) + 
+  geom_point()
+
+# Need to calculate EQ conditions now.... fun. 
+
+
+cabral_foo <- function(r,k,R,u,m, years = 100, dd_form = 1){
+  
+  # r = .2
+  # 
+  # k = 100
+  # 
+  # R = 0
+  # 
+  # u = r / 2
+  # 
+  # m = .3
+  # 
+  # years = 100
+  
+  b_in <- rep(k * R,years)
+  
+  b_out <- rep(k * (1 - R),years)
+  
+  for (i in 2:years){
+    
+    
+    mu <- m * (1 - R)
+    
+    if (dd_form == 1){
+    
+    b_in[i] <-
+      b_in[i - 1] + R * r * (b_in[i - 1] + b_out[i - 1]) * (1 - (b_in[i - 1] + b_out[i - 1]) / k) - mu * (b_in[i - 1] - (R / (1 -
+                                                                                                                                R)) * b_out[i - 1])
+    
+    b_out[i] <-
+      (1 - u) * b_out[i - 1] + (1 - R) * r * (b_in[i - 1] + b_out[i - 1]) * (1 - (b_in[i - 1] + b_out[i - 1]) / k) + mu * (b_in[i - 1] - (R / (1 - R)) * b_out[i - 1])
+    
+    } else if (dd_form == 2){
+      
+      b_in[i] <-
+        b_in[i - 1] + r * (b_in[i - 1]) * (1 - (b_in[i - 1]) / (k * R)) - mu * (b_in[i - 1] - (R / (1 - R)) * b_out[i - 1])
+      
+      b_out[i] <-
+        (1 - u) * b_out[i - 1] + r * (b_out[i - 1]) * (1 - (b_out[i - 1]) / k * (1 - R)) + mu * (b_in[i - 1] - (R / (1 - R)) * b_out[i - 1])
+      
+    }
+    
+  } # close for loop
+  
+  out <- tibble(b_in = b_in, b_out = b_out, b = b_in + b_out) %>% 
+    mutate(b_bmsy = b / (k / 2))
+    
+}
+
+mega_data <- mega_data %>% 
+  mutate(u_bau  = 1 - efin_bau1) 
+
+mega_data$u_bau <-1*(mega_data$u_bau>1) + mega_data$u_bau*(mega_data$u_bau<=1)
+
+hist(mega_data$u_bau)
+
+
+mega_data <- mega_data %>% 
+  mutate(bau = pmap(list(r = r, k = k, m = m, u = u_bau, R = 0), cabral_foo))
+
+mega_data <- mega_data %>% 
+  mutate(bvbmsy_bau = map_dbl(bau, ~last(.x$b_bmsy)))
+
+mega_data %>% 
+  ggplot(aes(u_bau,bvbmsy_bau, color = r)) + 
+  geom_point() + 
+  scale_color_viridis_c()
+
+compare_baus <- mega_data %>% 
+  left_join(upsides_bau %>% select(sci_name, bvbmsy_upsides, manage), by = c("sci_name", "manage"))
+
+compare_baus %>% 
+  ggplot(aes(bvbmsy_bau,bvbmsy_upsides, color = manage == 1)) + 
+  geom_abline(aes(slope = 1, intercept = 0)) +
+  geom_point(aes( size = sqrt(msy)), alpha = 0.75) + 
+  geom_smooth() + 
+  facet_wrap(~manage)
+
+mega_data %>% 
+  group_by(manage, sci_name) %>% 
+  unique() %>% 
+  count()
+
+
+compare_weighted_baus <- mega_data %>% 
+  left_join(msy_weighted_upsides_bau, by = c("sci_name", "manage"))
+
+huh_plot <- compare_weighted_baus %>% 
+  ggplot(aes(bvbmsy_bau,msy_weighted_bvbmsy_upsides, color = manage == 1)) + 
+  geom_abline(aes(slope = 1, intercept = 0)) +
+  geom_point(aes( size = sqrt(msy)), alpha = 0.75) + 
+  geom_smooth() + 
+  facet_wrap(~manage)
+
+# huh_plot <- compare_weighted_baus %>% 
+#   ggplot(aes(efin_bau1,msy_weighted_fvfmsy_upsides, color = manage == 1)) + 
+#   geom_abline(aes(slope = 1, intercept = 0)) +
+#   geom_point(aes( size = sqrt(msy)), alpha = 0.75) + 
+#   geom_smooth() + 
+#   facet_wrap(~manage)
+  
+```
+
 
 # DD movement
 

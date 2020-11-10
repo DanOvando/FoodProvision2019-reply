@@ -14,9 +14,6 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 ```
 
 
-<!-- overstates confidence in the exact magnitude of benefits of costs, and in the size and placement of food maximizing MPA -->
-
-
 ```{r, echo = FALSE, include=FALSE}
 
 #copied and then modified to allow reproducibility from FoodGlobalAnalysis_EffortRedistribute_clean.R supplied by Ren through
@@ -38,6 +35,9 @@ library(tidyverse)
 library(countrycode)
 library(patchwork)
 library(marlin)
+library(devtools)
+#install_github("ropensci/ramlegacy")
+library(ramlegacy)
 library(sf)
 
 rename <- dplyr::rename
@@ -501,11 +501,11 @@ However, none of these general insights require explicit modeling. Our concern i
 
 2. The roughly non-spatial nature of the operating model itself removes any consideration of distance, and requires the assumption that fishing mortality is evenly distributed across fishable areas. This allows MPAs to produce benefits across vast distances (e.g. MPAs in the Caribbean benefiting stocks off of China), even when placed in areas where best available data suggests fishing pressure is negligible under BAU. This is likely to positively bias the optimal size and estimated benefits of MPA networks, particularly if MPAs are clustered in space and isolated stocks are spatially separated within the broader Aquamaps layer. 
 
-3. Evaluation of the models predictions for RAM stocks alone produces some questionable results, namely that most RAM stocks, which collectively produce roughly 50% of global captures, could have over 25% of their footprint covered in MPAs while actually increasing captures from these stocks. We also have some questions about the BAU policy as applied to RAM stocks, which do not appear to match those made in Costello et al. 2016
+3. Evaluation of the models predictions for RAM stocks alone produces some questionable results, namely that most RAM stocks, which collectively produce roughly 50% of global captures, could have over 25% of their footprint covered in MPAs while actually increasing captures from these stocks. We also have some questions about the BAU policy as applied to RAM stocks, which if we are interpreting things correctly do not appear to be correct
 
-We do not claim to have a better answer for the size or placement of a food-maximizing network of global MPAs. While we believe that some of the key assumptions made here, along with others we are happy to discuss, generally act to positively bias estimates of physical food-optimal MPA size, it is entirely possible that other assumptions could be negatively biasing estimates. The key point here though is that reasonable people working with another set of equally plausible assumptions could easily reach vastly different conclusions to the specific results presented here. [Ovando 2018 Fig 3.15](https://danovando.github.io/dissertation/zissou.html#results-1) demonstrates that, as shown here and in many other simulation papers, when stocks are overfished, an MPA on the order of 20-40% may increase yields. However, those results also showed that within those general rules of thumb the actual outcomes of the MPA can vary wildly depending on characteristics of fleet dynamics, movement, and density dependence. A large body of simulation papers have shown that MPAs can be good, bad, or in between for fisheries depending on a host of assumptions, some relatively straightforward (must be overfished in the absence of an MPA), and others much less so (being able to accurately measure the nature of dispersal at different life stages relative to MPA size). We suggest that we have come as far as we can with simulation modeling based result in our understanding of the global role of MPAs in food security. It is time to focus our efforts on empirically evaluating the observed fishery impacts of MPAs, to put the wide range of theoretical predictions made over the years to the test. 
+While we believe that some of the key assumptions made here, along with others we are happy to discuss, generally act to positively bias estimates of physical food-optimal MPA size, it is entirely possible that other assumptions could be negatively biasing estimates. The key point here though is that reasonable people working with another set of equally plausible assumptions could easily reach vastly different conclusions to the specific results presented here. [Ovando 2018 Fig 3.15](https://danovando.github.io/dissertation/zissou.html#results-1) demonstrates that, as shown here and in many other simulation papers, when stocks are overfished, an MPA on the order of 20-40% (and bigger if things are really overfished) increase yields. However, those results also showed that within those general rules of thumb the actual outcomes of the MPA can vary wildly depending on characteristics of fleet dynamics, movement, and density dependence. A large body of simulation papers have shown that MPAs can be good, bad, or in between for fisheries depending on a host of assumptions, some relatively straightforward (must be overfished in the absence of an MPA), and others much less so (being able to accurately measure the nature of dispersal at different life stages relative to MPA size). We suggest that we have come as far as we can with simulation based results in our understanding of the global role of MPAs in food security. It is time to focus our efforts on empirically evaluating the observed fishery impacts of MPAs, to put the wide range of theoretical predictions made over the years to the test. 
 
-# Lack of Explicit Distance has Important Implications. 
+# Lack of Explicit Distance has Important Implications
 
 In terms of the actual calculations of effect of MPAs on on harvest, there is no explicit space in the model, beyond essentially a two-patch system with a single carrying capacity, K, and movement in each patch a function of MPA size. So, this means that for any individual stock, the food maximizing MPA size is simply a function of life history and the assumption about BAU conditions: A stock with F/F~MSY~ BAU of 1.5 will need a much bigger MPA than one with  F/F~MSY~ BAU of 1, and a stock with  F/F~MSY~ BAU of 0.5 should maintain or lose catch from any MPA under these assumptions. So, without any spatial mapping, one could, taking the Costello et al. 2016 estimates of BAU stock status as given, as well as the assumptions of this model, calculate the optimal percent of each stock's K that should be in an MPA to maximize food. 
 
@@ -515,13 +515,13 @@ The issues comes in then in trying to translate that *percent* protected onto a 
 
 2. Fishing mortality is equally and instantaneously distributed across all fishable patches
 
-3. Density dependence / growth occurs at the global level, and is distributed inside and outside MPA in proportion to total K inside / outside.  
+3. Density dependence / growth / recruitment occurs at the global level, and is distributed inside and outside MPA in proportion to total K inside / outside.  
 
 4. Calculated movement is evenly distributed across all MPA and non-MPA areas in each time step. 
 
 One could make a case for any one of these assumptions, but there are several features of the data used and the results produced that suggest to us these assumptions produce suspect results. 
 
-In terms of the food maximizing, clearly your assumption about the connectivity of these systems matter. Consider a hypothetical scenario where there are two completely separate stocks of largehead hairtail, one that lives in the Pacific and Indian Oceans, and the other in the Atlantic. Suppose then that F/Fmsy is 2 in the Pacific/Indian Ocean and 1 in the Atlantic (and assume that both have equal total K). What would be the consequences of closing off the Atlantic inside an MPA for food production of largehead hairtail? Assuming no connectivity between the Atlantic and Pacific stocks, the Pacific/Indian Ocean stock would be driven to collapse (assuming Schaefer dynamics), and the Atlantic stock would rebuild to carrying capacity. The MPA would cause a loss relative to BAU equal to the MSY of the Atlantic stock in food production. 
+In terms of the food maximizing, clearly the assumption about the connectivity of these systems matter. Consider a hypothetical scenario where there are two completely separate stocks of largehead hairtail, one that lives in the Pacific and Indian Oceans, and the other in the Atlantic. Suppose then that F/Fmsy is 2 in the Pacific/Indian Ocean and F/Fmsy = 1 in the Atlantic (and assume that both have equal total K and MSY). What would be the consequences of closing off the Atlantic inside an MPA for food production of largehead hairtail? Assuming no connectivity between the Atlantic and Pacific stocks, the Pacific/Indian Ocean stock would be driven to collapse (assuming Schaefer dynamics), and the Atlantic stock would rebuild to carrying capacity. The MPA would cause a loss relative to BAU equal to the MSY of the Atlantic stock in food production. 
 
 But, what if in reality the Atlantic and Pacific are one shared stock in the manner described in Cabral et al. 2020? Closing of the Atlantic inside an MPA might well then provide substantial food benefits, to the extent that the Atlantic MPA brings the biomass weighted mean fishing mortality rate of the total stock in line with Fmsy; i.e., you can still fish like crazy in the Pacific / Indian Ocean, but it is now being bolstered by spillover from the Atlantic MPA. Clearly  then, decisions about how to aggregate stocks play a major role in what an global network of MPAs for food would look like as we move from the stylized two-patch model to an actual map of the world. 
 
@@ -565,9 +565,6 @@ As mentioned above, these methods for Aquamaps were specifically chosen to err o
 
 The natural outcome of assuming such homogeneity of a species distribution across space is that each exploited species, and particularly the species for which more rigorously-defined RAM stock distributions are unavailable, will have large portions of its assumed range where either a) MPAs can be placed, or b) fishing can occur, where assumed species abundance is artificially inflated from reality. Essentially, there is much more spatial scope for “trading” of species between open and closed areas than there should be, making tradeoffs more forgiving between closing areas to fishing and gaining fisheries productivity elsewhere. 
 
-(Maybe take this paragraph out)
-Consider two fished species, one that is overfished and one that is currently at a sustainable biomass. If both species have relatively flat abundance distributions across broad spatial areas, then it is easy to close a proportion of the area and have both diffusion of biomass and redistribution of fishing effort compensate for lost fishing opportunities due to the MPA. If, instead, each species is distributed more patchily or across a smaller total range, there would be more stark tradeoffs between closed areas and forgone fishing opportunities.
-
 We understand that simplifying assumptions must be made in efforts to make global assessments, and we do not know of a better global model of species distributions that could be used off the shelf. However, based off the structural assumptions of AquaMaps, it appears likely that using Aquamaps as an index of abundance will positively bias the assumed stock range used in Cabral et al. 2020. Moreover, this approach does not account for physical barriers to connectivity that would also reduce the effective stock size (e.g., Fig.\@ref(fig:lht-plot) would assume that growth and movement from say those small patches in the mid-Atlantic are just as connected to China as patches off of Japan). 
 
 To consider the potential magnitude of this footprint bias, we can compare the size of the stock footprint for the RAM stocks used in Cabral et al. 2020, which use the spatial footprints created by Chris Free for each of the RAM stocks, to those for the "unassessed" stocks that use the Aquamaps SDM as the footprint (less any RAM stocks for the same species). While the RAM footprints are not definitive, they provide a sense of what experts have judged to be the range of a connected biological stock. 
@@ -575,6 +572,7 @@ To consider the potential magnitude of this footprint bias, we can compare the s
 Cabral et al. 2020 assumes that proportion of K is proportional to the Aquamaps SDM. So, rather than simply summing the number of cells with "K" > 0 for each species, we calculate a K-weighted footprint as 
 
 $$footprint_s = \sum_{i=1}^I\frac{k_{i,s}}{max(\pmb{k_s})} $$
+
 where *k* is the "carrying capacity" for species *s* in cell *i* from KprotectedPerCell_Library. So, for a species where $k_i$ is equal in every patch footprint will equal the number of cells. But, if a k is much bigger in some patches than others, the k-weighted footprint will be smaller. Implementing this measure shows that there are stark differences between these two footprints: the median unassessed fishery has a k-weighted footprint roughly 17 times greater than the median RAM stock, with many unassessed stocks having order of magnitude greater spatial footprints than RAM stocks (Fig/\@ref(fig:footprint)). 
 
 
@@ -666,24 +664,13 @@ foot_dist_plot + foot_delta_plot + plot_annotation(tag_levels = 'A')
   
 ```
 
-This clearly has large practical implications. It is possible that unassessed species, being more tropical than the average RAM stock, have a greater species footprint than RAM stocks, but it seems much more likely that this stark difference is an artifact of the use of Aquamaps. Practically then, since the model itself works in percentages, an unassesssed stock and a RAM stock with the same life history, k roughly equal in each patch ,and BAU fishing pressure would have the same optimal MPA size for food provision as percent of range, but the unassessed stock might be expected to have an MPA network 17X larger than the RAM stock when applied to the global map. Note that this result does not even include the distance that larvae or fish must traverse between patches, which the Aquamaps distributions seem to frequently produce (relative to the relatively contiguous RAM distributions). 
+This clearly has large practical implications. It is possible that unassessed species, being more tropical than the average RAM stock, have a greater species footprint than RAM stocks, but it seems much more likely that this stark difference is an artifact of the use of Aquamaps. Practically then, since the model itself works in percentages, an unassesssed stock and a RAM stock with the same life history, k roughly equal in each patch ,and BAU fishing pressure would have the same optimal MPA size for food provision as percent of range, but the unassessed stock might be expected to have an MPA network 17X larger than the RAM stock when applied to the global map. Note that this result does not factor in the distance that larvae or fish must traverse between patches, which the Aquamaps distributions seem to produce (relative to the relatively contiguous RAM distributions). 
 
-While the total area protected to maximize food production from Cabral is a function of both the optimal percent size MPA of individual species and the degree of habitat overlap across species. Given that fewer species live in the high seas, and both the RAM and unassessed stocks that do live there are likely to have very large footprints (though the RAM stocks in those areas are mostly not overfished, so there would be few benefits from MPAs), it is likely that even accounting for this size bias, similar portions of the high seas could be closed at little cost to total food production. However, for species that primarily inhabit coastal areas, the fact that all else being equal the model will create much larger MPAs, in terms of absolute area protected on the map, for unassessed than assessed stocks, and since unassessed stocks from Costello et al. estimates will have lower BAU stock status, these results are likely-and greatly- overestimating the total amount of coastal area in a food-maximizing MPA network. 
+The total area protected to maximize food production from Cabral is a function of both the optimal percent size MPA of individual species and the degree of habitat overlap across species. Given that fewer species live in the high seas, and both the RAM and unassessed stocks that do live there are likely to have very large footprints (though the RAM stocks in those areas are mostly not overfished, so there would be few benefits from MPAs), it is likely that even accounting for this size bias, similar portions of the high seas could be closed at little cost to total food production. However, for species that primarily inhabit coastal areas, the fact that all else being equal the model will create much larger MPAs, in terms of absolute area protected on the map, for unassessed than assessed stocks, and since unassessed stocks from Costello et al. estimates will have lower BAU stock status, these results are likely-and greatly- overestimating the total amount of coastal area in a food-maximizing MPA network. 
 
 # Case Study - Chinese Fisheries
 
 Let's consider some of the implications of the spatial modeling choices with a case study. We first selected all unassessed species classified as overfished under BAU for which 90% or more of the catch comes from inside FAO area 61 - the Pacific NorthWest, made up mostly of catches from China, along with Japan and South Korea. As we might hope, the cells with the highest individual K values come from within area 61. However, according to aquamaps these case study stocks have a nontrivial portion of their range in areas quite far from the Pacific Northwest, including throughout the Mediterranean (Fig.\@ref(fig:of-61))
-
-<!-- We can first examine the spatial footprint of those stocks according to Aquamaps.  -->
-
-
-<!-- Picking out XX here since caught exclusively in China but has an much broader aquamaps range.  -->
-
-<!-- - demonstrate that MPAs off of USA are having a big impact despite having zero catch there     - Both expands the threat to places it isn't and distributes the benefits from abating a non-existent threat -->
-
-<!-- actually maybe instead of one species, just run the analysis but only with species with essentially all of their catch in region 61 -->
-
-<!-- Important to note that BAU would NOT assume expansion of fishing effort. Under the assumptions of the model, that should be the average fishing pressure across the entire system, so expanding that same fishing mortality to new systems would imply an increased F, not BAU conditionl on the model as its set up -->
 
 ```{r of-61, fig.cap = "Distribution of aquamaps derived K for stocks with 90% or more of their catch reported in FAO area 61 (Pacific Northwest)"}
 MegaData<-readRDS(file = here("data","MegaData.rds")) 
@@ -1081,60 +1068,41 @@ china_cs_plot
 
 # Case Study - RAM closures
 
-Another way to examine the predictions made by Cabral et al. 2020 is to examine the food-maximizing MPA network proscribed for only those stocks present in the RAM Legacy Stock Assessment Database. This has two advantages, in that a) the estimates of stock status are much more reliable and b) stock boundaries are now defined by Chris Free's spatial mapping of RAM stocks. As such, the results presented here should be independent of errors and biases in both the unassessed estimates of stock status and the translation of Aquamaps SDMS into spatial maps of K. 
-
-(I lost track of the argument in the paragraphs below. Maybe take out?)
-One question that we had here was whether we are interpreting Efin_BAU1 correctly for the managed stocks. Running the version of the script sent in FoodGlobalAnalysis_EffortRedistribute_clean.R supplied by Ren through https://ucsb.box.com/s/mj6gnsh111c0nrdw1yt4nutvkts76zi4, it appears that we reproduce the BAU scenario reported in the main paper. Since the script uses BAU as the base scenario, and when scenario = BAU the script sets effort as equal to Efin_BAU1, we assume then that Efin_BAU1 is the correct escapement for both managed and unmanaged (RAM and unassessed) stocks. 
-
-The reason that I ask is that I am having trouble matching the equilibrium BAU predictions of B/B~MSY~ for the manage == 1 (RAM) stocks to the BAU B/B~MSY~ values reported for RAM stocks in Costello et al. 2016. BAU conservation concern from Costello et al. 2016 corresponds to hold F at current level for most RAM stocks, except for stocks with B/Bmsy > 1 and F/Fmsy < 1, which get held at B_current for reasons that I don't remember.  
-
-So, I would assume then that for most RAM stocks, 1 - Efin_BAU1 be  proportional to F/F~MSY~
-BAU from Costello et al. 2012. But, when I plot that, there's a slight positive relationship, but not much. Similarly, when I check the B/Bmsy and F/Fmsy values at EQ for RAM stocks under the conservation concern policy in the upsides data, those reproduce the Catch/MSY and hence catches from Costello et al. 2016. Therefore, B/B~MSY~ BAU from the upsides paper should roughly equal B/B~MSY~ from Cabral et al. 2020. It does the the unassessed stocks, but there is almost no relationship for the RAM stocks
-
 ```{r, include=FALSE}
-
 upsides <- read_csv(here("data","upsides","ProjectionData.csv")) %>% 
-janitor::clean_names()
+  janitor::clean_names()
+
+# upsides %>% 
+#   filter(dbase == "RAM", year > 2016, 
+#          policy == "BAU", 
+#          scenario == "Con. Concern") %>% 
+#   ggplot(aes(year, pmin(4,fv_fmsy), color = scenario, group = interaction(scenario, id_orig)))+ 
+#   geom_line(alpha = 0.5) + 
+#   facet_wrap(~policy,scales = "free_y")
 
 upsides_bau <- upsides %>% 
   filter(
-         policy == "BAU", 
-         scenario == "Con. Concern") %>% 
+    policy == "BAU", 
+    scenario == "Con. Concern") %>% 
   filter(year == max(year)) %>%
-  dplyr::rename(bvbmsy_upsides = bv_bmsy) %>% 
+  dplyr::rename(bvbmsy_upsides = bv_bmsy,
+                fvfmsy_upsides = fv_fmsy) %>% 
   mutate(manage = ifelse(dbase == "FAO",0, 1))
 
-# upsides_bau %>% 
-#   filter(manage == 1, year > 2012) %>% 
-#   ggplot(aes(year, bvbmsy_upsides, group = id_orig)) +
-#   geom_line(alpha = 0.5)
-#   
+# sum(upsides_bau$catch) # costello et al. 2016 58.2
 
-sum(upsides_bau$catch) # costello et al. 2016 58.2
+upsides_bau$check <- (upsides_bau$bvbmsy_upsides * upsides_bau$fvfmsy_upsides) * upsides_bau$msy
 
-upsides$check <- (upsides$bv_bmsy * upsides$fv_fmsy) * upsides$msy
+# plot(upsides_bau$check, upsides_bau$catch)
+# abline(a = 0, b = 1)
 
 mega_data <-readRDS(file = here("data","MegaData.rds")) %>% 
   janitor::clean_names()
 
-
-upsides <- upsides %>% 
-  filter(sci_name %in% unique(mega_data$sci_name))
-
-upsides_bau <- upsides %>% 
-  filter(
-         policy == "BAU", 
-         scenario == "Con. Concern") %>% 
-  filter(year == max(year)) %>% 
-  dplyr::rename(bvbmsy_upsides = bv_bmsy) %>% 
-  mutate(manage = ifelse(dbase == "FAO",0, 1))
-
-# let's compare MSYs first
-
 global_things <- upsides %>% 
   filter(
-         policy == "Historic", 
-         scenario == "Historic") %>% 
+    policy == "Historic", 
+    scenario == "Historic") %>% 
   filter(year == 2012) %>% 
   group_by(sci_name) %>% 
   summarise(msy = sum(msy),
@@ -1150,42 +1118,33 @@ mega_data <- mega_data %>%
 
 check_n <- mega_data %>% 
   group_by(manage, sci_name) %>% 
-   count()
-   
+  count()
 
-mega_data %>% 
-  ggplot(aes(msy, msy_fin)) + 
-  geom_point() + 
-  geom_abline(aes(slope = 1, intercept = 0))
+# 
+# mega_data %>% 
+#   ggplot(aes(msy, msy_fin)) + 
+#   geom_point() + 
+#   geom_abline(aes(slope = 1, intercept = 0))
 
-mega_data %>% 
-  group_by(sci_name) %>% 
-  summarise(msy = unique(msy), msy_fin = sum(msy)) %>% 
-  ggplot(aes(msy, msy_fin)) + 
-  geom_point() + 
-  geom_abline(aes(slope = 1, intercept = 0))
+# mega_data %>% 
+#   group_by(sci_name) %>% 
+#   summarise(msy = unique(msy), msy_fin = sum(msy)) %>% 
+#   ggplot(aes(msy, msy_fin)) + 
+#   geom_point() + 
+#   geom_abline(aes(slope = 1, intercept = 0))
 
 
-mega_data %>% 
-  ggplot(aes(msy, msy_total)) + 
-  geom_point() + 
-  geom_abline(aes(slope = 1, intercept = 0))
+# mega_data %>% 
+#   ggplot(aes(msy, msy_total)) + 
+#   geom_point() + 
+#   geom_abline(aes(slope = 1, intercept = 0))
 
 # now let's comapare the R's
 
-mega_data %>% 
-  ggplot(aes(r, g)) + 
-  geom_point() + 
-  geom_abline(aes(slope = 1, intercept = 0))
-
-upsides_bau <- upsides %>% 
-  filter(
-         policy == "BAU", 
-         scenario == "Con. Concern") %>% 
-  filter(year == max(year)) %>% 
-  dplyr::rename(bvbmsy_upsides = bv_bmsy,
-                fvfmsy_upsides = fv_fmsy) %>% 
-  mutate(manage = ifelse(dbase == "FAO",0, 1))
+# mega_data %>% 
+#   ggplot(aes(r, g)) + 
+#   geom_point() + 
+#   geom_abline(aes(slope = 1, intercept = 0))
 
 ram_upsides_bau <- upsides_bau %>% 
   filter(manage == 1) %>% 
@@ -1203,139 +1162,122 @@ check <- mega_data %>%
 check$f_bau <-1*(check$f_bau>1) + check$f_bau*(check$f_bau<=1)
 
 
-check %>% 
-  ggplot(aes(f_bau, f_bau_upsides)) + 
-  geom_point()
+# check %>% 
+#   ggplot(aes(f_bau, f_bau_upsides)) + 
+#   geom_point() + 
+#   geom_abline(slope = 1, intercept = 0, color = "red") + 
+#   scale_x_continuous(name = "F BAU Cabral (1 - efin_bau1 that check for negative escapement) ") + 
+#   scale_y_continuous(name = "F BAU Upsides")
 
-msy_weighted_upsides_bau <- upsides_bau %>% 
-  group_by(sci_name, manage) %>% 
-  summarise(msy_weighted_bvbmsy_upsides = weighted.mean(bvbmsy_upsides, w = msy),
-            msy_weighted_fvfmsy_upsides = weighted.mean(fvfmsy_upsides, w = msy))
+# Aha, I think this might be what is happening
 
-upsides_bau %>% 
-  ggplot(aes(bvbmsy_upsides, fvfmsy_upsides)) + 
-  geom_point()
+##RAM Legacy database here
 
-# Need to calculate EQ conditions now.... fun. 
+#download_ramlegacy(version="4.44") #downloading the latest version, 4.44
+load_ramlegacy()
+RAMDATA<-load_ramlegacy(tables = "timeseries_values_views")
+head(RAMDATA$timeseries_values_views)
+RAMDATA2<-RAMDATA$timeseries_values_views
+head(RAMDATA2)
+colnames(RAMDATA2)
+RAMDATA3<-RAMDATA2 %>% select(stockid,year,ERbest,ER, FdivFmsy, FdivFmgt)
+#remove entries with no ER values
+terminalER<-RAMDATA3 %>% filter(!is.na(ER) & !is.na(FdivFmsy)) %>%  group_by(stockid) %>% slice(which.max(year))
+#terminalERtest<-RAMDATA2 %>% filter(! (ER=='NA')) %>%  group_by(stockid) %>% slice(which.max(year))
+#head(terminalERtest)
+head(terminalER)
+plot(terminalER$ERbest,terminalER$ER)
+hist(terminalER$year)
+table(terminalER$ER)
+terminalER$stockid ##terminalER is the file containing the stock assessments with terminal Exploitation Rate
 
+check <- check %>% 
+  left_join(terminalER, by = "stockid")
 
-cabral_foo <- function(r,k,R,u,m, years = 100, dd_form = 1){
-  
-  # r = .2
-  # 
-  # k = 100
-  # 
-  # R = 0
-  # 
-  # u = r / 2
-  # 
-  # m = .3
-  # 
-  # years = 100
-  
-  b_in <- rep(k * R,years)
-  
-  b_out <- rep(k * (1 - R),years)
-  
-  for (i in 2:years){
-    
-    
-    mu <- m * (1 - R)
-    
-    if (dd_form == 1){
-    
-    b_in[i] <-
-      b_in[i - 1] + R * r * (b_in[i - 1] + b_out[i - 1]) * (1 - (b_in[i - 1] + b_out[i - 1]) / k) - mu * (b_in[i - 1] - (R / (1 -
-                                                                                                                                R)) * b_out[i - 1])
-    
-    b_out[i] <-
-      (1 - u) * b_out[i - 1] + (1 - R) * r * (b_in[i - 1] + b_out[i - 1]) * (1 - (b_in[i - 1] + b_out[i - 1]) / k) + mu * (b_in[i - 1] - (R / (1 - R)) * b_out[i - 1])
-    
-    } else if (dd_form == 2){
-      
-      b_in[i] <-
-        b_in[i - 1] + r * (b_in[i - 1]) * (1 - (b_in[i - 1]) / (k * R)) - mu * (b_in[i - 1] - (R / (1 - R)) * b_out[i - 1])
-      
-      b_out[i] <-
-        (1 - u) * b_out[i - 1] + r * (b_out[i - 1]) * (1 - (b_out[i - 1]) / k * (1 - R)) + mu * (b_in[i - 1] - (R / (1 - R)) * b_out[i - 1])
-      
-    }
-    
-  } # close for loop
-  
-  out <- tibble(b_in = b_in, b_out = b_out, b = b_in + b_out) %>% 
-    mutate(b_bmsy = b / (k / 2))
-    
-}
-
-mega_data <- mega_data %>% 
-  mutate(u_bau  = 1 - efin_bau1) 
-
-mega_data$u_bau <-1*(mega_data$u_bau>1) + mega_data$u_bau*(mega_data$u_bau<=1)
-
-hist(mega_data$u_bau)
-
-
-mega_data <- mega_data %>% 
-  mutate(bau = pmap(list(r = r, k = k, m = m, u = u_bau, R = 0), cabral_foo))
-
-mega_data <- mega_data %>% 
-  mutate(bvbmsy_bau = map_dbl(bau, ~last(.x$b_bmsy)))
-
-mega_data %>% 
-  ggplot(aes(u_bau,bvbmsy_bau, color = r)) + 
+er_check_plot <- check %>% 
+  ggplot(aes(f_bau, pmin(1,ERbest))) + 
   geom_point() + 
-  scale_color_viridis_c()
+  geom_abline(slope = 1, intercept = 0, color = "red") + 
+  scale_x_continuous(name = "F BAU Cabral (1 - efin_bau1 that check for negative escapement) ") + 
+  scale_y_continuous(name = "F BAU Ram")
 
-compare_baus <- mega_data %>% 
-  left_join(upsides_bau %>% select(sci_name, bvbmsy_upsides, manage), by = c("sci_name", "manage"))
+#aha! that's what's happening
 
-compare_baus %>% 
-  ggplot(aes(bvbmsy_bau,bvbmsy_upsides, color = manage == 1)) + 
-  geom_abline(aes(slope = 1, intercept = 0)) +
-  geom_point(aes( size = sqrt(msy)), alpha = 0.75) + 
-  geom_smooth() + 
-  facet_wrap(~manage)
-
-mega_data %>% 
-  group_by(manage, sci_name) %>% 
-  unique() %>% 
-  count()
+check <- check %>% 
+  mutate(fvfmsy_bau_cabral = f_bau / (r / 2))
 
 
-compare_weighted_baus <- mega_data %>% 
-  left_join(msy_weighted_upsides_bau, by = c("sci_name", "manage"))
+check %>% 
+  ggplot(aes(fvfmsy_bau_cabral, pmin(1,ERbest))) + 
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0, color = "red") + 
+  scale_x_continuous(name = "F BAU Cabral (1 - efin_bau1 that check for negative escapement) ") + 
+  scale_y_continuous(name = "ER Ram")
 
-huh_plot <- compare_weighted_baus %>% 
-  ggplot(aes(bvbmsy_bau,msy_weighted_bvbmsy_upsides, color = manage == 1)) + 
-  geom_abline(aes(slope = 1, intercept = 0)) +
-  geom_point(aes( size = sqrt(msy)), alpha = 0.75) + 
-  geom_smooth() + 
-  facet_wrap(~manage)
 
-# huh_plot <- compare_weighted_baus %>% 
-#   ggplot(aes(efin_bau1,msy_weighted_fvfmsy_upsides, color = manage == 1)) + 
-#   geom_abline(aes(slope = 1, intercept = 0)) +
-#   geom_point(aes( size = sqrt(msy)), alpha = 0.75) + 
-#   geom_smooth() + 
-#   facet_wrap(~manage)
+fvfmsy_check_plot <- check %>% 
+  ggplot(aes(fvfmsy_bau_cabral, FdivFmsy, size = msy_fin)) + 
+  geom_point() + 
+  geom_hline(aes(yintercept = 1), linetype = 2) +
+  geom_abline(slope = 1, intercept = 0, color = "red") + 
+  scale_x_continuous(name = "F/Fmsy BAU Cabral") + 
+  scale_y_continuous(name = "F/Fmsy BAU RAM") + 
+  scale_size(trans = "sqrt")
+
+a = lm(FdivFmsy ~ fvfmsy_bau_cabral - 1, data = check)
+
   
+check <- check %>% 
+  mutate(bias = fvfmsy_bau_cabral - pmin(2,FdivFmsy))
+
+bias_plot <- check %>% 
+  ggplot(aes(fvfmsy_bau_cabral, bias)) + 
+  geom_point(aes(size = msy_fin)) + 
+  geom_smooth() + 
+  geom_hline(aes(yintercept = 0)) + 
+  scale_x_continuous(name = "F/Fmsy BAU Cabral") + 
+  scale_y_continuous(name = "Bias (Cabral - RAM)")
+
+
+
+
 ```
 
-```{r bau-status, fig.cap = "B/Bmsy BAU from Cabral et al. 2020 plotted against MSY weighted mean B/BMSY from Costello et al. 2016 for unassessed stocks on left and assessed stocks on right"}
+Another way to examine the predictions made by Cabral et al. 2020 is to examine the food-maximizing MPA network proscribed for only those stocks present in the RAM Legacy Stock Assessment Database. This has two advantages, in that a) the estimates of stock status are much more reliable and b) stock boundaries are now defined by Chris Free's spatial mapping of RAM stocks. As such, the results presented here should be less affected by errors and biases in both the unassessed estimates of stock status and the translation of Aquamaps SDMS into spatial maps of K. 
 
-huh_plot
+We do have some technical questions about the BAU policy for RAM stocks. The BAU exploitation rate for the unassessed stocks appears to be set such that B/B~MSY~ BAU equals the MSY weighted mean B/B~MSY~ BAU from Costello et al. 2016. For the RAM stocks though those values do not match up, and digging closer it seems as though the values have been updated with the BAU values based on the latest RAM database. However, we think there are some issues there. It appears as though Cabral et al. 2020 pulls the most recent exploitation rate from RAM, not F/F~MSY~. BAU Conservation concern from Costello et al. 2016 calls for maintaining current F/F~MSY~, not current exploitation rate. 
+
+This wouldn't matter if Cabral et al. 2020 used the same F~MSY~ values as RAM, but it does not. Fmsy = r/2 in this model, and r is pulled from fishlife etc. In addition, most RAM stocks have shape parameters such that Bmsy < 0.5K. The net result of all of this is that while this model uses the same BAU exploitation rate as RAM, that same exploitation rate can produce a very different F/Fmsy BAU between RAM and Cabral, which is the thing that matters from the perspective of potential yield gains from MPAs. 
+
+To illustrate, we followed the steps in FoodProvisionEfficient.R to pull out the RAM values, but along with the exploitation rates, pulled the F/Fmsy values (keeping only the most recent year of each stock that has both). We then plotted the exploitation rates from RAM against the exploitation rates calculated from Efin_BAU1, and they more or less match up except for a few outliers (not sure what's happening there), so this seems to tell us that this was in fact how the values in Efin_BAU1 were created (Fig.\@ref(fig:er-check-plot)). 
+
+We then converted the exploitation rates to F/Fmsy values using the r values reported in MegaData (f / (r/2)), and plotted those against the BAU F/Fmsy values from RAM. While there is a positive relationship between the two, it is noisy (R^2^ around  0.57), and critically appears to be positively biased at the upper end, i.e. the higher the the model used here says that F/Fmsy BAU is, the lower it the actual RAM F/Fmsy BAU is, often by enough to switch from overfishing under Cabral to underfishing under RAM (Fig.\@ref(fig:fvfmsy_check_plot), Fig.\@ref(fig:bias_check_plot)). While there is also negative bias at the lower F/Fmsy values, it appears as though most of the MSY is concentrated in the positive bias area. 
+
+
+```{r er-check-plot, fig.cap = "Exploitation rate from Cabral et al. 2020 plotted against most recent exploitation rate reported in RAM"}
+
+er_check_plot
 
 ```
 
 
+```{r fvfmsy-check-plot, fig.cap="F/Fmsy BAU from Cabral et al. against F/Fmsy BAU from RAM"}
 
+fvfmsy_check_plot
+
+```
+
+
+```{r bias-check-plot, fig.cap="Bias as a function of F/Fmsy BAU Cabral (RAM values truncated at 2 to remove the influence of the different model assumptions"}
+
+bias_plot
+```
+
+The net result of all this is that as we understand it the RAM BAU policy implemented here does not match the BAU policy used in Costello et al. 2016, and since what matters from the perspective of food provision from MPAs is BAU F/Fmsy, this could produce some substantially different results. We suspect that this is why you are reporting much higher gains in catches from MPAs for the RAM stocks than the losses from overfishing of RAM stocks estimated by Hilborn et al. 2020. We go through that below, but these issues may be of secondary concern if we are correct about this issue with the RAM stocks. It seems like around 65% of the MSY in the estimates used here come from unassessed stocks, so changing a subset of the RAM stocks might not change the totals tremendously, but it certainly might change the spatial distribution. IF we are correct, the correct BAU for RAM stocks (not factoring in all the conservation concern caveats) would be to calculate the BAU exploitation rate such that the Cabral et al. model F/Fmsy matches F/Fmsy BAU from RAM. 
 
 Taking the Efin_BAU1 for the managed stock at face value, Looking at the resulting map, the model used in Cabral et al. 2020 suggest that a substantial global network of MPAs, including both open ocean and coastal Seas, would produce up to 4.11 MMT in catch benefits for the fisheries in RAM, out of a total included MSY of  `r  scales::comma(sum(MegaData$MSYfin[MegaData$Manage == 1]))`. This suggests that overfishing is currently reducing global catch of RAM fisheries by `r percent(4.1e6 / (sum(MegaData$MSYfin[MegaData$Manage == 1])))`. In contrast, Hilborn et al. 2020, using a near identical version of RAM, estimated that 3%-5% of the potential catch of RAM stocks is lost due to overfishing.
 
-We can then go through and calculate, for each stock in RAM, the percent of the footprint reported in by Chris Free that would, according to Cabral et al. 2020, produce an increase in total catch of RAM stocks. We can repeat the same analysis but only for the top 5% ranking of protected areas. In both cases, the Cabral et al. 2020 model estimates that most RAM stocks could have over 25% of their footprint placed in MPAs while increasing the total amount of catch produced by RAM stocks (Fig.\@ref(fig:ram-protected-plot), Gig.\@ref(fig:ram-top5-protected-plot)). 
-
-Given that I feel like there may be an error in how I'm interpreting Efin_BAU1 for the manage == 1 stocks, I'll leave that there for now. 
+We can then go through and calculate, for each stock in RAM, the percent of the footprint reported in by Chris Free that would, according to Cabral et al. 2020, produce an increase in total catch of RAM stocks. We can repeat the same analysis but only for the top 5% ranking of protected areas. In both cases, the Cabral et al. 2020 model estimates that most RAM stocks could have over 25% of their footprint placed in MPAs while increasing the total amount of catch produced by RAM stocks (Fig.\@ref(fig:ram-protected-plot), Fig.\@ref(fig:ram-top5-protected-plot)). 
 
 
 ```{r load ram data, echo = FALSE, include=FALSE}
@@ -1581,7 +1523,10 @@ ram_MPAcoverage<-ShortCoord_Sort %>% filter(sign == TRUE) %>%  ggplot(aes(x=lon,
 
 
 ```
-```{r ram-mpa-map, fig.cap = ""}
+
+
+
+```{r ram-mpa-map, fig.cap = "Delta harvest by cell for RAM only MPA network"}
 ram_MPAcoverage
 ```
 
