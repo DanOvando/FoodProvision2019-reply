@@ -215,6 +215,13 @@
       "Repository": "CRAN",
       "Hash": "c1104dc27eadb771b7ec6cee76974014"
     },
+    "bookdown": {
+      "Package": "bookdown",
+      "Version": "0.21",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "1bf627f1f77313e345f71e779b658578"
+    },
     "boot": {
       "Package": "boot",
       "Version": "1.3-25",
@@ -1004,6 +1011,13 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "9b9b5322c83ee21db73c8ba3787897ca"
+    },
+    "patchwork": {
+      "Package": "patchwork",
+      "Version": "1.1.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "89ba3e06a77b8ac5f6e7879e4d2ff375"
     },
     "pbkrtest": {
       "Package": "pbkrtest",

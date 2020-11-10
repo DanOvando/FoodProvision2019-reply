@@ -92,7 +92,7 @@ ER_redistribute<-1-(1-ER)^(1/(1-R))
 
 b_outside_bau <-
   ((m * K * (1 - R)) / (ER_redistribute * R + m)) * (1 - (ER_redistribute * (1 - R) * m) /
-                                                       ((ER_redistribute + m) * r)) # so the only place space is coming in here is in summing the proportion of patches protected. Where is the optimal order thing coming in? It's not, since all that it's optimizing is the order in terms of K, there's not "net effect" in terms of where anything goes. Fuck me.
+                                                       ((ER_redistribute + m) * r)) 
 
 hbau<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
 hbau<-hbau*(hbau>0)

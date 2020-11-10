@@ -339,7 +339,7 @@ ER_redistribute<-1-(1-ER)^(1/(1-R))
 
 b_outside_bau <-
   ((m * K * (1 - R)) / (ER_redistribute * R + m)) * (1 - (ER_redistribute * (1 - R) * m) /
-                                                       ((ER_redistribute + m) * r)) # so the only place space is coming in here is in summing the proportion of patches protected. Where is the optimal order thing coming in? It's not, since all that it's optimizing is the order in terms of K, there's not "net effect" in terms of where anything goes. Fuck me.
+                                                       ((ER_redistribute + m) * r)) 
 
 hbau<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
 hbau<-hbau*(hbau>0)
@@ -497,28 +497,19 @@ Cabral et al. 2020 presents a global network of MPAs designed to maximize food p
 
 However, none of these general insights require explicit modeling. Our concern is that the the model used in Cabral et al. 2020 overstates the confidence that readers should have in the exact magnitude of benefits of costs, and in the size and placement of food maximizing MPAs. We summarize our reasons for this here, in particular that 
 
-1. Using species distribution models (SDMs) from Aquamaps as a proxy for both the extent and relative abundance in space of species is unrealistic and dramatically positively biases estimaates of MPA size for unassessed stocks when applied to the physical globe. 
+1. Using species distribution models (SDMs) from Aquamaps as a proxy for both the extent and relative abundance in space of species is unrealistic and dramatically positively biases estimates of MPA size for unassessed stocks when applied to the physical globe. 
 
-2. The roughly non-spatial nature of the operating model itself removes any consideration of distance, and requires the assumption that fishing mortality is evenly distributed across fishable areas. This allows MPAs to produce benefits across vast distances (e.g. MPAs in the Carribean benefiting stocks off of China), even when placed in areas where best available data suggests fishing pressure is negligable under BAU. This is likely to positively bias the optimal size and estimated benefits of MPA networks, particularly if MPAs are clustered in space and isolated stocks are spatially separated within the broader Aquamaps layer. 
+2. The roughly non-spatial nature of the operating model itself removes any consideration of distance, and requires the assumption that fishing mortality is evenly distributed across fishable areas. This allows MPAs to produce benefits across vast distances (e.g. MPAs in the Caribbean benefiting stocks off of China), even when placed in areas where best available data suggests fishing pressure is negligible under BAU. This is likely to positively bias the optimal size and estimated benefits of MPA networks, particularly if MPAs are clustered in space and isolated stocks are spatially separated within the broader Aquamaps layer. 
 
 3. Evaluation of the models predictions for RAM stocks alone produces some questionable results, namely that most RAM stocks, which collectively produce roughly 50% of global captures, could have over 25% of their footprint covered in MPAs while actually increasing captures from these stocks. We also have some questions about the BAU policy as applied to RAM stocks, which do not appear to match those made in Costello et al. 2016
 
-We do not claim to have a better answer for the size or placement of a food-maximizing network of global MPAs. While we believe that some of the key assumptions made here, along with others we are happy to discuss, generally act to positively bias estimates of physical food-optimal MPA size, it is entirely possible that other assumptions could be negatively biasing estimates. The key point here though is that reasonable people working with another set of equally plausible assumptioons could easily reach vastly different conclusions to the specific results presented here. [Ovando 2018 Fig 3.15](https://danovando.github.io/dissertation/zissou.html#results-1) demonstrates that, as shown here and in many other simulation papers, when stocks are overfished, an MPA on the order of 20-40% may increase yields. However, those results also showed that within those general rules of thumb the actual outcomes of the MPA can vary wildly depending on characteristics of fleet dynamics, movement, and density dependence. A large body of simulation papers have shown that MPAs can be good, bad, or in between for fisheries depending on a host of assumptions, some relatively straightforward (must be overfished in the absence of an MPA), and others much less so (being able to accurately measure the nature of dispersal at different life stages relative to MPA size). We suggest that we have come as far as we can with simulation modeling based result in our understanding of the global role of MPAs in food security. It is time to focus our efforts on empirically evaluating the observed fishery impacts of MPAs, to put the wide range of theoretical predictions made over the years to the test. 
-
-This is because at its core the specific results produced here are we argue driven by model assumptions rather than empirics. 
-
-
-
-<!-- Look, we get it. You like MPAs. They're great. We love MPAs too. The merits of MPAs are many. LIST MERITS. Improving fisheries does not have to be one of those for them to be worth doing. So stop producing assumption-driven analyses that try to make that the case. Do some actual empirical analysis. Drop the veneer. we're going to love MPAs no matter what the answer is. -->
-
-
-<!-- seems like this might be part of it. There's clearly only fishing pressure in about 15% of the oceans in their analysis? Since they assume effort concentrates outside, goes  up a bit when you close that first 5%, then basically doesn't change at all until you hit the last 10%? -->
+We do not claim to have a better answer for the size or placement of a food-maximizing network of global MPAs. While we believe that some of the key assumptions made here, along with others we are happy to discuss, generally act to positively bias estimates of physical food-optimal MPA size, it is entirely possible that other assumptions could be negatively biasing estimates. The key point here though is that reasonable people working with another set of equally plausible assumptions could easily reach vastly different conclusions to the specific results presented here. [Ovando 2018 Fig 3.15](https://danovando.github.io/dissertation/zissou.html#results-1) demonstrates that, as shown here and in many other simulation papers, when stocks are overfished, an MPA on the order of 20-40% may increase yields. However, those results also showed that within those general rules of thumb the actual outcomes of the MPA can vary wildly depending on characteristics of fleet dynamics, movement, and density dependence. A large body of simulation papers have shown that MPAs can be good, bad, or in between for fisheries depending on a host of assumptions, some relatively straightforward (must be overfished in the absence of an MPA), and others much less so (being able to accurately measure the nature of dispersal at different life stages relative to MPA size). We suggest that we have come as far as we can with simulation modeling based result in our understanding of the global role of MPAs in food security. It is time to focus our efforts on empirically evaluating the observed fishery impacts of MPAs, to put the wide range of theoretical predictions made over the years to the test. 
 
 # Lack of Explicit Distance has Important Implications. 
 
 In terms of the actual calculations of effect of MPAs on on harvest, there is no explicit space in the model, beyond essentially a two-patch system with a single carrying capacity, K, and movement in each patch a function of MPA size. So, this means that for any individual stock, the food maximizing MPA size is simply a function of life history and the assumption about BAU conditions: A stock with F/F~MSY~ BAU of 1.5 will need a much bigger MPA than one with  F/F~MSY~ BAU of 1, and a stock with  F/F~MSY~ BAU of 0.5 should maintain or lose catch from any MPA under these assumptions. So, without any spatial mapping, one could, taking the Costello et al. 2016 estimates of BAU stock status as given, as well as the assumptions of this model, calculate the optimal percent of each stock's K that should be in an MPA to maximize food. 
 
-The issues comes in then in trying to translate that *percent* protected onto a physical map of the world. By our understanding, the assumption for any unassessed stocks is that the stock range is equal to the range in Aquamaps (removing overlapping range with any RAM stocks of the same species). Looking at largehead hairtail (*Trichiurus lepturus*) as an example, the stock spans the entire globe (Fig.\@ref(fig:lht-plot)). Translating from the sylized surplus production model to the globe then requires a few critical assumptions. Namely:
+The issues comes in then in trying to translate that *percent* protected onto a physical map of the world. By our understanding, the assumption for any unassessed stocks is that the stock range is equal to the range in Aquamaps (removing overlapping range with any RAM stocks of the same species). Looking at largehead hairtail (*Trichiurus lepturus*) as an example, the stock spans the entire globe (Fig.\@ref(fig:lht-plot)). Translating from the stylized surplus production model to the globe then requires a few critical assumptions. Namely:
 
 1. Probability of occurrence from aquamaps is proportional to biomass (K)
 
@@ -577,11 +568,11 @@ The natural outcome of assuming such homogeneity of a species distribution acros
 (Maybe take this paragraph out)
 Consider two fished species, one that is overfished and one that is currently at a sustainable biomass. If both species have relatively flat abundance distributions across broad spatial areas, then it is easy to close a proportion of the area and have both diffusion of biomass and redistribution of fishing effort compensate for lost fishing opportunities due to the MPA. If, instead, each species is distributed more patchily or across a smaller total range, there would be more stark tradeoffs between closed areas and forgone fishing opportunities.
 
-We understand that simplifying assumptions must be made in efforts to make global assessments, and we do not know of a better global model of species distributions that could be used off the shelf. However, based off the structural assumptions of AquaMaps, it appears likely that using Aquamaps as an index of abundance will positively bias the aassumed stock range used in Cabral et al. 2020. Moreover, this approach does not account for physical barriers to connectivity that would also reduce the effective stock size (e.g., Fig.\@ref(fig:lht-plot) would assume that growth and movement from say those small patches in the mid-Atlantic are just as connected to China as patches off of Japan). 
+We understand that simplifying assumptions must be made in efforts to make global assessments, and we do not know of a better global model of species distributions that could be used off the shelf. However, based off the structural assumptions of AquaMaps, it appears likely that using Aquamaps as an index of abundance will positively bias the assumed stock range used in Cabral et al. 2020. Moreover, this approach does not account for physical barriers to connectivity that would also reduce the effective stock size (e.g., Fig.\@ref(fig:lht-plot) would assume that growth and movement from say those small patches in the mid-Atlantic are just as connected to China as patches off of Japan). 
 
 To consider the potential magnitude of this footprint bias, we can compare the size of the stock footprint for the RAM stocks used in Cabral et al. 2020, which use the spatial footprints created by Chris Free for each of the RAM stocks, to those for the "unassessed" stocks that use the Aquamaps SDM as the footprint (less any RAM stocks for the same species). While the RAM footprints are not definitive, they provide a sense of what experts have judged to be the range of a connected biological stock. 
 
-Cabral et al. 2020 assumes that proportion of K is proportional to the Aquamaps SDM. So, rather than simply summing the number of cells with "K" > 0 for each species, we calculate a K-weighted footpring as 
+Cabral et al. 2020 assumes that proportion of K is proportional to the Aquamaps SDM. So, rather than simply summing the number of cells with "K" > 0 for each species, we calculate a K-weighted footprint as 
 
 $$footprint_s = \sum_{i=1}^I\frac{k_{i,s}}{max(\pmb{k_s})} $$
 where *k* is the "carrying capacity" for species *s* in cell *i* from KprotectedPerCell_Library. So, for a species where $k_i$ is equal in every patch footprint will equal the number of cells. But, if a k is much bigger in some patches than others, the k-weighted footprint will be smaller. Implementing this measure shows that there are stark differences between these two footprints: the median unassessed fishery has a k-weighted footprint roughly 17 times greater than the median RAM stock, with many unassessed stocks having order of magnitude greater spatial footprints than RAM stocks (Fig/\@ref(fig:footprint)). 
@@ -603,7 +594,7 @@ tmp <- ShortCoord %>%
   filter(k_per_cell > 0) 
 
 
-# a really rough measure of footpring is just the number of positive cells
+# a really rough measure of footprint is just the number of positive cells
 
 raw_footprint <- rowSums(footprint > 0)
 
@@ -613,7 +604,7 @@ foo <- function(x){
 
 k_footprint <-  colSums(apply(footprint,1,foo)) # colsums since for some reason this flips things 
 
-# k footprint is a measure of how concentrated the population is. If every cell has the same k, then k_footpring == raw_footprint. But, if 99.9% of K is in 1 cell and the rest is in 1000 other cells, K footpring will be small
+# k footprint is a measure of how concentrated the population is. If every cell has the same k, then k_footprint == raw_footprint. But, if 99.9% of K is in 1 cell and the rest is in 1000 other cells, K footprint will be small
 
 
 footprint <- MegaData %>% 
@@ -681,7 +672,7 @@ While the total area protected to maximize food production from Cabral is a func
 
 # Case Study - Chinese Fisheries
 
-Let's consider some of the implications of the spatial modeling choices with a case study. We first selected all unassessed species classified as overfished under BAU for which 90% or more of the catch comes from inside FAO area 61 - the Pacific NorthWest, made up mostly of catches from China, along with Japan and South Korea. As we might hope, the cells with the highest inididual K values come from within area 61. However, according to aquamaps these case study stocks have a nontrivial portion of their range in areas quite far from the Pacific Northwest, including throughout the Mediterranean (Fig.\@ref(fig:of-61))
+Let's consider some of the implications of the spatial modeling choices with a case study. We first selected all unassessed species classified as overfished under BAU for which 90% or more of the catch comes from inside FAO area 61 - the Pacific NorthWest, made up mostly of catches from China, along with Japan and South Korea. As we might hope, the cells with the highest individual K values come from within area 61. However, according to aquamaps these case study stocks have a nontrivial portion of their range in areas quite far from the Pacific Northwest, including throughout the Mediterranean (Fig.\@ref(fig:of-61))
 
 <!-- We can first examine the spatial footprint of those stocks according to Aquamaps.  -->
 
@@ -740,7 +731,7 @@ tmp %>%
 
 ```
 
-This in and of itself is not necessarily concerning: it seems entirely plausible that there are species distributed around the world but only fished in some locations. However, this does pose some challenges to the assumptions made in Cabral et al. 2020. First, from the perspective of benefits, according to the pooled model used in Cabral et al. 2020 conditional on K a large MPA in the Caribbean may be just as beneficial to this subset of fisheries as closing portions of the coral triangle. Second, the pooled biomass model assumes that, conditional on K, all areas have equal fishing mortality rates, and therefore no area is worth more or less than another in terms of its contribution to reducing fishing pressure. For this case study though, based on the same data used to produce the estimates of stock status in Costello et al. 2016, almost none of the fihsing mortality for these species comes from areas outside the Pacific Northwest. But, under the assumptions of this model, closing off a K equivalent amount of area in say the Carribean or off Baja, where relatively little fishing pressure occurs, is identical to closing off a K equivalent amount of area off of the Chinese coast. 
+This in and of itself is not necessarily concerning: it seems entirely plausible that there are species distributed around the world but only fished in some locations. However, this does pose some challenges to the assumptions made in Cabral et al. 2020. First, from the perspective of benefits, according to the pooled model used in Cabral et al. 2020 conditional on K a large MPA in the Caribbean may be just as beneficial to this subset of fisheries as closing portions of the coral triangle. Second, the pooled biomass model assumes that, conditional on K, all areas have equal fishing mortality rates, and therefore no area is worth more or less than another in terms of its contribution to reducing fishing pressure. For this case study though, based on the same data used to produce the estimates of stock status in Costello et al. 2016, almost none of the fishing mortality for these species comes from areas outside the Pacific Northwest. But, under the assumptions of this model, closing off a K equivalent amount of area in say the Caribbean or off Baja, where relatively little fishing pressure occurs, is identical to closing off a K equivalent amount of area off of the Chinese coast. 
 
 To quantify the potential impact of these choices, we re-ran the BAU scenario from Cabral et al. 2020, but only for this subset of overfished-under BAU stocks caught almost entirely within the Pacific Northeast. Following the Aquamaps distribution, the areas around China produce on a per-cell basis the most increase in harvest according to the model. However, MPAs as far away as the Caribbean produce increases in total catch for this subset of species (Fig.\@ref(fig:cs-mpa-plot)). In total, while for the species in question nearly all report 100% of their catches from within FAO area 61, roughly 30% of the total increase in harvest that the model estimates for this MPA network comes from areas outside of FAO area 61. This result means that these benefits both come from areas that are quite far away from China, for the life history of most species, and from areas where the same data used to produce the estimates used in Cabral et al. 2020 tells us there is little to no fishing pressure for these species (Fig.\@ref(fig:cs-plot)).
 
@@ -885,7 +876,7 @@ for (i in 1:nmax) {
               
               b_out <-
                 ((m * K * (1 - R)) / (ER_redistribute * R + m)) * (1 - (ER_redistribute * (1 - R) * m) /
-                                                                     ((ER_redistribute + m) * r)) # so the only place space is coming in here is in summing the proportion of patches protected. Where is the optimal order thing coming in? It's not, since all that it's optimizing is the order in terms of K, there's not "net effect" in terms of where anything goes. Fuck me. 
+                                                                     ((ER_redistribute + m) * r)) 
               
               hmpa <-
                 (ER_redistribute * ((m * K * (1 - R)) / ((
@@ -1093,7 +1084,7 @@ china_cs_plot
 Another way to examine the predictions made by Cabral et al. 2020 is to examine the food-maximizing MPA network proscribed for only those stocks present in the RAM Legacy Stock Assessment Database. This has two advantages, in that a) the estimates of stock status are much more reliable and b) stock boundaries are now defined by Chris Free's spatial mapping of RAM stocks. As such, the results presented here should be independent of errors and biases in both the unassessed estimates of stock status and the translation of Aquamaps SDMS into spatial maps of K. 
 
 (I lost track of the argument in the paragraphs below. Maybe take out?)
-One question that we had here was whether we are interpreting Efin_BAU1 correctly for the managed stocks. Running the version of the script sent in FoodGlobalAnalysis_EffortRedistribute_clean.R supplied by Ren through https://ucsb.box.com/s/mj6gnsh111c0nrdw1yt4nutvkts76zi4, it appears that we reproduce the BAU scenario reported in the main paper. Since the script uses BAU as the base scenario, and when scenario = BAU the script sets effort as equal to Efin_BAU1, we assume then that Efin_BAU1 is the correct escapement for both managed and unmananaged (RAM and unassessed) stocks. 
+One question that we had here was whether we are interpreting Efin_BAU1 correctly for the managed stocks. Running the version of the script sent in FoodGlobalAnalysis_EffortRedistribute_clean.R supplied by Ren through https://ucsb.box.com/s/mj6gnsh111c0nrdw1yt4nutvkts76zi4, it appears that we reproduce the BAU scenario reported in the main paper. Since the script uses BAU as the base scenario, and when scenario = BAU the script sets effort as equal to Efin_BAU1, we assume then that Efin_BAU1 is the correct escapement for both managed and unmanaged (RAM and unassessed) stocks. 
 
 The reason that I ask is that I am having trouble matching the equilibrium BAU predictions of B/B~MSY~ for the manage == 1 (RAM) stocks to the BAU B/B~MSY~ values reported for RAM stocks in Costello et al. 2016. BAU conservation concern from Costello et al. 2016 corresponds to hold F at current level for most RAM stocks, except for stocks with B/Bmsy > 1 and F/Fmsy < 1, which get held at B_current for reasons that I don't remember.  
 
@@ -1429,7 +1420,7 @@ ER_redistribute<-1-(1-ER)^(1/(1-R))
 
 b_outside_bau <-
   ((m * K * (1 - R)) / (ER_redistribute * R + m)) * (1 - (ER_redistribute * (1 - R) * m) /
-                                                       ((ER_redistribute + m) * r)) # so the only place space is coming in here is in summing the proportion of patches protected. Where is the optimal order thing coming in? It's not, since all that it's optimizing is the order in terms of K, there's not "net effect" in terms of where anything goes. Fuck me.
+                                                       ((ER_redistribute + m) * r)) 
 
 hbau<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
 hbau<-hbau*(hbau>0)
@@ -1765,289 +1756,6 @@ top_5_ram_stocks_protected_plot
 ```
 
 
-# Effort concentration
-
-Our concerns also extend to the assumptions regarding fishing effort. We agree that assuming that effort outside increases in some proportion to area protected is a reasonable assumption. However, the "single species" nature of the assumption as implemented here presents some problems. 
-
-In Costello et al. 2016, there is an examination the impacts of "optimal" fisheries management, under the idea of "suppose you could set the right F for each species." While perfectly selective fisheries are not possible, the exercise is still grounded in the idea of targeted fisheries management. 
-
-The assumption in Cabral et al. is different: for BAU, one assumes unregulated open access outside an MPA. The reasonable assumption then is that fishers outside the MPA are not taking any other actions to improve the stock. 
-
-Consider then two species, A and B, both overfished. A lives throughout the entire habitat, B is only present in half the habitat. Suppose that half of A's habitat is declared as an MPA. Per the model, fishing mortality of A would increase by 1-(1-ER)^(1/(1-0.5)) in the remaining fished area outside. But, fishing mortality for species B would stay the same. This might be reasonable for a perfectly selective fishery, but if both are benthic species and the fishery relies on trawl gear, it's equally reasonable to assume that fishing mortality on B will in crease due to displacement of the fleet from the new MPA. This can produce vastly different results. 
-
-This issue can be illustrated with an MPA simulation model. 
-
-```{r}
-library(marlin)
-library(tidyverse)
-set.seed(42)
-
-years <- 100
-
-tune_type <- "explt"
-
-resolution <-  20
-
-seasons <- 1
-
-# make up some habitat
-
-yft_habitat <- expand_grid(x = 1:resolution, y = 1:resolution) %>%
-  mutate(habitat =  1) %>% 
-  pivot_wider(names_from = y, values_from = habitat) %>% 
-  select(-x) %>% 
-  as.matrix()
-
-
-mako_habitat <- expand_grid(x = 1:resolution, y = 1:resolution) %>%
-  mutate(habitat =  x < 10) %>% 
-  pivot_wider(names_from = y, values_from = habitat) %>% 
-  select(-x) %>% 
-  as.matrix()
-
-
-#specify some MPA locations
-mpa_locations <- expand_grid(x = 1:resolution, y = 1:resolution) %>%
-mutate(mpa = x >= 10)
-
-mpa_locations %>% 
-  ggplot(aes(x,y, fill = mpa)) + 
-  geom_tile() + 
-  scale_fill_brewer(palette = "Accent", direction  = -1, name = "MPA") + 
-  scale_x_continuous(name = "Lat") + 
-  scale_y_continuous(name = "Lon")
-
-# create a fauna object, which is a list of lists
-
-fauna <- 
-  list(
-    "Yellowfin Tuna" = create_critter(
-      scientific_name = "Thunnus albacares",
-      seasonal_habitat = list(yft_habitat), 
-      recruit_habitat = yft_habitat,
-      adult_movement = 0,
-      adult_movement_sigma = 4, 
-      fished_depletion = .4, 
-      rec_form = 1, 
-      seasons = seasons,
-      init_explt = 0.3, 
-      explt_type = "f"
-    ),
-    "Shortfin Mako" = create_critter(
-      scientific_name = "Isurus oxyrinchus",
-      seasonal_habitat = list(mako_habitat), 
-      recruit_habitat = mako_habitat,
-      adult_movement = 5,
-      adult_movement_sigma = 3,
-      fished_depletion = .3,
-      rec_form = 1,
-      burn_years = 200,
-      seasons = seasons,
-      init_explt = .1, 
-      explt_type = "f"
-    )
-  )
-
-# create a fleets object, accounting a negative price to shortfin makos
-
-fleets <- list("longline_1" = create_fleet(list(
-  `Yellowfin Tuna` = Metier$new(
-    critter = fauna$`Yellowfin Tuna`,
-    price = 100, # price per unit weight
-    sel_form = "logistic", # selectivity form, one of logistic or dome
-    sel_start = .25, # percentage of length at maturity that selectivity starts
-    sel_delta = .1, # additional percentage of sel_start where selectivity asymptotes
-    catchability = .01, # overwritten by tune_fleet but can be set manually here
-    p_explt = 1
-  ),
-  `Shortfin Mako` = Metier$new(
-    critter = fauna$`Shortfin Mako`,
-    price = 0,
-    sel_form = "logistic",
-    sel_start = 1,
-    sel_delta = .01,
-    catchability = 0,
-    p_explt = 0
-  )),
-  mpa_response = "stay",
-  base_effort = resolution^2
-),
-"longline_2" = create_fleet(list(
-  `Yellowfin Tuna` = Metier$new(
-    critter = fauna$`Yellowfin Tuna`,
-    price = 0, # price per unit weight
-    sel_form = "logistic", # selectivity form, one of logistic or dome
-    sel_start = .3, # percentage of length at maturity that selectivity starts
-    sel_delta = .1, # additional percentage of sel_start where selectivity asymptotes
-    catchability = .01, # overwritten by tune_fleet but can be set manually here
-    p_explt = 0
-  ),
-  `Shortfin Mako` = Metier$new(
-    critter = fauna$`Shortfin Mako`,
-    price = 100,
-    sel_form = "logistic",
-    sel_start = .5,
-    sel_delta = .01,
-    catchability = .01,
-    p_explt = 1
-  )),
-  mpa_response = "stay",
-  base_effort = resolution^2
-))
-
-a <- Sys.time()
-
-fleets <- tune_fleets(fauna, fleets, tune_type = tune_type) # tunes the catchability to hit target exploitation rate
-Sys.time() - a
-
-# run simulations
-
-# run the simulation using marlin::simmar
-selective_fleets <- simmar(fauna = fauna,
-                          fleets = fleets,
-                          years = years,
-                          mpas = list(locations = mpa_locations,
-              mpa_year = floor(years * .5)))
-
-proc_selective_fleets <- process_marlin(selective_fleets, time_step =  fauna[[1]]$time_step)
-
-plot_marlin(
-  `Selective Fleets` = proc_selective_fleets,
-  plot_var = "ssb")
-```
-
-
-So, works like we'd think, Mako unaffected, tuna happy. 
-
-Now what happens if the Yellowfin fleet catches shortfin as well?
-
-```{r}
-
-general_fleets <- list("longline_1" = create_fleet(list(
-  `Yellowfin Tuna` = Metier$new(
-    critter = fauna$`Yellowfin Tuna`,
-    price = 100, # price per unit weight
-    sel_form = "logistic", # selectivity form, one of logistic or dome
-    sel_start = .25, # percentage of length at maturity that selectivity starts
-    sel_delta = .1, # additional percentage of sel_start where selectivity asymptotes
-    catchability = .01, # overwritten by tune_fleet but can be set manually here
-    p_explt = 1
-  ),
-  `Shortfin Mako` = Metier$new(
-    critter = fauna$`Shortfin Mako`,
-    price = 0,
-    sel_form = "logistic",
-    sel_start = 1,
-    sel_delta = .01,
-    catchability = 0,
-    p_explt = 0
-  )),
-  mpa_response = "stay",
-  base_effort = resolution^2
-),
-"longline_2" = create_fleet(list(
-  `Yellowfin Tuna` = Metier$new(
-    critter = fauna$`Yellowfin Tuna`,
-    price = 100, # price per unit weight
-    sel_form = "logistic", # selectivity form, one of logistic or dome
-    sel_start = .3, # percentage of length at maturity that selectivity starts
-    sel_delta = .1, # additional percentage of sel_start where selectivity asymptotes
-    catchability = .01, # overwritten by tune_fleet but can be set manually here
-    p_explt = 1
-  ),
-  `Shortfin Mako` = Metier$new(
-    critter = fauna$`Shortfin Mako`,
-    price = 100,
-    sel_form = "logistic",
-    sel_start = .1,
-    sel_delta = .01,
-    catchability = .01,
-    p_explt = 1
-  )),
-  mpa_response = "stay",
-  base_effort = resolution^2
-))
-
-a <- Sys.time()
-
-general_fleets <- tune_fleets(fauna, general_fleets, tune_type = tune_type) # tunes the catchability to hit target exploitation rate
-Sys.time() - a
-
-# run simulations
-
-# run the simulation using marlin::simmar
-generalist_fleets <- simmar(fauna = fauna,
-                          fleets = general_fleets,
-                          years = years,
-                          mpas = list(locations = mpa_locations,
-              mpa_year = floor(years * .5)))
-
-proc_generalist_fleets <- process_marlin(generalist_fleets, time_step =  fauna[[1]]$time_step)
-
-plot_marlin(
-  `Selective Fleets` = proc_selective_fleets,
-    `Generalist Fleets` = proc_generalist_fleets,
-  plot_var = "c")
-
-
-plot_marlin(
-  `Selective Fleets` = proc_selective_fleets,
-    `Generalist Fleets` = proc_generalist_fleets,
-  plot_var = "ssb")
-
-```
-
-
-
-We do not suggest that either one of these assumptions would always be correct, 
-
-
-
-
-
-
-You could also try and re-run their analysis like this: convert u to f, calculate total F by patch (which will now be the same across all species?) and see what happens? Would be a very pessimistic case, but a nice bounding example. 
-
-
-# No uncertainty on the biggest thing - F!
-
-MSY to BAU range doesn't cut it
-
-# Models can disagree
-
-We acknowledge that there could be many different models, but we consider there are some fundamental issues with Cabral et al. The biggest implication is that it needs to be emphasized that these results are simply consequential results of the model's assumptions, not an "empirical" solution. Given the same task we would make different assumptions and come to different conclusions based on the same data. Particuarly for these kind of simplfying models, we believe time has passed for this kind of analysis, and we need tactical models for specific MPAs and empirical evaluations of their performance. 
-
-(I wonder if it's worth keeping the section below)
-# MSY Bias
-
-Costello et al. 2016 uses a Pella Tomlinson production model with a shape parmeter such that Bmsy ~ 0.4K. My assumption is that the reason that you chose not to sure the actual r parameters etc. from Costello et al. 2016 is that you wanted to use a Schaefer model,and so pulled the Schaefer r from fishlife etc to back out K given MSY. 
-
-The issue here is that there parameters are not independent: MSY ~ f(shape, r, etc). So, by changing the shape of the production function, you should be changing the MSY that would be "estimated" for that stock by CMSY (Costello et al. 2016 sets priors B/Bmsy based on PRM, and then uses CMSY to get the MSY that corresponds with those priors conditional on the catch history). But, if you re-ran Costello et al. 2016, but set shape parameter to Bmsy = 0.5K, you'd get a different and lower set of MSY values than what we estimated. 
-
-Messing around with this it doesn't appear that the bias is generally huge when applied to actual data, but it's something. In theory if you want to move to Schaefer world all the MSYs should be a bit smaller 
-
-
-```{r}
-
-r <- .2
-
-k <- 100
-
-
-shape_and_msy <- tibble(m = seq(.2, 4, by = .11)) %>%
-  mutate(f_msy = r  / (m - 1) * (1 - 1 / m),
-         b_msy = k *  m ^ (-1 / (m - 1))) %>% 
-  mutate(msy = f_msy * b_msy)
-
-
-shape_and_msy %>% 
-  ggplot(aes(m, msy)) + 
-  geom_point()
-
-
-
-
-```
 
 
 
