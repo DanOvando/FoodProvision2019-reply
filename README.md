@@ -9,6 +9,8 @@ All materials needed to reproduce our results and manuscript are contained in th
 
 3. This project is set up with [`renv`](https://rstudio.github.io/renv/articles/renv.html) to manage package dependencies. Inside R (and with your working directory set correctly) run `renv::restore()`. This will install the correct versions of all the packages needed to replicate our results. Packages are installed in a stand-alone project library for this paper, and will not affect your installed R packages anywhere else. 
 
+Our analysis examining the result of Cabral et al. 2020 can be reproduced simply by running cabral-et-al-reply.Rmd. After running the renv steps, you should not have to change anything on your end. 
+
 
 # Cabral et al. README
 Please read this document before proceeding to use the other files.

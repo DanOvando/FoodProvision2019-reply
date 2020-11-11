@@ -1173,7 +1173,12 @@ check$f_bau <-1*(check$f_bau>1) + check$f_bau*(check$f_bau<=1)
 
 ##RAM Legacy database here
 
-#download_ramlegacy(version="4.44") #downloading the latest version, 4.44
+if (!dir.exists(ramlegacy::ram_dir())){
+  
+  download_ramlegacy(version="4.44") #downloading the latest version, 4.44
+
+}
+
 load_ramlegacy()
 RAMDATA<-load_ramlegacy(tables = "timeseries_values_views")
 head(RAMDATA$timeseries_values_views)
