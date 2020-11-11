@@ -29,7 +29,7 @@ library(here)
 library(scales)
 library(tidyverse)
 library(countrycode)
-library(marlin)
+# library(marlin)
 
 rename <- dplyr::rename
 
@@ -1832,7 +1832,7 @@ Suppose that you put half of A's habitat into an MPA. Per your model, fishing mo
 I'll use an MPA simulation model that we developed to illustrate the issue. 
 
 ```{r}
-library(marlin)
+# library(marlin)
 library(tidyverse)
 set.seed(42)
 
