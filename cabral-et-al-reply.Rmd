@@ -18,7 +18,8 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 
 #copied and then modified to allow reproducibility from FoodGlobalAnalysis_EffortRedistribute_clean.R supplied by Ren through
 # https://ucsb.box.com/s/mj6gnsh111c0nrdw1yt4nutvkts76zi4
-#
+
+library(foreach)
 library(doParallel)
 library(raster)
 library(rgdal)
@@ -234,7 +235,9 @@ if (get_fao_data | !dir.exists(here("data", "fao"))) {
 
 if (!dir.exists(here("data", "FAO_AREAS_NOCOASTLINE"))) {
   download.file(url = "http://www.fao.org/figis/geoserver/area/ows?service=WFS&request=GetFeature&version=1.0.0&typeName=area:FAO_AREAS_NOCOASTLINE&outputFormat=SHAPE-ZIP",
-                destfile = here("data", "FAO_AREAS_NOCOASTLINE.zip"))
+                destfile = here("data", "FAO_AREAS_NOCOASTLINE.zip"),
+                      mode = "wb"
+)
   
   unzip(
     here("data", "FAO_AREAS_NOCOASTLINE.zip"),
