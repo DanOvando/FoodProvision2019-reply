@@ -620,6 +620,7 @@ colnames(RAMDATA2)
 RAMDATA3<-RAMDATA2 %>% select(stockid,year,ERbest,ER, FdivFmsy, FdivFmgt)
 #remove entries with no ER values
 terminalER<-RAMDATA3 %>% filter(!is.na(ER) & !is.na(FdivFmsy)) %>%  group_by(stockid) %>% slice(which.max(year))
+
 #terminalERtest<-RAMDATA2 %>% filter(! (ER=='NA')) %>%  group_by(stockid) %>% slice(which.max(year))
 #head(terminalERtest)
 head(terminalER)
@@ -631,11 +632,10 @@ terminalER$stockid ##terminalER is the file containing the stock assessments wit
 check <- check %>% 
   left_join(terminalER, by = "stockid")
 
-# 
-# ram_consistency_plot <- check %>% 
-#   ggplot(aes(pmin(1,ERbest),FdivFmsy)) + 
+# ram_consistency_plot <- check %>%
+#   ggplot(aes(pmin(1,ERbest),FdivFmsy)) +
 #   geom_point()
-#   
+
 er_check_plot <- check %>% 
   ggplot(aes(f_bau, pmin(1,ERbest))) + 
   geom_point() + 
@@ -643,12 +643,12 @@ er_check_plot <- check %>%
   scale_x_continuous(name = "F BAU Cabral (1 - efin_bau1 + that check for negative escapement) ") + 
   scale_y_continuous(name = "F BAU Ram")
 
-#aha! that's what's happening. So now, compare F/Fmsy, not F
+#aha! that's what's happening. So now, compare F/F~MSY~, not F
 
 check <- check %>% 
-  mutate(fvfmsy_bau_cabral = f_bau / (r / 2)) # convert F to F/Fmsy (really should be u everywhere)
+  mutate(fvfmsy_bau_cabral = f_bau / (r / 2)) # convert F to F/F~MSY~ (really should be u everywhere)
 
-# FdivFmsy is F/Fmsy from RAM
+# FdivFmsy is F/F~MSY~ from RAM
 fvfmsy_check_plot <- check %>% 
   ggplot(aes(fvfmsy_bau_cabral, FdivFmsy, size = msy_fin)) + 
   geom_point() + 
@@ -679,35 +679,35 @@ bias_plot <- check %>%
 
 Looking at the results, we were surprised by the contribution of RAM stocks to the total potential increase in food production from MPAs, and by the amount of MPAs providing food increases in areas with heavy RAM coverage. In looking into this question, we feel there may be a problem with the way that the BAU policy is working for RAM stocks. 
 
-The BAU exploitation rate for the unassessed stocks appears to be set such that B/B~MSY~ BAU equals the MSY weighted mean B/B~MSY~ BAU from Costello et al. 2016. For the RAM stocks though it seems as though the values have been updated with the BAU values based on the latest RAM database, rather than the values used in Costello et al. 2016. Updating the RAM values makes perfect sense. However, it appears as though Cabral et al. 2020 pulls the most recent exploitation rate from RAM, not F/F~MSY~. While the text of Costello et al. 2016 does state that the BAU policy for RAM stocks holds the most recent fishing mortality constant, the upsides model works in units of F/Fmsy, not F, and since Fmsy is constant per stock in the Costello et al. 2016 analysis, holding F/Fmsy constant is the same as holding F constant. 
+The BAU exploitation rate for the unassessed stocks appears to be set such that B/B~MSY~ BAU equals the MSY weighted mean B/B~MSY~ BAU from Costello et al. 2016. For the RAM stocks though it seems as though the values have been updated with the BAU values based on the latest RAM database, rather than the values used in Costello et al. 2016. Updating the RAM values makes perfect sense. However, it appears as though Cabral et al. 2020 pulls the most recent exploitation rate from RAM, not F/F~MSY~. While the text of Costello et al. 2016 does state that the BAU policy for RAM stocks holds the most recent fishing mortality constant, the upsides model works in units of F/F~MSY~, not F, and since Fmsy is constant per stock in the Costello et al. 2016 analysis, holding F/F~MSY~ constant is the same as holding F constant. 
 
-Our concern is that it appears that the Cabral et al. 2020 analysis constructs the F BAU policy for ram stocks by pulling the most recent exploitation rate from RAM, not the most recent F/Fmsy from RAM. This would not matter if the Cabral et al. 2020 projections used the same population model and growth parameter as the stock assessment. However, it appears that each RAM stock is assigned an intrinsic growth rate *r* from an external source, mostly FishLife. Fmsy in a Schaefer model is *r/2*, and so changing *r* changes Fmsy. To the extent that the *r* values and Schaefer population dynamics used in the Cabral et al. 2020 analysis differ from those used in the actual RAM assessments, the Fmsy value used in this analysis will differ from the RAM value accordingly. This linkage means that using the BAU fishing mortality rate for a RAM stock can produce very different stock status than would be achieved by holding RAM F/Fmsy constant. If we are right, achieving the same BAU policy RAM stocks as used in Costello et al. 2016 (not factoring in all the conservation concern caveats) would be to calculate the BAU exploitation rate such that the Cabral et al. model F/Fmsy BAU matches F/Fmsy BAU from RAM.
+Our concern is that it appears that the Cabral et al. 2020 analysis constructs the F BAU policy for ram stocks by pulling the most recent exploitation rate from RAM, not the most recent F/F~MSY~ from RAM. This would not matter if the Cabral et al. 2020 projections used the same population model and growth parameter as the stock assessment. However, it appears that each RAM stock is assigned an intrinsic growth rate *r* from an external source, mostly FishLife. Fmsy in a Schaefer model is *r/2*, and so changing *r* changes Fmsy. To the extent that the *r* values and Schaefer population dynamics used in the Cabral et al. 2020 analysis differ from those used in the actual RAM assessments, the Fmsy value used in this analysis will differ from the RAM value accordingly (and differ from holding the current exploitation rate constant but using the exact same model as the assessment). This linkage means that using the BAU fishing mortality rate for a RAM stock can produce very different stock status than would be achieved by holding RAM F/F~MSY~ constant. If we are right, the way to achieve the same BAU policy for RAM stocks as used in Costello et al. 2016 (not factoring in all the conservation concern caveats) would be to calculate the BAU exploitation rate such that the Cabral et al. model F/F~MSY~ BAU matches F/F~MSY~ BAU from RAM.
 
-To illustrate this potential issue, we followed the steps in FoodProvisionEfficient.R to pull out the RAM values, but along with the exploitation rates, pulled the F/Fmsy values (keeping only the most recent year of each stock that has both for comparison). We then plotted the exploitation rates from RAM against the exploitation rates calculated from Efin_BAU1, and they are mostly consistent, except for a few outliers (maybe due to existing MPAs?). This discrepancy seems to tell us that this procedure was likely how the values in Efin_BAU1 were created (Fig.\@ref(fig:er-check-plot)). Running the BAU scenario, which uses Efin_BAU1, in FoodGlobalAnalysis_EffortRedistribute_clean, produces the same BAU results as those presented in the paper as best as we can tell, so it seems as though these were the values that produced Fig.2. 
+To illustrate this potential issue, we followed the steps in FoodProvisionEfficient.R to pull out the RAM values, but along with the exploitation rates, pulled the F/F~MSY~ values (keeping only the most recent year of each stock that has both for comparison). We then plotted the exploitation rates from RAM against the exploitation rates calculated from Efin_BAU1, and they are mostly consistent, except for a few outliers (maybe due to existing MPAs or underfished stocks?). This seems to tell us that this procedure was likely how the values in Efin_BAU1 were created (Fig.\@ref(fig:er-check-plot)). Running the BAU scenario, which uses Efin_BAU1, in FoodGlobalAnalysis_EffortRedistribute_clean, produces the same BAU results as those presented in the paper as best as we can tell, so it seems as though these were the values that produced Fig.2. 
 
-We then converted the Cabral et al. BAU exploitation rates (F) to F/Fmsy values using the r values reported in MegaData (F/Fmsy = F / (r/2)), and plotted those against the BAU F/Fmsy values from RAM. While there is a positive relationship between the two, it is noisy (R^2^ around  0.57), and critically appears to be positively biased at the upper end, i.e. the higher the model used here says that F/Fmsy BAU is, the lower it the actual RAM F/Fmsy BAU is, often by enough to switch from overfishing under Cabral to underfishing under RAM (Fig.\@ref(fig:fvfmsy-check-plot), Fig.\@ref(fig:bias-check-plot)). While there is also negative bias at the lower F/Fmsy values, it appears as though most of the MSY is concentrated in the positive bias area. 
+We then converted the Cabral et al. BAU exploitation rates (F) to F/F~MSY~ values using the r values reported in MegaData (F/F~MSY~ = F / (r/2)), and plotted those against the BAU F/F~MSY~ values from RAM. While there is a positive relationship between the two, it is noisy (R^2^ around  0.57), and critically appears to be positively biased at higher values of Cabral et al. 2020 F/F~MSY~ BAU values (Fig.\@ref(fig:fvfmsy-check-plot), Fig.\@ref(fig:bias-check-plot)). This bias is enough that many high-MSY stocks classified as overfishing under BAU by the Cabral et al. 2020 method would be classified as underfishing under BAU according to RAM. While there is also negative bias at the lower F/F~MSY~ values, it appears as though most of the MSY is concentrated in the positive bias area. 
 
 
-```{r er-check-plot, fig.cap = "Exploitation rate from Cabral et al. 2020 plotted against most recent exploitation rate reported in RAM"}
+```{r er-check-plot, fig.cap = " BAU exploitation rate from Cabral et al. 2020 plotted against most recent BAU exploitation rate reported in RAM"}
 
 er_check_plot
 
 ```
 
 
-```{r fvfmsy-check-plot, fig.cap="F/Fmsy BAU from Cabral et al. against F/Fmsy BAU from RAM"}
+```{r fvfmsy-check-plot, fig.cap="Most recent F/F~MSY~ BAU from Cabral et al. 2020 plotted against most recent F/F~MSY~ BAU from RAM"}
 
 fvfmsy_check_plot
 
 ```
 
 
-```{r bias-check-plot, fig.cap="Bias as a function of F/Fmsy BAU Cabral (RAM values truncated at 2 to remove the influence of the different model assumptions"}
+```{r bias-check-plot, fig.cap="Bias as a function of F/F~MSY~ BAU Cabral (RAM values truncated at 2 to remove the influence of the different model assumptions"}
 
 bias_plot
 ```
 
-The net result, as we understand it, is that the RAM BAU policy implemented here does not match the BAU policy used in Costello et al. 2016, and would instead amount to an arbitrary F/Fmsy BAU set by the relative differences in the population dynamics between the RAM assessment and the values used here. Since what matters from the perspective of food provision from MPAs is BAU F/Fmsy, the proposed analysis could produce some substantially different results than those projected by Costello et al. 2016. We suspect that this is the reason why you are reporting much higher gains in catches from MPAs for the RAM stocks than the losses from overfishing of RAM stocks estimated by Hilborn et al. 2020. 
+The net result, as we understand it, is that the RAM BAU policy implemented here does not match the BAU policy used in Costello et al. 2016, and would instead amount to a F/F~MSY~ BAU set by the relative differences in the population dynamics between the RAM assessment and the values used here. Since what matters from the perspective of food provision from MPAs is BAU F/F~MSY~, the proposed analysis could produce some substantially different results than would be obtained by projecting stock status based on using the BAU F/F~MSY~ from RAM, as per Costello et al. 2016. We suspect that this is the reason why you are reporting much higher gains in catches from MPAs for the RAM stocks than the losses from overfishing of RAM stocks estimated by Hilborn et al. 2020. 
 
 
 ```{r}
@@ -743,11 +743,11 @@ ram_msy_upside_potential <- ram_upside_potential / total_check_imp_msy
 ```
 
 
-We can do some back of the envelope calculations of the potential impact of this difference in terms of total food yield. We calculated the equilibrium catch for each of the stocks for which we have both RAM and Cabral F/Fmsy BAU estimates (n = `r nrow(check_imp)`, since we did not do all the gap-filling steps outlined in the rest of the code for producing Efin_BAU1), using both the Cabral and RAM F/Fmsy BAU policy (no MPAs). We then separated out the stocks for which Cabral F/Fmsy BAU > 1, and Ram F/Fmsy BAU > 1. For each of these groups, we then then calculated the difference between each stock's BAU catch and MSY, giving us an index of the amount of catch potentially being lost due to overfishing, which could conceivably by recovered through MPAs. We then summed the total amount of catch lost due to overfishing for both groups, and divided that amount by the total MSY of the subsample of stocks looked at here. 
+We can do some back of the envelope calculations of the potential impact of this difference in terms of total food yield. We calculated the equilibrium catch for each of the stocks for which we have both RAM and Cabral F/F~MSY~ BAU estimates (n = `r nrow(check_imp)`, since we did not do all the gap-filling steps outlined in the rest of the code for producing Efin_BAU1), using both the Cabral and RAM F/F~MSY~ BAU policy (no MPAs). We then separated out the stocks for which Cabral F/F~MSY~ BAU > 1, and Ram F/F~MSY~ BAU > 1. For each of these groups, we then then calculated the difference between each stock's BAU catch and MSY, giving us an index of the amount of catch potentially being lost due to overfishing, which could conceivably by recovered through MPAs. We then summed the total amount of catch lost due to overfishing for both groups, and divided that amount by the total MSY of the subsample of stocks looked at here. 
 
-The subset of stocks with both Cabral & RAM F/Fmsy BAU values have a total MSY of `r scales::comma(total_check_imp_msy)`. Using the Cabral et al. F/Fmsy BAU values, the estimated amount of catch lost due to overfishing is `r scales::comma(cabral_upside_potential)`, or `r percent(cabral_msy_upside_potential)` of the MSY of these stocks. Using the RAM F/Fmsy BAU values the estimated amount of catch lost due to overfishing is `r scales::comma(ram_upside_potential)`, or `r percent(ram_msy_upside_potential)` of the MSY of these stocks, `r round(ram_upside_potential / cabral_upside_potential,2)` of the amount of potential food upside from stopping overfishing through MPAs based on the Cabral et al. 2020 F/Fmsy BAU values. 
+The subset of stocks with both Cabral & RAM F/F~MSY~ BAU values have a total MSY of `r scales::comma(total_check_imp_msy)`. Using the Cabral et al. F/F~MSY~ BAU values, the estimated amount of catch lost due to overfishing is `r scales::comma(cabral_upside_potential)`, or `r percent(cabral_msy_upside_potential)` of the MSY of these stocks. Using the RAM F/F~MSY~ BAU values the estimated amount of catch lost due to overfishing is `r scales::comma(ram_upside_potential)`, or `r percent(ram_msy_upside_potential)` of the MSY of these stocks, `r round(ram_upside_potential / cabral_upside_potential,2)` of the amount of potential food upside from stopping overfishing through MPAs based on the Cabral et al. 2020 F/F~MSY~ BAU values. 
 
-Given that RAM stocks are roughly 35% of the total estimated MSY in the subset of stocks used in Cabral et al. 2020, and that this issue would then affect a substantial but still fractional part of that 35% of potential upside, it is likely that changing the RAM BAU policy to reflect the Costello et al. 2016 method would not change the total amount of potential yield from reducing global overfishing via MPAs substantially. However, it might well change the prioritization map. We calculated, for each stock in RAM, the percent of the footprint reported in by Chris Free that would, according to Cabral et al. 2020, produce an increase in total catch of RAM stocks. We can repeat the same analysis but only for the top 5% ranking of protected areas. In both cases, the Cabral et al. 2020 model estimates that most RAM stocks could have over 25% of their footprint placed in MPAs while increasing the total amount of catch produced by RAM stocks (Fig.\@ref(fig:ram-protected-plot), Fig.\@ref(fig:ram-top5-protected-plot)). We suspect this may be partly driven by the meaningfully higher levels of overfishing produced by the Cabral et al. 2020 F/Fmsy BAU values, relative to the RAM F/Fmsy BAU values, and as such the spatial prioritization produced by Cabral et al. 2020 might look different, in particular for RAM heavy areas, if this correction were to be applied. 
+Given that RAM stocks are roughly 35% of the total estimated MSY in the subset of stocks used in Cabral et al. 2020, and that this issue would then affect a substantial but still fractional part of that 35% of potential upside, it is likely that changing the RAM BAU policy to reflect the Costello et al. 2016 method would not change the total amount of potential yield from reducing global overfishing via MPAs projected by this model substantially. However, it might well change the prioritization map. We calculated, for each stock in RAM, the percent of the footprint reported in by Chris Free that would, according to Cabral et al. 2020, produce an increase in total catch of RAM stocks (Fig.\@ref(fig:ram-protected-plot)). We repeated the same analysis but only for the top 5% ranking of protected areas (Fig.\@ref(fig:ram-top5-protected-plot)). In both cases, the Cabral et al. 2020 model estimates that most RAM stocks could have over 25% of their footprint placed in MPAs while increasing the total amount of catch produced by RAM stocks (Fig.\@ref(fig:ram-protected-plot), Fig.\@ref(fig:ram-top5-protected-plot)). We suspect this may be partly driven by the meaningfully higher levels of overfishing produced by the Cabral et al. 2020 F/F~MSY~ BAU values, relative to the RAM F/F~MSY~ BAU values, and as such the spatial prioritization produced by Cabral et al. 2020 might look different, in particular for RAM heavy areas, if this correction were to be applied. 
 
 
 ```{r load ram data, echo = FALSE, include=FALSE}
@@ -1085,7 +1085,6 @@ ram_stocks_protected_plot <- ram_stocks %>%
 ram_stocks_protected_plot
 ```
 
-We can repeat the same analysis, but now only for the first 5% of ranked stocks
 ```{r, echo = FALSE, include=FALSE}
 
 # proportion of RAM stocks closed
@@ -1145,8 +1144,8 @@ a = ShortCoord_Sort %>%
 # 
 
 out <- a %>%
-  summarise(p_area_protected = mean(sign & rank < 5),
-            p_k_protected = weighted.mean(sign & rank < 5, k))
+  summarise(p_area_protected = mean(sign & (rank < 5)),
+            p_k_protected = weighted.mean(sign & (rank < 5), k))
 
 }
 
@@ -1169,6 +1168,15 @@ top_5_ram_stocks_protected_plot <- ram_stocks %>%
 ```{r ram-top5-protected-plot, fig.cap = "Histrogram of percent of Free's estimate of RAM footpring protected inside MPAs inside the top 5% ranking of catch increasing MPAs"}
 top_5_ram_stocks_protected_plot
 ```
+
+To summarize the main questions we have then and their implications
+
+* As best as we can understand, the BAU policy for RAM used here does not match the BAU policy from Costello et al. 2016
+* The resulting F/F~MSY~ BAU values used here appear to be positively biased relative to the RAM F/F~MSY~ BAU values
+* As a result the model used here estimates 3X as much potential food upsides from BAU overfished RAM stocks, compared to what we would estimate using the RAM F/F~MSY~ BAU policy
+* Using the RAM F/F~MSY~ BAU policies may also change the resulting spatial prioritization shown in Cabral et al. 2020 Fig.2
+* If we are correct, a solution would be to, for the RAM stocks, pull F/F~MSY~ BAU from RAM, and then given the r values used in Cabral et al. 2020, and hence Fmsy, solve for F BAU
+* We do however have some more philosophical questions that we should discuss once this is resolved if we are correct
 
 
 

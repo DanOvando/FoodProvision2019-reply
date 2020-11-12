@@ -1710,5 +1710,8 @@ top_5_ram_stocks_protected_plot
 
 
 
+# Uncertainty in F
 
+General comment here on the problems with stacking models on models (find that paper on the topic). RAM values are already estimates. Upsides are estiamtes from models trained on models. Highly uncertian, and critically likely to have biases and errors that are correlated in space, time, and species. If each stock is assumed independent, then just taking the mean might produce the same expected value (though maybe not given nonlinear impacts of different levels of error). 
 
+Ths bigger philosphical issues is to convey a sense of uncertainty evaluation (e.g. calling sensitiviti analysis error bars) gives an uninformed reader a sense that that estimate is accountig for the main sources of uncertainty in the model. No model can explore every source of error, but given the massive error in the F/Fmsy estimates from upsides, and the fact that in any projection model that F/Fmsy is what matters, this has to be explicitly addressed, or acknowledge that it is not addresed 
