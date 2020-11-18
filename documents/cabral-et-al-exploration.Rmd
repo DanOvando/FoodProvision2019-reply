@@ -13,6 +13,7 @@ output: bookdown::pdf_document2
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 ```
 
+We worry that the prescnedent set here allows for easy arguments along the lines of "yes, only 5% for most of the gaines, but 90%+ for no losses, so what are the chances that this little area we're debating about would be bad for food secutiry"
 
 ```{r, echo = FALSE, include=FALSE}
 
@@ -494,6 +495,8 @@ MPAcoverage
 
 ```
 
+
+
 # Summary
 
 Cabral et al. 2020 presents a global network of MPAs designed to maximize food production. To be clear, we believe that MPAs are an important part of the marine management toolbox, and in the right context can provide conservation and fishery benefits. We also do not dispute that properly designed MPAs may improve fishery yields in overfished fisheries. We agree that given the large size but low fishery catches of the world's open-oceans, one could likely close off of large portion of the world's oceans at minimal loss to global catch (though potentially with large distribution and equity impacts). Lastly we agree that given no other information, targeting areas where a) species probably live and b) those species are more likely to be overfished under BAU is likely a good strategy for identifying areas where MPAs may be able to benefit fisheries. 
@@ -507,6 +510,207 @@ However, none of these general insights require explicit modeling. Our concern i
 3. Evaluation of the models predictions for RAM stocks alone produces some questionable results, namely that most RAM stocks, which collectively produce roughly 50% of global captures, could have over 25% of their footprint covered in MPAs while actually increasing captures from these stocks. We also have some questions about the BAU policy as applied to RAM stocks, which if we are interpreting things correctly do not appear to be correct
 
 While we believe that some of the key assumptions made here, along with others we are happy to discuss, generally act to positively bias estimates of physical food-optimal MPA size, it is entirely possible that other assumptions could be negatively biasing estimates. The key point here though is that reasonable people working with another set of equally plausible assumptions could easily reach vastly different conclusions to the specific results presented here. [Ovando 2018 Fig 3.15](https://danovando.github.io/dissertation/zissou.html#results-1) demonstrates that, as shown here and in many other simulation papers, when stocks are overfished, an MPA on the order of 20-40% (and bigger if things are really overfished) increase yields. However, those results also showed that within those general rules of thumb the actual outcomes of the MPA can vary wildly depending on characteristics of fleet dynamics, movement, and density dependence. A large body of simulation papers have shown that MPAs can be good, bad, or in between for fisheries depending on a host of assumptions, some relatively straightforward (must be overfished in the absence of an MPA), and others much less so (being able to accurately measure the nature of dispersal at different life stages relative to MPA size). We suggest that we have come as far as we can with simulation based results in our understanding of the global role of MPAs in food security. It is time to focus our efforts on empirically evaluating the observed fishery impacts of MPAs, to put the wide range of theoretical predictions made over the years to the test. 
+
+
+# Where's the MSY?
+
+
+```{r}
+
+msyframe <- matrix(rep(MegaData$MSYfin, ncol(KprotectedPerCell_Library)), nrow = length(MegaData$Kfin), ncol = ncol(KprotectedPerCell_Library))
+
+msy_per_cell <- colSums(KprotectedPerCell_Library * msyframe)
+
+tmp <- ShortCoord %>% 
+  mutate(msy_per_cell = msy_per_cell) %>% 
+    sf::st_as_sf(coords = c("lon", "lat"),
+               crs = sf::st_crs(land_shp_moll)) 
+
+tmp %>% 
+  ggplot(aes(color = msy_per_cell)) + 
+    geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) +
+  geom_sf(size = .1) + 
+  scale_color_viridis_c()
+
+cumu <- tibble(msy_per_cell = msy_per_cell) %>% 
+  arrange(desc(msy_per_cell)) %>% 
+  mutate(cumulative_msy = cumsum(msy_per_cell)) %>% 
+  mutate(patch = 1:nrow(.)) %>% 
+  mutate(ppatch = patch / nrow(.))
+
+cumu %>% 
+  ggplot(aes(ppatch, cumulative_msy)) + 
+  geom_line() + 
+  scale_x_continuous(labels = percent, name = "% of Patches") + 
+  scale_y_continuous(labels = comma, name = "Cumulative MSY")
+
+
+eezs <-
+  sf::read_sf(here("data", "World_EEZ_v11_20191118_LR", "eez_v11_lowres.shp")) %>%
+  mutate(iso3_code = countrycode(SOVEREIGN1, "country.name",  "iso3c")) %>% 
+    mutate(iso3c_name = countrycode(iso3_code, "iso3c",  "country.name")) %>%
+  filter(!is.na(iso3_code)) %>%
+  sf::st_transform(sf::st_crs(land_shp_moll))
+
+a = eezs %>% 
+  filter(ISO_TER1 == "CHN") %>% 
+  ggplot() +
+  geom_sf(fill = "red") + 
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+
+# ggsave("test.png", a)
+
+
+bau_mpas <- ShortCoord_Sort %>%
+  sf::st_as_sf(coords = c("lon", "lat"),
+               crs = sf::st_crs(land_shp_moll)) 
+
+fao_country_captures <- fao_capture %>% 
+  filter(capture_units == "t",
+         !str_detect(fao_area,"Inland waters")) %>% 
+  group_by(country_name_en, iso3_code) %>% 
+  filter(year == max(year)) %>% 
+  summarise(capture = sum(capture, na.rm = TRUE)) %>% 
+  arrange(desc(capture)) %>% 
+  ungroup() %>% 
+  mutate(capture_rank = percent_rank(capture)) %>% 
+  arrange(desc(capture_rank)) %>% 
+  mutate(cumu_capture = cumsum(capture)) %>% 
+  mutate(first_half = cumu_capture < (max(cumu_capture) / 2),
+         p_global_h = capture / max(cumu_capture))
+
+
+test <- sf::st_join(bau_mpas, eezs)
+
+# MSY and sign per EEZ
+
+spatial_msy <- tmp %>%
+  sf::st_join(eezs) %>%
+  filter(!is.na(iso3_code)) %>% 
+  janitor::clean_names()
+
+mean(spatial_msy$d_h > 0)
+
+spatial_msy %>% 
+  filter(!is.na(iso3c_name) & iso3c_name == "China") %>% 
+  ggplot(aes(color = d_h)) + 
+  geom_sf(show.legend = FALSE) + 
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+
+
+spatial_msy %>% 
+  ggplot(aes(color = d_h)) + 
+  geom_sf(show.legend = FALSE) + 
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) + 
+  scale_color_viridis_c()
+
+p_eez_closed <- spatial_msy %>%
+  group_by(iso3c_name, iso3_code) %>%
+  summarise(
+    p_closed = mean(d_h > 0),
+    weighed_p_closed = weighted.mean(d_h > 0, w = msy_per_cell),
+    top_weighed_p_closed = weighted.mean(d_h > 0 &
+                                           rank < 5, w = msy_per_cell),
+    top_p_closed = mean(d_h > 0 & rank < 5)
+  ) %>%
+  arrange(desc(p_closed)) %>%
+  left_join(fao_country_captures, by = c("iso3_code" = "iso3_code")) %>%
+  ungroup()
+  
+
+p_eez_closed_map <- p_eez_closed %>%
+  ggplot(aes(color = p_closed)) +
+  geom_sf(
+    data = land_shp_moll,
+    fill = "black",
+    lwd = 0,
+    inherit.aes = F
+  ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
+  geom_sf(size = .1) +
+  scale_color_viridis_c(labels = percent, name = "% of EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+
+top_p_eez_closed_map <- p_eez_closed %>%
+  ggplot(aes(color = top_p_closed)) +
+  geom_sf(
+    data = land_shp_moll,
+    fill = "black",
+    lwd = 0,
+    inherit.aes = F
+  ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
+  geom_sf(size = .1) +
+  scale_color_viridis_c(labels = percent, name = "% of EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+
+weighted_p_eez_closed_map <- p_eez_closed %>%
+  ggplot(aes(color = weighed_p_closed)) +
+  geom_sf(
+    data = land_shp_moll,
+    fill = "black",
+    lwd = 0,
+    inherit.aes = F
+  ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
+  geom_sf(size = .1) +
+  scale_color_viridis_c(labels = percent, name = "% of K-weighted EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+
+p_eez_closed_plot <- p_eez_closed %>% 
+  # filter(cumu_capture < 60e6) %>% 
+  filter(capture_rank > 0.85) %>% 
+  ggplot(aes(reorder(iso3c_name,p_closed), p_closed, fill = capture)) + 
+  geom_col() + 
+  coord_flip() + 
+  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") + 
+  scale_x_discrete(name = '') + 
+  scale_fill_viridis_c(labels = comma)
+
+top_p_eez_closed_plot <- p_eez_closed %>% 
+  # filter(cumu_capture < 60e6) %>% 
+  filter(capture_rank > 0.85) %>% 
+  ggplot(aes(reorder(iso3c_name,top_p_closed), p_closed, fill = capture)) + 
+  geom_col() + 
+  coord_flip() + 
+  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") + 
+  scale_x_discrete(name = '') + 
+  scale_fill_viridis_c(labels = comma)
+
+# p_eez_closed_plot + top_p_eez_closed_plot
+
+weighted_p_eez_closed_plot <- p_eez_closed %>%
+  # filter(cumu_capture < 60e6) %>%
+  filter(capture_rank > 0.85) %>%
+  ggplot(aes(reorder(iso3c_name, capture), weighed_p_closed, fill = capture)) +
+  geom_col() +
+  coord_flip() +
+  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") +
+  scale_x_discrete(name = '')
+
+
+a = spatial_msy %>% 
+  group_by(iso3c_name) %>% 
+  arrange(desc(msy_per_cell)) %>% 
+  mutate(cumu_msy =cumsum(msy_per_cell)) %>% 
+  mutate(patch = 1:length(cumu_msy)) %>% 
+  mutate(ppatch = patch / length(cumu_msy)) %>% 
+  ungroup()
+
+
+cumu_msy_country_plot <- a %>% 
+  ggplot(aes(ppatch, cumu_msy)) + 
+  geom_line() +
+  facet_wrap(~iso3c_name, scales = "free_y") + 
+  theme_light() + 
+  theme(axis.text = element_blank(),
+        strip.text = element_blank()) + 
+  scale_x_continuous(name = "% of Patches") + 
+  scale_y_continuous(name = "Cumulative MSY") + 
+  labs(caption = "each facet is a country")
+
+```
+
 
 # Lack of Explicit Distance has Important Implications
 
@@ -1715,3 +1919,10 @@ top_5_ram_stocks_protected_plot
 General comment here on the problems with stacking models on models (find that paper on the topic). RAM values are already estimates. Upsides are estiamtes from models trained on models. Highly uncertian, and critically likely to have biases and errors that are correlated in space, time, and species. If each stock is assumed independent, then just taking the mean might produce the same expected value (though maybe not given nonlinear impacts of different levels of error). 
 
 Ths bigger philosphical issues is to convey a sense of uncertainty evaluation (e.g. calling sensitiviti analysis error bars) gives an uninformed reader a sense that that estimate is accountig for the main sources of uncertainty in the model. No model can explore every source of error, but given the massive error in the F/Fmsy estimates from upsides, and the fact that in any projection model that F/Fmsy is what matters, this has to be explicitly addressed, or acknowledge that it is not addresed 
+
+
+# EEZ Stuff
+
+
+
+
