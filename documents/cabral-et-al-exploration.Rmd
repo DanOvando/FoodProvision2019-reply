@@ -63,7 +63,7 @@ if (!dir.exists(results_path)){
 if (!dir.exists("data")){
 
      download.file(
-      "https://www.dropbox.com/s/v70jjje6wf3lvw4/food-provision-data.zip?dl=1",
+      "https://www.dropbox.com/s/vrewj7ryqbbs0a4/food-provision-data.zip?dl=1",
       destfile = here("tmp.zip"),
       mode = "wb"
     )
@@ -85,7 +85,7 @@ if (get_fao_data | !dir.exists(here("data", "fao"))) {
     dir.create(here("data", "fao"))
 
     download.file(
-      "http://www.fao.org/fishery/static/Data/Capture_2019.1.0.zip",
+      "http://www.fao.org/fishery/static/Data/Capture_2020.1.0.zip",
       destfile = here("data", "fao.zip"),
       mode = "wb"
     )
@@ -670,7 +670,7 @@ p_eez_closed_plot <- p_eez_closed %>%
 top_p_eez_closed_plot <- p_eez_closed %>% 
   # filter(cumu_capture < 60e6) %>% 
   filter(capture_rank > 0.85) %>% 
-  ggplot(aes(reorder(iso3c_name,top_p_closed), p_closed, fill = capture)) + 
+  ggplot(aes(reorder(iso3c_name,top_p_closed), top_p_closed, fill = capture)) + 
   geom_col() + 
   coord_flip() + 
   scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") + 
@@ -695,11 +695,14 @@ a = spatial_msy %>%
   mutate(cumu_msy =cumsum(msy_per_cell)) %>% 
   mutate(patch = 1:length(cumu_msy)) %>% 
   mutate(ppatch = patch / length(cumu_msy)) %>% 
+  ungroup() %>% 
+  group_by(iso3c_name) %>% 
+  mutate(total_msy = max(cumu_msy)) %>% 
   ungroup()
 
 
 cumu_msy_country_plot <- a %>% 
-  ggplot(aes(ppatch, cumu_msy)) + 
+  ggplot(aes(ppatch, cumu_msy, color =total_msy)) + 
   geom_line() +
   facet_wrap(~iso3c_name, scales = "free_y") + 
   theme_light() + 
@@ -707,7 +710,8 @@ cumu_msy_country_plot <- a %>%
         strip.text = element_blank()) + 
   scale_x_continuous(name = "% of Patches") + 
   scale_y_continuous(name = "Cumulative MSY") + 
-  labs(caption = "each facet is a country")
+  labs(caption = "each facet is a country") + 
+  scale_color_viridis_c(trans = "log10")
 
 ```
 
