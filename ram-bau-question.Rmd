@@ -360,6 +360,8 @@ nmax #this is the number of iterations needed for PICKSIZE at a time!
 Eevolve<-matrix(nrow=nmax,ncol=dim(MegaData)[1])
 # k_per_cell <- t(as.datKprotectedPerCell_Library)
 
+hmpa_stockish <- matrix(NA, nrow = nmax, ncol = nrow(KprotectedPerCell_Library))
+
 if (run_cabral_et_al){
   
   cores<-detectCores() - 2
@@ -376,6 +378,9 @@ for (i in 1:nmax){
     
     hmpa<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
     hmpa<-hmpa*(hmpa>0)
+    
+    hmpa_stockish[i,] <- hmpa - hbau
+
     HMPA<-sum(hmpa)
     HMPA-HBAU
   }
@@ -416,8 +421,13 @@ plot(NetworkResult)
 stopImplicitCluster()
 
 if(scenario=="BAU1"){
-  saveRDS(NetworkResult,file = file.path(results_path,"NetworkResult100_BAU1_mollweide.rds"))
-  saveRDS(PriorityAreas,file = file.path(results_path, "PriorityAreas100_BAU1_mollweide.rds"))
+  saveRDS(NetworkResult,
+          file = file.path(results_path, "NetworkResult100_BAU1_mollweide.rds"))
+  saveRDS(PriorityAreas,
+          file = file.path(results_path, "PriorityAreas100_BAU1_mollweide.rds"))
+  
+  saveRDS(hmpa_stockish,
+          file = file.path(results_path, "stockish_results_bau1.rds"))
 }else if(scenario=="all managed"){  
   saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_allmanaged_redistribute.rds")
   saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_allmanaged_redistribute.rds") 
@@ -1068,6 +1078,8 @@ nmax #this is the number of iterations needed for PICKSIZE at a time!
 Eevolve<-matrix(nrow=nmax,ncol=dim(MegaData)[1])
 # k_per_cell <- t(as.datKprotectedPerCell_Library)
 
+hmpa_stockish <- matrix(NA, nrow = nmax, ncol = nrow(KprotectedPerCell_Library))
+
 if (run_ram_exmaple){
   
   cores<-detectCores() - 2
@@ -1084,6 +1096,9 @@ for (i in 1:nmax){
     
     hmpa<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
     hmpa<-hmpa*(hmpa>0)
+    
+    hmpa_stockish[i,] <- hmpa - hbau
+
     HMPA<-sum(hmpa)
     HMPA-HBAU
   }
@@ -1605,8 +1620,23 @@ plot(NetworkResult)
 stopImplicitCluster()
 
 if(scenario=="BAU1"){
-  saveRDS(NetworkResult,file = file.path(results_path,"corrected_NetworkResult100_BAU1_mollweide.rds"))
-  saveRDS(PriorityAreas,file = file.path(results_path, "corrected_PriorityAreas100_BAU1_mollweide.rds"))
+  saveRDS(
+    NetworkResult,
+    file = file.path(
+      results_path,
+      "corrected_NetworkResult100_BAU1_mollweide.rds"
+    )
+  )
+  saveRDS(
+    PriorityAreas,
+    file = file.path(
+      results_path,
+      "corrected_PriorityAreas100_BAU1_mollweide.rds"
+    )
+  )
+  
+  saveRDS(hmpa_stockish,
+          file = file.path(results_path, "corrected_stockish_results_bau1.rds"))
 }else if(scenario=="all managed"){  
   saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_allmanaged_redistribute.rds")
   saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_allmanaged_redistribute.rds") 
