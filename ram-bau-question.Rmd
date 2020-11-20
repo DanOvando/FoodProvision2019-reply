@@ -44,11 +44,9 @@ library(sf)
 
 rename <- dplyr::rename
 
-run_cabral_et_al <- FALSE
+run_cabral_et_al <- TRUE
 
-run_corrected_cabral_et_al <- FALSE
-
-run_case_study <- FALSE
+run_corrected_cabral_et_al <- TRUE
 
 get_fao_data <- TRUE
 
@@ -360,7 +358,7 @@ nmax #this is the number of iterations needed for PICKSIZE at a time!
 Eevolve<-matrix(nrow=nmax,ncol=dim(MegaData)[1])
 # k_per_cell <- t(as.datKprotectedPerCell_Library)
 
-hmpa_stockish <- matrix(NA, nrow = nmax, ncol = nrow(KprotectedPerCell_Library))
+dhmpa_stockish <- matrix(NA, nrow = nmax, ncol = nrow(KprotectedPerCell_Library))
 
 if (run_cabral_et_al){
   
@@ -379,7 +377,6 @@ for (i in 1:nmax){
     hmpa<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
     hmpa<-hmpa*(hmpa>0)
     
-    hmpa_stockish[i,] <- hmpa - hbau
 
     HMPA<-sum(hmpa)
     HMPA-HBAU
@@ -405,6 +402,10 @@ for (i in 1:nmax){
 
   hmpa<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
   hmpa<-hmpa*(hmpa>0)
+  
+  dhmpa_stockish[i,] <- hmpa - hbau
+
+  
   HMPA<-sum(hmpa)
   
   #save result. Comment other parts not needed now.
@@ -426,7 +427,7 @@ if(scenario=="BAU1"){
   saveRDS(PriorityAreas,
           file = file.path(results_path, "PriorityAreas100_BAU1_mollweide.rds"))
   
-  saveRDS(hmpa_stockish,
+  saveRDS(dhmpa_stockish,
           file = file.path(results_path, "stockish_results_bau1.rds"))
 }else if(scenario=="all managed"){  
   saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_allmanaged_redistribute.rds")
@@ -1078,7 +1079,7 @@ nmax #this is the number of iterations needed for PICKSIZE at a time!
 Eevolve<-matrix(nrow=nmax,ncol=dim(MegaData)[1])
 # k_per_cell <- t(as.datKprotectedPerCell_Library)
 
-hmpa_stockish <- matrix(NA, nrow = nmax, ncol = nrow(KprotectedPerCell_Library))
+dhmpa_stockish <- matrix(NA, nrow = nmax, ncol = nrow(KprotectedPerCell_Library))
 
 if (run_ram_exmaple){
   
@@ -1097,8 +1098,6 @@ for (i in 1:nmax){
     hmpa<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
     hmpa<-hmpa*(hmpa>0)
     
-    hmpa_stockish[i,] <- hmpa - hbau
-
     HMPA<-sum(hmpa)
     HMPA-HBAU
   }
@@ -1123,6 +1122,9 @@ for (i in 1:nmax){
 
   hmpa<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
   hmpa<-hmpa*(hmpa>0)
+  
+  dhmpa_stockish[i,] <- hmpa - hbau
+
   HMPA<-sum(hmpa)
   
   #save result. Comment other parts not needed now.
@@ -1563,6 +1565,7 @@ nmax #this is the number of iterations needed for PICKSIZE at a time!
 
 Eevolve<-matrix(nrow=nmax,ncol=dim(MegaData)[1])
 # k_per_cell <- t(as.datKprotectedPerCell_Library)
+dhmpa_stockish <- matrix(NA, nrow = nmax, ncol = nrow(KprotectedPerCell_Library))
 
 if (run_corrected_cabral_et_al){
   
@@ -1604,6 +1607,8 @@ for (i in 1:nmax){
 
   hmpa<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
   hmpa<-hmpa*(hmpa>0)
+  dhmpa_stockish[i,] <- hmpa - hbau
+  
   HMPA<-sum(hmpa)
   
   #save result. Comment other parts not needed now.
@@ -1635,7 +1640,7 @@ if(scenario=="BAU1"){
     )
   )
   
-  saveRDS(hmpa_stockish,
+  saveRDS(dhmpa_stockish,
           file = file.path(results_path, "corrected_stockish_results_bau1.rds"))
 }else if(scenario=="all managed"){  
   saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_allmanaged_redistribute.rds")
