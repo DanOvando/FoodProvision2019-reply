@@ -10,10 +10,10 @@ output: bookdown::pdf_document2
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, cache = TRUE)
 ```
 
-We worry that the prescnedent set here allows for easy arguments along the lines of "yes, only 5% for most of the gaines, but 90%+ for no losses, so what are the chances that this little area we're debating about would be bad for food secutiry"
+
 
 ```{r, echo = FALSE, include=FALSE}
 
@@ -45,6 +45,8 @@ library(sf)
 rename <- dplyr::rename
 
 run_cabral_et_al <- FALSE
+
+run_corrected_cabral_et_al <- FALSE
 
 run_case_study <- FALSE
 
@@ -277,6 +279,37 @@ scenario<-"BAU1"
 #scenario<-"EBvK01fin"
 #scenario<-"all managed"
 
+
+upsides <- read_csv(here("data","upsides","ProjectionData.csv")) %>% 
+  janitor::clean_names()
+
+# upsides %>%
+#   filter(dbase == "RAM", year > 2016,
+#          policy == "BAU",
+#          scenario == "Con. Concern") %>%
+#   ggplot(aes(year, pmin(4,fv_fmsy), color = scenario, group = interaction(scenario, id_orig)))+
+#   geom_line(alpha = 0.5) +
+#   facet_wrap(~policy,scales = "free_y")
+
+upsides_bau <- upsides %>% 
+  filter(
+    policy == "BAU", 
+    scenario == "Con. Concern") %>% 
+  filter(year == max(year)) %>%
+  dplyr::rename(bvbmsy_upsides = bv_bmsy,
+                fvfmsy_upsides = fv_fmsy) %>% 
+  mutate(manage = ifelse(dbase == "FAO",0, 1))
+
+# upsides_bau %>% 
+#   filter(manage == 1) %>% 
+#   ggplot(aes(fvfmsy_upsides)) + 
+#   geom_histogram()
+
+# sum(upsides_bau$catch) # costello et al. 2016 58.2
+
+upsides_bau$check <- (upsides_bau$bvbmsy_upsides * upsides_bau$fvfmsy_upsides) * upsides_bau$msy
+
+
 #Load MOLLWEIDE projected data
 MegaData<-readRDS(file = here("data","MegaData.rds"))
 Cleanmegacell<-readRDS(file = here("data","Cleanmegacell_mollweide.rds"))
@@ -286,6 +319,13 @@ MPA_coord<-readRDS(file= here("data","MPA_coord_mollweide.rds")) #this is my cod
 land_shp_moll<-readRDS(file = here("data","land_shp_moll.rds"))
 head(MPA_coord)
 dim(MPA_coord)
+
+eezs <-
+  sf::read_sf(here("data", "World_EEZ_v11_20191118_LR", "eez_v11_lowres.shp")) %>%
+  mutate(iso3_code = countrycode(SOVEREIGN1, "country.name",  "iso3c")) %>% 
+    mutate(iso3c_name = countrycode(iso3_code, "iso3c",  "country.name")) %>%
+  filter(!is.na(iso3_code)) %>%
+  sf::st_transform(sf::st_crs(land_shp_moll))
 
 #get MPA positions
 CleanCoordmegacell_MPA<-left_join(CleanCoordmegacell,MPA_coord,by=c("lon","lat"))
@@ -498,226 +538,25 @@ MPAcoverage
 ```
 
 
-
 # Summary
 
 Cabral et al. 2020 presents a global network of MPAs designed to maximize food production. To be clear, we believe that MPAs are an important part of the marine management toolbox, and in the right context can provide conservation and fishery benefits. We also do not dispute that properly designed MPAs may improve fishery yields in overfished fisheries. We agree that given the large size but low fishery catches of the world's open-oceans, one could likely close off of large portion of the world's oceans at minimal loss to global catch (though potentially with large distribution and equity impacts). Lastly we agree that given no other information, targeting areas where a) species probably live and b) those species are more likely to be overfished under BAU is likely a good strategy for identifying areas where MPAs may be able to benefit fisheries. 
 
 However, none of these general insights require explicit modeling. Our concern is that the the model used in Cabral et al. 2020 overstates the confidence that readers should have in the exact magnitude of benefits of costs, and in the size and placement of food maximizing MPAs. We summarize our reasons for this here, in particular that 
 
+
 1. Using species distribution models (SDMs) from Aquamaps as a proxy for both the extent and relative abundance in space of species is unrealistic and dramatically positively biases estimates of MPA size for unassessed stocks when applied to the physical globe. 
 
-2. The roughly non-spatial nature of the operating model itself removes any consideration of distance, and requires the assumption that fishing mortality is evenly distributed across fishable areas. This allows MPAs to produce benefits across vast distances (e.g. MPAs in the Caribbean benefiting stocks off of China), even when placed in areas where best available data suggests fishing pressure is negligible under BAU. This is likely to positively bias the optimal size and estimated benefits of MPA networks, particularly if MPAs are clustered in space and isolated stocks are spatially separated within the broader Aquamaps layer. 
+2. The roughly non-spatial nature of the operating model itself removes any consideration of distance, and requires the assumption that fishing mortality is evenly distributed across fishable areas. This allows MPAs to produce benefits across vast distances (e.g. MPAs in the Australia benefiting fisheries in the Gulf of California), even when placed in areas where best available data suggests fishing pressure is negligible under BAU. This is likely to positively bias the optimal size and estimated benefits of MPA networks, particularly if MPAs are clustered in space and isolated stocks are spatially separated within the broader Aquamaps layer. One of the main points of Costello et al. 2012/2016 was to point out that stock status, even for the same species, varies in space depending on the institutions in place.
 
-3. Evaluation of the models predictions for RAM stocks alone produces some questionable results, namely that most RAM stocks, which collectively produce roughly 50% of global captures, could have over 25% of their footprint covered in MPAs while actually increasing captures from these stocks. We also have some questions about the BAU policy as applied to RAM stocks, which if we are interpreting things correctly do not appear to be correct
-
-While we believe that some of the key assumptions made here, along with others we are happy to discuss, generally act to positively bias estimates of physical food-optimal MPA size, it is entirely possible that other assumptions could be negatively biasing estimates. The key point here though is that reasonable people working with another set of equally plausible assumptions could easily reach vastly different conclusions to the specific results presented here. [Ovando 2018 Fig 3.15](https://danovando.github.io/dissertation/zissou.html#results-1) demonstrates that, as shown here and in many other simulation papers, when stocks are overfished, an MPA on the order of 20-40% (and bigger if things are really overfished) increase yields. However, those results also showed that within those general rules of thumb the actual outcomes of the MPA can vary wildly depending on characteristics of fleet dynamics, movement, and density dependence. A large body of simulation papers have shown that MPAs can be good, bad, or in between for fisheries depending on a host of assumptions, some relatively straightforward (must be overfished in the absence of an MPA), and others much less so (being able to accurately measure the nature of dispersal at different life stages relative to MPA size). We suggest that we have come as far as we can with simulation based results in our understanding of the global role of MPAs in food security. It is time to focus our efforts on empirically evaluating the observed fishery impacts of MPAs, to put the wide range of theoretical predictions made over the years to the test. 
+3. Evaluation of the models predictions for RAM stocks alone produces some questionable results, namely that most RAM stocks, which collectively produce roughly 50% of global captures, could have over 25% of their footprint covered in MPAs while actually increasing captures from these collective stocks. We also have some questions about the BAU policy as applied to RAM stocks, which if we are interpreting things correctly do not appear to be correct
 
 
-# Where's the MSY?
+<!-- Our worry is that the results as presented here present an overly certain perspective on the scale, placement, and impacts of a global network of MPAs for food provision. We believe that the assumptions made by this model mean that the results are not an imprecise but unbiased estimate of a global phenomenon, but a potentially both biased and imprecise estimate that may distort the debate about the role of MPAs in global and local food security. We firmly believe that MPAs can play an effective role in marine conservation, and under the right circumstances can provide win-win benefits for conservation and food security. We do not dispute that there is a roll to be played by a global network of marine protected areas in food security. We do however have serious concerns with the particular network presented by the model used in Cabral et al. 2020.  -->
 
+<!-- [Ovando 2018 Fig 3.15](https://danovando.github.io/dissertation/zissou.html#results-1) demonstrates that, as shown here and in many other simulation papers, when stocks are overfished, an MPA on the order of 20-40% (and bigger if things are really overfished) increase yields. However, those results also showed that within those general rules of thumb the actual outcomes of the MPA can vary wildly depending on characteristics of fleet dynamics, movement, and density dependence. A large body of simulation papers have shown that MPAs can be good, bad, or in between for fisheries depending on a host of assumptions, some relatively straightforward (must be overfished in the absence of an MPA), and others much less so (being able to accurately measure the nature of dispersal at different life stages relative to MPA size). We suggest that we have come as far as we can with simulation based results in our understanding of the global role of MPAs in food security. It is time to focus our efforts on empirically evaluating the observed fishery impacts of MPAs, to put the wide range of theoretical predictions made over the years to the test.  -->
 
-```{r}
-
-msyframe <- matrix(rep(MegaData$MSYfin, ncol(KprotectedPerCell_Library)), nrow = length(MegaData$Kfin), ncol = ncol(KprotectedPerCell_Library))
-
-msy_per_cell <- colSums(KprotectedPerCell_Library * msyframe)
-
-tmp <- ShortCoord %>% 
-  mutate(msy_per_cell = msy_per_cell) %>% 
-    sf::st_as_sf(coords = c("lon", "lat"),
-               crs = sf::st_crs(land_shp_moll)) 
-
-tmp %>% 
-  ggplot(aes(color = msy_per_cell)) + 
-    geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) +
-  geom_sf(size = .1) + 
-  scale_color_viridis_c()
-
-cumu <- tibble(msy_per_cell = msy_per_cell) %>% 
-  arrange(desc(msy_per_cell)) %>% 
-  mutate(cumulative_msy = cumsum(msy_per_cell)) %>% 
-  mutate(patch = 1:nrow(.)) %>% 
-  mutate(ppatch = patch / nrow(.))
-
-cumu %>% 
-  ggplot(aes(ppatch, cumulative_msy)) + 
-  geom_line() + 
-  scale_x_continuous(labels = percent, name = "% of Patches") + 
-  scale_y_continuous(labels = comma, name = "Cumulative MSY")
-
-
-eezs <-
-  sf::read_sf(here("data", "World_EEZ_v11_20191118_LR", "eez_v11_lowres.shp")) %>%
-  mutate(iso3_code = countrycode(SOVEREIGN1, "country.name",  "iso3c")) %>% 
-    mutate(iso3c_name = countrycode(iso3_code, "iso3c",  "country.name")) %>%
-  filter(!is.na(iso3_code)) %>%
-  sf::st_transform(sf::st_crs(land_shp_moll))
-
-a = eezs %>% 
-  filter(ISO_TER1 == "CHN") %>% 
-  ggplot() +
-  geom_sf(fill = "red") + 
-  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
-
-# ggsave("test.png", a)
-
-
-bau_mpas <- ShortCoord_Sort %>%
-  sf::st_as_sf(coords = c("lon", "lat"),
-               crs = sf::st_crs(land_shp_moll)) 
-
-fao_country_captures <- fao_capture %>% 
-  filter(capture_units == "t",
-         !str_detect(fao_area,"Inland waters")) %>% 
-  group_by(country_name_en, iso3_code) %>% 
-  filter(year == max(year)) %>% 
-  summarise(capture = sum(capture, na.rm = TRUE)) %>% 
-  arrange(desc(capture)) %>% 
-  ungroup() %>% 
-  mutate(capture_rank = percent_rank(capture)) %>% 
-  arrange(desc(capture_rank)) %>% 
-  mutate(cumu_capture = cumsum(capture)) %>% 
-  mutate(first_half = cumu_capture < (max(cumu_capture) / 2),
-         p_global_h = capture / max(cumu_capture))
-
-
-test <- sf::st_join(bau_mpas, eezs)
-
-# MSY and sign per EEZ
-
-spatial_msy <- tmp %>%
-  sf::st_join(eezs) %>%
-  filter(!is.na(iso3_code)) %>% 
-  janitor::clean_names()
-
-mean(spatial_msy$d_h > 0)
-
-spatial_msy %>% 
-  filter(!is.na(iso3c_name) & iso3c_name == "China") %>% 
-  ggplot(aes(color = d_h)) + 
-  geom_sf(show.legend = FALSE) + 
-  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
-
-
-spatial_msy %>% 
-  ggplot(aes(color = d_h)) + 
-  geom_sf(show.legend = FALSE) + 
-  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) + 
-  scale_color_viridis_c()
-
-p_eez_closed <- spatial_msy %>%
-  group_by(iso3c_name, iso3_code) %>%
-  summarise(
-    p_closed = mean(d_h > 0),
-    weighed_p_closed = weighted.mean(d_h > 0, w = msy_per_cell),
-    top_weighed_p_closed = weighted.mean(d_h > 0 &
-                                           rank < 5, w = msy_per_cell),
-    top_p_closed = mean(d_h > 0 & rank < 5)
-  ) %>%
-  arrange(desc(p_closed)) %>%
-  left_join(fao_country_captures, by = c("iso3_code" = "iso3_code")) %>%
-  ungroup()
-  
-
-p_eez_closed_map <- p_eez_closed %>%
-  ggplot(aes(color = p_closed)) +
-  geom_sf(
-    data = land_shp_moll,
-    fill = "black",
-    lwd = 0,
-    inherit.aes = F
-  ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
-  geom_sf(size = .1) +
-  scale_color_viridis_c(labels = percent, name = "% of EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
-  theme(legend.position = "top", legend.direction = "horizontal")
-
-
-top_p_eez_closed_map <- p_eez_closed %>%
-  ggplot(aes(color = top_p_closed)) +
-  geom_sf(
-    data = land_shp_moll,
-    fill = "black",
-    lwd = 0,
-    inherit.aes = F
-  ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
-  geom_sf(size = .1) +
-  scale_color_viridis_c(labels = percent, name = "% of EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
-  theme(legend.position = "top", legend.direction = "horizontal")
-
-
-weighted_p_eez_closed_map <- p_eez_closed %>%
-  ggplot(aes(color = weighed_p_closed)) +
-  geom_sf(
-    data = land_shp_moll,
-    fill = "black",
-    lwd = 0,
-    inherit.aes = F
-  ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
-  geom_sf(size = .1) +
-  scale_color_viridis_c(labels = percent, name = "% of K-weighted EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
-  theme(legend.position = "top", legend.direction = "horizontal")
-
-
-p_eez_closed_plot <- p_eez_closed %>% 
-  # filter(cumu_capture < 60e6) %>% 
-  filter(capture_rank > 0.85) %>% 
-  ggplot(aes(reorder(iso3c_name,p_closed), p_closed, fill = capture)) + 
-  geom_col() + 
-  coord_flip() + 
-  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") + 
-  scale_x_discrete(name = '') + 
-  scale_fill_viridis_c(labels = comma)
-
-top_p_eez_closed_plot <- p_eez_closed %>% 
-  # filter(cumu_capture < 60e6) %>% 
-  filter(capture_rank > 0.85) %>% 
-  ggplot(aes(reorder(iso3c_name,top_p_closed), top_p_closed, fill = capture)) + 
-  geom_col() + 
-  coord_flip() + 
-  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") + 
-  scale_x_discrete(name = '') + 
-  scale_fill_viridis_c(labels = comma)
-
-# p_eez_closed_plot + top_p_eez_closed_plot
-
-weighted_p_eez_closed_plot <- p_eez_closed %>%
-  # filter(cumu_capture < 60e6) %>%
-  filter(capture_rank > 0.85) %>%
-  ggplot(aes(reorder(iso3c_name, capture), weighed_p_closed, fill = capture)) +
-  geom_col() +
-  coord_flip() +
-  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") +
-  scale_x_discrete(name = '')
-
-
-a = spatial_msy %>% 
-  group_by(iso3c_name) %>% 
-  arrange(desc(msy_per_cell)) %>% 
-  mutate(cumu_msy =cumsum(msy_per_cell)) %>% 
-  mutate(patch = 1:length(cumu_msy)) %>% 
-  mutate(ppatch = patch / length(cumu_msy)) %>% 
-  ungroup() %>% 
-  group_by(iso3c_name) %>% 
-  mutate(total_msy = max(cumu_msy)) %>% 
-  ungroup()
-
-
-cumu_msy_country_plot <- a %>% 
-  ggplot(aes(ppatch, cumu_msy, color =total_msy)) + 
-  geom_line() +
-  facet_wrap(~iso3c_name, scales = "free_y") + 
-  theme_light() + 
-  theme(axis.text = element_blank(),
-        strip.text = element_blank()) + 
-  scale_x_continuous(name = "% of Patches") + 
-  scale_y_continuous(name = "Cumulative MSY") + 
-  labs(caption = "each facet is a country") + 
-  scale_color_viridis_c(trans = "log10")
-
-```
-
-
+                                                              
 # Lack of Explicit Distance has Important Implications
 
 In terms of the actual calculations of effect of MPAs on on harvest, there is no explicit space in the model, beyond essentially a two-patch system with a single carrying capacity, K, and movement in each patch a function of MPA size. So, this means that for any individual stock, the food maximizing MPA size is simply a function of life history and the assumption about BAU conditions: A stock with F/F~MSY~ BAU of 1.5 will need a much bigger MPA than one with  F/F~MSY~ BAU of 1, and a stock with  F/F~MSY~ BAU of 0.5 should maintain or lose catch from any MPA under these assumptions. So, without any spatial mapping, one could, taking the Costello et al. 2016 estimates of BAU stock status as given, as well as the assumptions of this model, calculate the optimal percent of each stock's K that should be in an MPA to maximize food. 
@@ -736,12 +575,12 @@ One could make a case for any one of these assumptions, but there are several fe
 
 In terms of the food maximizing, clearly the assumption about the connectivity of these systems matter. Consider a hypothetical scenario where there are two completely separate stocks of largehead hairtail, one that lives in the Pacific and Indian Oceans, and the other in the Atlantic. Suppose then that F/Fmsy is 2 in the Pacific/Indian Ocean and F/Fmsy = 1 in the Atlantic (and assume that both have equal total K and MSY). What would be the consequences of closing off the Atlantic inside an MPA for food production of largehead hairtail? Assuming no connectivity between the Atlantic and Pacific stocks, the Pacific/Indian Ocean stock would be driven to collapse (assuming Schaefer dynamics), and the Atlantic stock would rebuild to carrying capacity. The MPA would cause a loss relative to BAU equal to the MSY of the Atlantic stock in food production. 
 
-But, what if in reality the Atlantic and Pacific are one shared stock in the manner described in Cabral et al. 2020? Closing of the Atlantic inside an MPA might well then provide substantial food benefits, to the extent that the Atlantic MPA brings the biomass weighted mean fishing mortality rate of the total stock in line with Fmsy; i.e., you can still fish like crazy in the Pacific / Indian Ocean, but it is now being bolstered by spillover from the Atlantic MPA. Clearly  then, decisions about how to aggregate stocks play a major role in what an global network of MPAs for food would look like as we move from the stylized two-patch model to an actual map of the world. 
+But, what if in reality the Atlantic and Pacific are one shared stock in the manner described in Cabral et al. 2020, with an MSY weighted F/Fmsy BAU of 1.5? Closing of the Atlantic inside an MPA might well then provide substantial food benefits, to the extent that the Atlantic MPA brings the biomass weighted mean fishing mortality rate of the total stock in line with Fmsy; i.e., you can still fish like crazy in the Pacific / Indian Ocean, but it is now being bolstered by spillover from the Atlantic MPA. Clearly  then, decisions about how to aggregate stocks play a major role in what an global network of MPAs for food would look like as we move from the stylized two-patch model to an actual map of the world. 
 
-While questions about the "right" boundary of a stock are always difficult and nebulous, we have concerns about the practical implications of some of the choices made here, mostly related to the realism and consequences of the assumptions required to produce the main results of Cabral et al. 2020. We detail some specific concerns with the use of AquaMaps as both an index of spatial abundance and as a marker for a shared biological stock, and then examine two case study results that we feel illustrate the issues with mapping the percentage based outcomes of the model onto the actual locations of the world. 
+<!-- While questions about the "right" boundary of a stock are always difficult and nebulous, we have concerns about the practical implications of some of the choices made here, mostly related to the realism and consequences of the assumptions required to produce the main results of Cabral et al. 2020. We detail some specific concerns with the use of AquaMaps as both an index of spatial abundance and as a marker for a shared biological stock, and then examine two case study results that we feel illustrate the issues with mapping the percentage based outcomes of the model onto the actual locations of the world.  -->
 
 
-```{r lht-plot, fig.cap = "Range of largehead hairtail (*Trichiurus lepturus*) in KprotectedPerCell_Library"}
+```{r lht-plot, fig.cap = "Range of largehead hairtail (*Trichiurus lepturus*) stock in KprotectedPerCell_Library"}
 tmp <- ShortCoord %>% 
   mutate(k_per_cell = as.numeric(KprotectedPerCell_Library[which(MegaData$SciName == "Trichiurus lepturus")[1],])) %>% 
     sf::st_as_sf(coords = c("lon", "lat"),
@@ -756,7 +595,7 @@ tmp %>%
 
 ```
 
-# Aqauamaps as an Index of Biomass
+# Problems with Aquamaps as Abundance / Range
 
 Designing an MPA network for any objective clearly requires some knowledge of the spatial distribution of the stock, as well as the movement rates of organisms within that spatial distribution. Both of these are also poorly understood for many species, and so we appreciate the need for the simplifying assumptions made here. However, we feel that there are some substantial issues with treating the species distribution model (SDM) from AquaMaps as both an index of the relative biomass in space, and as a measure of the range of the connected biological stock.
 
@@ -772,7 +611,7 @@ knitr::include_graphics(here("imgs","aquamaps-trap.png"))
 ```
 
 
-Each species’ map is constructed by overlaying these simple environmental affinities and extracting their product. There is no interaction among environmental variables and no statistical modeling beyond extraction of the empirical distribution of occurrence records across environmental predictors (i.e., there is no “fitting” of the model as would be the case with, say, Generalized Additive Models a la [SOME REFERENCE]). Moreover, there is no treatment of abundance or uncertainty. For example, there is no weighting of data based on the number of observed occurrences in each cell, and no statistical model describing abundance given presence.
+Each species’ map is constructed by overlaying these simple environmental affinities and extracting their product. There is no interaction among environmental variables and no statistical modeling beyond extraction of the empirical distribution of occurrence records across environmental predictors (i.e., there is no “fitting” of the model as would be the case with, say, Generalized Additive Models). Moreover, there is no treatment of abundance or uncertainty. For example, there is no weighting of data based on the number of observed occurrences in each cell, and no statistical model describing abundance given presence.
 
 As mentioned above, these methods for Aquamaps were specifically chosen to err on the side of positive bias in species presence, because they are meant (primarily) as the basis for analyses describing global patterns of marine biodiversity. However, the approach has serious implications when used to extrapolate fish abundance across space, as in the Cabral et al. analysis. The trapezoidal shape of environmental affinities is specifically designed for maximum coverage, and will naturally result in inflated ranges of high species occurrence probability. It means, for example, that a spatial cell that is in the 10th percentile of a species’ tolerance for depth, temperature, and salinity will be treated exactly the same as a cell at the 50th percentile of these values. Because the Cabral et al. analysis extrapolates the Aquamaps ranges to abundance by combining them with modeled carrying capacity, it follows that the abundance of each species will be distributed homogeneously across a wide swath of ocean.
 
@@ -877,13 +716,389 @@ foot_dist_plot + foot_delta_plot + plot_annotation(tag_levels = 'A')
   
 ```
 
-This clearly has large practical implications. It is possible that unassessed species, being more tropical than the average RAM stock, have a greater species footprint than RAM stocks, but it seems much more likely that this stark difference is an artifact of the use of Aquamaps. Practically then, since the model itself works in percentages, an unassesssed stock and a RAM stock with the same life history, k roughly equal in each patch ,and BAU fishing pressure would have the same optimal MPA size for food provision as percent of range, but the unassessed stock might be expected to have an MPA network 17X larger than the RAM stock when applied to the global map. Note that this result does not factor in the distance that larvae or fish must traverse between patches, which the Aquamaps distributions seem to produce (relative to the relatively contiguous RAM distributions). 
+This clearly has large practical implications. It is possible that unassessed species, being more tropical than the average RAM stock, have a greater species footprint than RAM stocks, but it seems much more likely that this stark difference is an artifact of the use of Aquamaps. Practically then, since the model itself works in percentages, an unassessed stock and a RAM stock with the same life history, k roughly equal in each patch ,and BAU fishing pressure would have the same optimal MPA size for food provision as percent of range, but the unassessed stock might be expected to have an MPA network 17X larger than the RAM stock when applied to the global map. Note that this result does not factor in the distance that larvae or fish must traverse between patches, which the Aquamaps distributions seem to produce (relative to the relatively contiguous RAM distributions). 
 
 The total area protected to maximize food production from Cabral is a function of both the optimal percent size MPA of individual species and the degree of habitat overlap across species. Given that fewer species live in the high seas, and both the RAM and unassessed stocks that do live there are likely to have very large footprints (though the RAM stocks in those areas are mostly not overfished, so there would be few benefits from MPAs), it is likely that even accounting for this size bias, similar portions of the high seas could be closed at little cost to total food production. However, for species that primarily inhabit coastal areas, the fact that all else being equal the model will create much larger MPAs, in terms of absolute area protected on the map, for unassessed than assessed stocks, and since unassessed stocks from Costello et al. estimates will have lower BAU stock status, these results are likely-and greatly- overestimating the total amount of coastal area in a food-maximizing MPA network. 
 
-# Case Study - Chinese Fisheries
+# Australian MPAs benefit Mexico
 
-Let's consider some of the implications of the spatial modeling choices with a case study. We first selected all unassessed species classified as overfished under BAU for which 90% or more of the catch comes from inside FAO area 61 - the Pacific NorthWest, made up mostly of catches from China, along with Japan and South Korea. As we might hope, the cells with the highest individual K values come from within area 61. However, according to aquamaps these case study stocks have a nontrivial portion of their range in areas quite far from the Pacific Northwest, including throughout the Mediterranean (Fig.\@ref(fig:of-61))
+We have shown here that the use of Aquamaps as an index of spatial abundance and stock range can positively biases any estimate of physical MPA size unless stocks conform to the strict assumptions of the model used here. To illustrate that the consequences of this choice are not trivial, we consider a simple example here: What does the model used here say are the global benefits of MPAs in Australia?
+
+To evaluate this, we modified the methods used in Cabral et al. 2020 in the following way. We merged the spatial cells used in Cabral et al. 2020 with a shapefile of exclusive economic zones (EEZs). We then restricted the MPA siting algorithm used in Cabral et al. 2020 to only consider cells that fall within the the Australian EEZ as possible MPAs. We then ran the Cabral et al. 2020 model, storing the estimated change in harvest resulting from closure of cells with the Australian EEZ for each "stock" used in the Cabral et al. 2020 analysis. 
+
+Cabral et al. 2020 does not report results on a stock-by-stock basis. However, by storing these results, we can consider the implications of a regional MPA on a global scale, per the assumptions of their model. Cabral et al. 2020 assumes that biomass is proportional to the aquamaps distribution for a given species, and that the fishing mortality rate is equal in space. This means that if one were to look at their results spatial, catch in space would be directly proportional to biomass, and in turn Aquamaps distributions. 
+
+For each stock then for a given Australian MPA network, we calculated the total change in harvest predicted for that stock by the Cabral et al. 2020 model, and then per their assumptions distributed that total change in harvest in proportion to the aquamaps distribution for that stock. We then filtered our results to only those stocks for which the model predicts a positive change in catch as a function of MPA closure, and summed the increase harvest across all stocks in each cell. This gives us an index of the location and relative magnitude of MPA mediated changes in catch predicted by Cabral et al. 2020. To drive home the implications of these results, we omit tunas from this analysis, and only visualize cells whose predicted catch increase is at least 10% of the maximum predicted catch increase in any cell. 
+
+Fig.\@ref(fig:teleport-plot) shows the results of this analysis. The red areas show the location of MPAs, and the color gradient shows the distribution of catch benefits at a global scale. While the model predicts that this essential closure of the Australian EEZ would have local benefits, it also predicts catch benefits equal in scale to the benefits predicted around Australia for areas as far away as China and Japan. The model predicts that this Australian MPA would also produce benefits across the Pacific coasts of North and South America, including throughout the Gulf of California and along British Columbia.  
+
+
+  
+```{r, echo = FALSE, include=FALSE}
+
+#Load MOLLWEIDE projected data
+MegaData<-readRDS(file = here("data","MegaData.rds"))
+Cleanmegacell<-readRDS(file = here("data","Cleanmegacell_mollweide.rds"))
+CleanCoordmegacell<-readRDS(file = here("data","CleanCoordmegacell_mollweide.rds"))
+KprotectedPerCell_Library<-readRDS(file = here("data","KprotectedPerCell_Library_mollweide.rds"))
+MPA_coord<-readRDS(file= here("data","MPA_coord_mollweide.rds")) #this is my code
+land_shp_moll<-readRDS(file = here("data","land_shp_moll.rds"))
+head(MPA_coord)
+dim(MPA_coord)
+
+#get MPA positions
+CleanCoordmegacell_MPA<-left_join(CleanCoordmegacell,MPA_coord,by=c("lon","lat"))
+head(CleanCoordmegacell_MPA)
+dim(CleanCoordmegacell_MPA)
+sum(CleanCoordmegacell_MPA$MPA,na.rm=T)
+
+#positions of 1s (MPAs)
+MPAposition<-which(CleanCoordmegacell_MPA$MPA==1)
+head(MPAposition)
+length(MPAposition)#2931 --- 2.44% are MPAs
+length(MPAposition)*100/dim(Cleanmegacell)[1]
+
+##TRY new approach
+numcell<-dim(Cleanmegacell)[1]
+celltoiterateFULL<-1:numcell
+MPAselect0<-matrix(0, nrow=numcell, ncol=1)
+PriorityAreas<-c()
+NetworkResult<-vector()
+
+#Make MPAselect0==1 for MPAs
+MPAselect0[MPAposition]<-1
+head(MPAselect0)
+sum(MPAselect0)
+
+#remove MPAs from celltoiterateFULL
+celltoiterateFULL<-celltoiterateFULL[-MPAposition]
+celltoiterate<-celltoiterateFULL
+ncell<-length(celltoiterate)
+
+###Compute spillover---PIXEL-LEVEL spillover 
+K<-MegaData$Kfin # K per species
+m<-MegaData$m # mobility per species
+r<-MegaData$r
+
+if (scenario=="all managed"){
+  E<-MegaData$Emsy
+}else if(scenario=="OAconstant"){
+  E<-MegaData$Efin
+}else if(scenario=="BAU1"){  
+  E<-MegaData$Efin_BAU1
+}else if(scenario=="Efin_msy"){ 
+  E<-MegaData$Efin_msy
+}else if(scenario=="EBvK01fin"){ 
+  E<-MegaData$EBvK01fin 
+}
+
+ER<-1-E
+ER<-1*(ER>1) + ER*(ER<=1)
+max(ER)
+min(ER)
+
+MPAselect<-MPAselect0
+R<-rowSums(KprotectedPerCell_Library[,which(MPAselect==1),drop=FALSE])
+ER_redistribute<-1-(1-ER)^(1/(1-R))
+
+
+b_outside_bau <-
+  ((m * K * (1 - R)) / (ER_redistribute * R + m)) * (1 - (ER_redistribute * (1 - R) * m) /
+                                                       ((ER_redistribute + m) * r)) 
+
+hbau<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
+hbau<-hbau*(hbau>0)
+HBAU<-sum(hbau)
+HBAU
+
+PICKSIZE<-100 #number of MPA sites selected
+
+nmax<-floor(length(celltoiterate)/PICKSIZE)
+nmax #this is the number of iterations needed for PICKSIZE at a time!
+
+Eevolve<-matrix(nrow=nmax,ncol=dim(MegaData)[1])
+# k_per_cell <- t(as.datKprotectedPerCell_Library)
+
+hmpa_stockish <- matrix(NA, nrow = nmax, ncol = nrow(KprotectedPerCell_Library))
+
+# pull out case study cells
+
+teleporting_eezs <- eezs %>% 
+  filter(iso3c_name %in% c("Australia"))
+
+cabral_cells <- CleanCoordmegacell %>%
+  sf::st_as_sf(coords = c("lon", "lat"),
+               crs = sf::st_crs(land_shp_moll)) %>% 
+  mutate(cell = 1:nrow(.))
+
+spcoords <- sf::st_coordinates(cabral_cells) %>% 
+  as_tibble()
+
+cabral_cells <- cabral_cells %>% 
+  bind_cols(spcoords) 
+
+teleport_cells <- cabral_cells %>% 
+  sf::st_intersection(teleporting_eezs)
+
+
+teleport_cells %>%
+  ggplot() +
+  geom_sf(
+    data = land_shp_moll,
+    fill = "black",
+    lwd = 0,
+    inherit.aes = F
+  ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
+  geom_sf(color = "red")
+
+
+celltoiterateFULL <- teleport_cells$cell
+
+celltoiterate <- celltoiterateFULL
+
+PICKSIZE<-100 #number of MPA sites selected
+
+nmax<-floor(length(celltoiterate)/PICKSIZE)
+
+nmax #this is the number of iterations needed for PICKSIZE at a time!
+
+Eevolve<-matrix(nrow=nmax,ncol=dim(MegaData)[1])
+# k_per_cell <- t(as.datKprotectedPerCell_Library)
+
+hmpa_stockish <- matrix(NA, nrow = nmax, ncol = nrow(KprotectedPerCell_Library))
+
+if (run_teleportation){
+  
+  cores<-detectCores() - 2
+registerDoParallel(cores)
+for (i in 1:nmax){ 
+  MPAselectPrev<-rowSums(KprotectedPerCell_Library[,which(MPAselect0==1),drop=FALSE])
+  a <- Sys.time()
+  result <- foreach(iter = 1:length(celltoiterate), .combine = rbind) %dopar% {
+    MPAselect<-MPAselect0
+    MPAselect[celltoiterate[iter]]<-1
+    R<-MPAselectPrev+KprotectedPerCell_Library[,celltoiterate[iter]]
+    ER_redistribute<-1-(1-ER)^(1/(1-R))
+    
+    
+    hmpa<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
+    hmpa<-hmpa*(hmpa>0)
+    HMPA<-sum(hmpa)
+    HMPA-HBAU
+  }
+  Sys.time() - a
+  
+  #1. find the location of the top 1000 highest pixel-level
+  myorderHightoLow<-order(-result)#positions
+  cellselected<-myorderHightoLow[1:PICKSIZE] #but these are the position of the temporary pixels, not our reference pixels
+  #convert coord to scale comparable to priority areas
+  Prioritycellselected<-celltoiterate[cellselected]
+  
+  #3. block those additional 100 in MPAselect
+  MPAselect0[Prioritycellselected]<-1
+  
+  #4. save them for our priority areas
+  PriorityAreas<-append(PriorityAreas,Prioritycellselected)
+  
+  #5. Calculate food prov of the additional 100 cells
+  MPAselect<-MPAselect0
+  R<-rowSums(KprotectedPerCell_Library[,which(MPAselect==1),drop=FALSE])
+  ER_redistribute<-1-(1-ER)^(1/(1-R))
+
+  hmpa<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
+  
+  hmpa<-hmpa*(hmpa>0)
+  
+  hmpa_stockish[i,] <- hmpa - hbau
+  
+  HMPA<-sum(hmpa)
+  
+  #save result. Comment other parts not needed now.
+  NetworkResult[i]<-HMPA-HBAU
+  Eevolve[i,]<-ER_redistribute
+  
+  #pass this to the top
+  celltoiterate<-celltoiterateFULL[!celltoiterateFULL %in% PriorityAreas]#celltoiterateFULL[-PriorityAreas]#bacause Prioritycellselected are real numbers, not rank
+  
+  print(c(i,NetworkResult[i]))
+  rm(result,myorderHightoLow,cellselected,Prioritycellselected, MPAselect,R,hmpa,HMPA)
+}
+plot(NetworkResult)
+stopImplicitCluster()
+
+if(scenario=="BAU1"){
+  saveRDS(NetworkResult,
+          file = file.path(results_path, "teleport_NetworkResult100_BAU1_mollweide.rds"))
+  saveRDS(PriorityAreas,
+          file = file.path(results_path, "teleport_PriorityAreas100_BAU1_mollweide.rds"))
+  saveRDS(ER_redistribute,
+          file = file.path(results_path, "teleport_ER_redistribute100_BAU1_mollweide.rds"))
+  
+  saveRDS(hmpa_stockish,
+          file = file.path(results_path, "teleport_stockish_results_bau1.rds"))
+  
+}else if(scenario=="all managed"){  
+  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_allmanaged_redistribute.rds")
+  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_allmanaged_redistribute.rds") 
+}else if(scenario=="OAconstant"){
+  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_OAconstant_mollweide_redistribute.rds")
+  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_OAconstant_mollweide_redistribute.rds")   
+}else if(scenario=="EBvK01fin"){
+  saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_EBvK01fin_mollweide_redistribute.rds")
+  saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_EBvK01fin_mollweide_redistribute.rds") 
+}
+
+  
+} else {
+  
+  NetworkResult <-readRDS(file = file.path(results_path,"teleport_NetworkResult100_BAU1_mollweide.rds"))
+  
+  PriorityAreas <- readRDS(file = file.path(results_path,"teleport_PriorityAreas100_BAU1_mollweide.rds") )
+  
+}
+
+PICKSIZE<-100
+BenefitCurve<-as.data.frame(NetworkResult)/1000000
+MPAsize<-(length(MPAposition)+1)*100/dim(Cleanmegacell)[1]
+#(MPAinEEZ+1)*100/length(EEZposition)#there is +1 because the next pixel starts with +1
+BenefitCurve$MPA <- rescale(seq.int(nmax), to = c(MPAsize, 100))
+zerozero<-data.frame(0,0)
+names(zerozero)<-c("NetworkResult","MPA")
+zerozero[1,]<-c(-HBAU/(1000000),100)
+BenefitCurve<-rbind(BenefitCurve,zerozero)
+theme_set(theme_cowplot())
+benefitplot<-ggplot(BenefitCurve, aes(MPA, NetworkResult)) +geom_line(col="blue")+# theme_classic()+
+  labs(x="% EEZ protected",y="Change in catch (MMT)",title=paste("Global (max =", round(max(BenefitCurve$NetworkResult),2),"MMT)"))#+geom_hline(yintercept = 0)
+benefitplot
+
+Priority<-as.data.frame(PriorityAreas)
+Priority$rank <- ((seq.int(nrow(Priority))/ncell))*100
+
+#add dh
+NetworkResult_prime<-as.data.frame(NetworkResult)
+dH_prime<-NetworkResult_prime %>% mutate(dH = NetworkResult - lag(NetworkResult, default = 0))
+plot(dH_prime$dH)
+Priority$NetworkResult<-rep(NetworkResult, each=PICKSIZE) ## this is adding delta H
+Priority$dH<-rep(dH_prime$dH/PICKSIZE, each=PICKSIZE) ## this is adding delta H
+head(Priority)
+dim(Priority)
+
+PriorityFrame <- as.data.frame(seq.int(nrow(CleanCoordmegacell)))
+names(PriorityFrame) <- "PriorityAreas"
+#add the priority
+PriorityFrame2<-left_join(PriorityFrame,Priority, by="PriorityAreas")
+PriorityFrame2[is.na(PriorityFrame2)] <- 0
+head(PriorityFrame2)
+dim(PriorityFrame2)
+
+ShortCoord<-CleanCoordmegacell
+ShortCoord$rank<-PriorityFrame2$rank
+ShortCoord$NetworkResult<- PriorityFrame2$NetworkResult#this is for deriving dh
+ShortCoord$dH<- PriorityFrame2$dH#this is for deriving dh
+ShortCoord$ID<-row.names(ShortCoord)
+
+dim(ShortCoord)
+head(ShortCoord)
+
+ShortCoord_Sort <- ShortCoord[order(-ShortCoord$rank),] %>% filter(rank!=-1000)
+
+ShortCoord_Sort$sign<-ShortCoord_Sort$dH>0
+InflectPoint<-min(which(ShortCoord_Sort$sign == TRUE))
+InflectMPA<-ShortCoord_Sort$rank[InflectPoint]
+
+MPAcoverage<-ShortCoord_Sort %>% filter(sign == TRUE) %>%  ggplot(aes(x=lon,y=lat,fill=dH)) + #scale_fill_gradient2(low="darkred", mid="white",high="#00539CFF",midpoint = 0, space = "Lab",na.value = "grey50", guide = "colourbar", aesthetics = "fill",name=expression(paste(Delta, "H (MT)")))+
+  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank(),legend.position=c(0.63, 0.05), legend.direction = "horizontal")+ #"bottom
+  geom_raster()+
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+MPAcoverage
+
+
+tunas <- MegaData$SciName %>%  str_detect("Thunnus")
+
+
+total_dh <- rowSums(hmpa_stockish)
+
+stockish_dh <- hmpa_stockish[total_dh == max(total_dh),]
+
+percent_affected <- mean(abs(stockish_dh) > 0)
+
+percent_benefited <- mean(stockish_dh > 0)
+
+percent_hurt <- mean(stockish_dh < 0)
+
+affected_stockish <- which(stockish_dh > 0 & tunas == FALSE) # to keep it simple just focus on stocks that get benefits from MPAs
+
+check <- MegaData$SciName[affected_stockish]
+
+tmp <- ShortCoord %>% 
+  mutate(k_per_cell = as.numeric(KprotectedPerCell_Library[which(MegaData$SciName == check[1])[1],])) %>% 
+    sf::st_as_sf(coords = c("lon", "lat"),
+               crs = sf::st_crs(land_shp_moll)) %>% 
+  filter(k_per_cell > 0) 
+
+tmp %>% 
+  ggplot(aes(color = k_per_cell)) + 
+    geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) +
+  geom_sf(size = .1) + 
+  scale_color_viridis_c()
+
+
+
+
+teleport_k <- as.data.table(KprotectedPerCell_Library[affected_stockish,])
+
+teleport_h <- stockish_dh[stockish_dh > 0 & tunas == FALSE]
+
+test <- rowSums(teleport_h * teleport_k)
+
+teleport_benefits <- colSums(teleport_h * teleport_k)
+
+plot(test, teleport_h)
+abline(a = 0, b = 1)
+
+cabral_cells$teleport_benefits <- teleport_benefits
+
+cabral_cells$teleport_benefits[cabral_cells$teleport_benefits == 0] <- NA
+
+cabral_cells <- cabral_cells %>% 
+  filter(!is.na(teleport_benefits)) %>% 
+  ungroup() %>% 
+  mutate(mpa = cell %in% as.numeric(ShortCoord$ID[ShortCoord$dH > 0 & !is.na(ShortCoord$dH)])) 
+
+cabral_mpa <- cabral_cells
+
+
+cabral_cells <- cabral_cells %>% 
+  filter(!mpa) %>% 
+    mutate(scaled_benefits = teleport_benefits / max(teleport_benefits))
+
+
+
+teleport_map <-cabral_cells %>% filter(scaled_benefits > 0.01) %>% ggplot() + 
+  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank(),legend.position= "bottom", legend.direction = "horizontal")+ #"bottom
+    geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) + 
+  geom_raster(aes(x = X, y = Y,fill=scaled_benefits))+
+  geom_raster(data = cabral_mpa %>% filter(mpa),aes(x = X, y = Y), fill = "red") +
+  scale_fill_viridis_c(name = "Benefits / max(Benefits)",guide = guide_colorbar(barwidth = unit(15, "lines")))
+
+
+ggsave(filename = file.path(results_path, "teleport-map.pdf"), teleport_map, height = 10, width = 20)
+
+ggsave(filename = file.path(results_path, "teleport-map.png"), teleport_map, height = 10, width = 20)
+```
+
+```{r teleport-plot, fig.cap = "Spatial distribution of harvest benefits from closure of the Australian EEZ predicted by Cabral et al. 2020. Results exclude tuna stocks. Red areas indicate MPAs, colorscale indicates the amount of harvest increase caused by these MPAs across space according to this model."}
+teleport_map
+```
+
+
+This simple case study illustrates the problem with treating Aquamaps distributions as an index of stock distribution and abundance: Fish, and by extension MPA benefits, are able to span entire ocean basins instantaneously, which simply is not possible for even the most mobile of fish species. The result of this is that it is unclear for any given cell in the Cabral et al. 2020 model what proportion of the predicted harvest benefits for that cell come from unrealistically assuming that closures in say Australia can benefit fish stocks an ocean apart in space. 
+
+# Fishing Mortality is Not Evenly Distributed
+
+The previous example shows that the population model assumed here produces unrealistic global benefits from local MPAs. Another important assumption of this model is that fishing mortality is evenly distributed, and that therefore the benefits of MPAs to an overfished stock is simply proportional to the amount of a species Aquamaps distribution covered by MPAs. However, we know that fishing mortality rates are not uniformly distributed in space: as demonstrated in Costello et al. 2016, fishing mortality rates for even the same species vary depending on the institutions covering their actual stock. 
+
+To demonstrate the implications of this modeling choice, we first selected all unassessed species classified as overfished under BAU for which 90% or more of the catch comes from inside FAO area 61 - the Pacific NorthWest, made up mostly of catches from China, along with Japan and South Korea. As we might hope, the cells with the highest individual K values come from within area 61. However, according to aquamaps these case study stocks have a nontrivial portion of their range in areas quite far from the Pacific Northwest, including throughout the Mediterranean (Fig.\@ref(fig:of-61))
 
 ```{r of-61, fig.cap = "Distribution of aquamaps derived K for stocks with 90% or more of their catch reported in FAO area 61 (Pacific Northwest)"}
 MegaData<-readRDS(file = here("data","MegaData.rds")) 
@@ -933,8 +1148,7 @@ tmp %>%
 
 This in and of itself is not necessarily concerning: it seems entirely plausible that there are species distributed around the world but only fished in some locations. However, this does pose some challenges to the assumptions made in Cabral et al. 2020. First, from the perspective of benefits, according to the pooled model used in Cabral et al. 2020 conditional on K a large MPA in the Caribbean may be just as beneficial to this subset of fisheries as closing portions of the coral triangle. Second, the pooled biomass model assumes that, conditional on K, all areas have equal fishing mortality rates, and therefore no area is worth more or less than another in terms of its contribution to reducing fishing pressure. For this case study though, based on the same data used to produce the estimates of stock status in Costello et al. 2016, almost none of the fishing mortality for these species comes from areas outside the Pacific Northwest. But, under the assumptions of this model, closing off a K equivalent amount of area in say the Caribbean or off Baja, where relatively little fishing pressure occurs, is identical to closing off a K equivalent amount of area off of the Chinese coast. 
 
-To quantify the potential impact of these choices, we re-ran the BAU scenario from Cabral et al. 2020, but only for this subset of overfished-under BAU stocks caught almost entirely within the Pacific Northeast. Following the Aquamaps distribution, the areas around China produce on a per-cell basis the most increase in harvest according to the model. However, MPAs as far away as the Caribbean produce increases in total catch for this subset of species (Fig.\@ref(fig:cs-mpa-plot)). In total, while for the species in question nearly all report 100% of their catches from within FAO area 61, roughly 30% of the total increase in harvest that the model estimates for this MPA network comes from areas outside of FAO area 61. This result means that these benefits both come from areas that are quite far away from China, for the life history of most species, and from areas where the same data used to produce the estimates used in Cabral et al. 2020 tells us there is little to no fishing pressure for these species (Fig.\@ref(fig:cs-plot)).
-
+To quantify the potential impact of these choices, we re-ran the BAU scenario from Cabral et al. 2020, but only for this subset of overfished-under BAU stocks caught almost entirely within the Pacific Northwest Following the Aquamaps distribution, the areas around China produce on a per-cell basis the most increase in harvest according to the model. However, MPAs as far away as the Caribbean produce increases in total catch for this subset of species (Fig.\@ref(fig:cs-mpa-plot)). In total, while for the species in question nearly all report 100% of their catches from within FAO area 61, roughly 30% of the total increase in harvest that the model estimates for this MPA network comes from areas outside of FAO area 61. This result means that these benefits both come from areas that are quite far away from China, for the life history of most species, and from areas where the same data used to produce the estimates used in Cabral et al. 2020 tells us there is little to no fishing pressure for these species (Fig.\@ref(fig:cs-plot)). The combination then of the assumption that a) benefits can travel instantaneously across the globe and b) that fishing pressure is the same everywhere both ignores important ecological and economic realities, and has profound consequences for the resulting predictions of the design and implications of a global MPA network for food. 
 
 ```{r}
 
@@ -1224,7 +1438,7 @@ cs_MPAcoverage
 ```
 
 
-```{r cs-plot, fig.cap="A) Histogram of percent of species-level catches reported for individual species within FAO area 61 b) Percent of total possible MPA benefits coming from MPAs outside and inside of FAO area 71." }
+```{r cs-plot, fig.cap="A) Histogram of percent of species-level catches reported for individual species within FAO area 61 b) Percent of total possible MPA benefits coming from MPAs outside and inside of FAO area 61." }
 
 # check overlap
 
@@ -1278,33 +1492,542 @@ china_cs_plot <- china_pio_plot + dh_outside_chinaish_plot + plot_annotation(tag
 
 china_cs_plot
 ```
+```{r, include=FALSE}
 
-# Case Study - RAM closures
+upsides_bau %>% 
+  filter(dbase == "FAO") %>% 
+  ggplot(aes(sci_name, bvbmsy_upsides)) + 
+  geom_point() +  
+  coord_flip() + 
+  facet_wrap(~species_cat)
+
+
+upsides_bau %>% 
+  filter(dbase == "FAO") %>% 
+  group_by(sci_name, species_cat_name) %>% 
+  mutate(b_range = max(bvbmsy_upsides) - min(bvbmsy_upsides)) %>% 
+  ggplot(aes(b_range)) +
+  geom_histogram() + 
+  facet_wrap(~species_cat_name)
+  
+  
+```
+
+
+# The Impact of the Open Oceans
+
+While the text of Cabral et al. 2020 focuses on the potential for closing a small proportion (~5%) of the oceans to provide massive food benefits. However, the results also imply that under BAU one could close over 90% of the world's oceans without any significant loss in total global food production from fisheries. One simple reason for this result is the assumptions made by the model about biomass distribution. Summing the total MSY predicted by their model in each cell shows that nearly all of the world's MSY is estimated to occur in only 15% of the cells (Fig.\@ref(fig:cumu-msy-fig)). This may be reasonably accurate, given the massive scale and relative unproductivity per unit area of the worlds open oceans. However, this also means that without any modeling, per these assumptions one could close roughly 85% of the worlds oceans at minimal food loss.  
+
+However, given that the majority of the economic and food benefits of fisheries come from coastal waters, taking the results from Cabral et al. 2020 at face value, it is instructive to consider what they would imply for individual countries within the analysis. To examine this, we merged the spatial results of Cabral et al. 2020 with a shapefile of the world's EEZs, and then calculated the percent of the cells in each country's EEZ that the Cabral et al. 2020 model says could be placed in MPAs all of which are predicted to produce marginal increases in food production. 
+
+According to the model, countries such as Denmark could close nearly 80% of their EEZ in global-food increasing MPAs. Countries such as the USA, which provides around 7% of global marine capture, and which Hilborn et al. 2020 shows losses minimal amounts of catch due to overfishing, is estimated to be able to close 40% of its EEZ in MPAs at a net increase to global harvest. Interestingly, countries that Costello et al. 2016 suggests are most at risk from overfishing, such as China and Indonesia, as well as other countries throughout Southeast Asia, have much lower MPA coverage than places such as the USA and Canada (Fig.\@ref(fig:p-eez-plot)). Restricting our analysis to the top 5% of MPA food increasing still concentrates MPAs within the EEZs of unlikely places, particularly South Korea, Argentina, and Iceland (Fig.\@ref(fig:top-p-eez-plot)).
+
+This has two important implications. First, from a distributional perspective, taking the results from Cabral et al. 2020 at face value, many countries would clearly be made worse off while providing global benefits; it is hard to tell a convincing story that Iceland could individually increase their catches while closing nearly 80% of their EEZ. Second though, these results provide another example of questionable results from this analysis: that closing 40% of the USA's EEZ would produce a net increase in global food is not realistic given the status of the largest stocks that actually occur with the USAs EEZs.
 
 ```{r, include=FALSE}
-upsides <- read_csv(here("data","upsides","ProjectionData.csv")) %>% 
+
+#Load MOLLWEIDE projected data
+MegaData<-readRDS(file = here("data","MegaData.rds"))
+Cleanmegacell<-readRDS(file = here("data","Cleanmegacell_mollweide.rds"))
+CleanCoordmegacell<-readRDS(file = here("data","CleanCoordmegacell_mollweide.rds"))
+KprotectedPerCell_Library<-readRDS(file = here("data","KprotectedPerCell_Library_mollweide.rds"))
+MPA_coord<-readRDS(file= here("data","MPA_coord_mollweide.rds")) #this is my code
+land_shp_moll<-readRDS(file = here("data","land_shp_moll.rds"))
+head(MPA_coord)
+dim(MPA_coord)
+
+#get MPA positions
+CleanCoordmegacell_MPA<-left_join(CleanCoordmegacell,MPA_coord,by=c("lon","lat"))
+head(CleanCoordmegacell_MPA)
+dim(CleanCoordmegacell_MPA)
+sum(CleanCoordmegacell_MPA$MPA,na.rm=T)
+
+#positions of 1s (MPAs)
+MPAposition<-which(CleanCoordmegacell_MPA$MPA==1)
+head(MPAposition)
+length(MPAposition)#2931 --- 2.44% are MPAs
+length(MPAposition)*100/dim(Cleanmegacell)[1]
+
+##TRY new approach
+numcell<-dim(Cleanmegacell)[1]
+celltoiterateFULL<-1:numcell
+MPAselect0<-matrix(0, nrow=numcell, ncol=1)
+PriorityAreas<-c()
+NetworkResult<-vector()
+
+#Make MPAselect0==1 for MPAs
+MPAselect0[MPAposition]<-1
+head(MPAselect0)
+sum(MPAselect0)
+
+#remove MPAs from celltoiterateFULL
+celltoiterateFULL<-celltoiterateFULL[-MPAposition]
+celltoiterate<-celltoiterateFULL
+ncell<-length(celltoiterate)
+
+###Compute spillover---PIXEL-LEVEL spillover 
+K<-MegaData$Kfin # K per species
+m<-MegaData$m # mobility per species
+r<-MegaData$r
+
+if (scenario=="all managed"){
+  E<-MegaData$Emsy
+}else if(scenario=="OAconstant"){
+  E<-MegaData$Efin
+}else if(scenario=="BAU1"){  
+  E<-MegaData$Efin_BAU1
+}else if(scenario=="Efin_msy"){ 
+  E<-MegaData$Efin_msy
+}else if(scenario=="EBvK01fin"){ 
+  E<-MegaData$EBvK01fin 
+}
+
+ER<-1-E
+ER<-1*(ER>1) + ER*(ER<=1)
+max(ER)
+min(ER)
+
+MPAselect<-MPAselect0
+R<-rowSums(KprotectedPerCell_Library[,which(MPAselect==1),drop=FALSE])
+ER_redistribute<-1-(1-ER)^(1/(1-R))
+
+
+b_outside_bau <-
+  ((m * K * (1 - R)) / (ER_redistribute * R + m)) * (1 - (ER_redistribute * (1 - R) * m) /
+                                                       ((ER_redistribute + m) * r)) 
+
+hbau<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
+hbau<-hbau*(hbau>0)
+HBAU<-sum(hbau)
+HBAU
+
+PICKSIZE<-100 #number of MPA sites selected
+
+nmax<-floor(length(celltoiterate)/PICKSIZE)
+nmax #this is the number of iterations needed for PICKSIZE at a time!
+
+Eevolve<-matrix(nrow=nmax,ncol=dim(MegaData)[1])
+# k_per_cell <- t(as.datKprotectedPerCell_Library)
+
+
+NetworkResult <-readRDS(file = file.path(results_path,"NetworkResult100_BAU1_mollweide.rds"))
+  
+PriorityAreas <- readRDS(file = file.path(results_path,"PriorityAreas100_BAU1_mollweide.rds") )
+
+PICKSIZE<-100
+BenefitCurve<-as.data.frame(NetworkResult)/1000000
+MPAsize<-(length(MPAposition)+1)*100/dim(Cleanmegacell)[1]
+#(MPAinEEZ+1)*100/length(EEZposition)#there is +1 because the next pixel starts with +1
+BenefitCurve$MPA <- rescale(seq.int(nmax), to = c(MPAsize, 100))
+zerozero<-data.frame(0,0)
+names(zerozero)<-c("NetworkResult","MPA")
+zerozero[1,]<-c(-HBAU/(1000000),100)
+BenefitCurve<-rbind(BenefitCurve,zerozero)
+theme_set(theme_cowplot())
+benefitplot<-ggplot(BenefitCurve, aes(MPA, NetworkResult)) +geom_line(col="blue")+# theme_classic()+
+  labs(x="% EEZ protected",y="Change in catch (MMT)",title=paste("Global (max =", round(max(BenefitCurve$NetworkResult),2),"MMT)"))#+geom_hline(yintercept = 0)
+benefitplot
+
+Priority<-as.data.frame(PriorityAreas)
+Priority$rank <- ((seq.int(nrow(Priority))/ncell))*100
+
+#add dh
+NetworkResult_prime<-as.data.frame(NetworkResult)
+dH_prime<-NetworkResult_prime %>% mutate(dH = NetworkResult - lag(NetworkResult, default = 0))
+plot(dH_prime$dH)
+Priority$NetworkResult<-rep(NetworkResult, each=PICKSIZE) ## this is adding delta H
+Priority$dH<-rep(dH_prime$dH/PICKSIZE, each=PICKSIZE) ## this is adding delta H
+head(Priority)
+dim(Priority)
+
+PriorityFrame <- as.data.frame(seq.int(nrow(CleanCoordmegacell)))
+names(PriorityFrame) <- "PriorityAreas"
+#add the priority
+PriorityFrame2<-left_join(PriorityFrame,Priority, by="PriorityAreas")
+PriorityFrame2[is.na(PriorityFrame2)] <- 0
+head(PriorityFrame2)
+dim(PriorityFrame2)
+
+ShortCoord<-CleanCoordmegacell
+ShortCoord$rank<-PriorityFrame2$rank
+ShortCoord$NetworkResult<- PriorityFrame2$NetworkResult#this is for deriving dh
+ShortCoord$dH<- PriorityFrame2$dH#this is for deriving dh
+ShortCoord$ID<-row.names(ShortCoord)
+
+dim(ShortCoord)
+head(ShortCoord)
+
+ShortCoord_Sort <- ShortCoord[order(-ShortCoord$rank),] %>% filter(rank!=-1000)
+
+ShortCoord_Sort$sign<-ShortCoord_Sort$dH>0
+InflectPoint<-min(which(ShortCoord_Sort$sign == TRUE))
+InflectMPA<-ShortCoord_Sort$rank[InflectPoint]
+
+msyframe <- matrix(rep(MegaData$MSYfin, ncol(KprotectedPerCell_Library)), nrow = length(MegaData$Kfin), ncol = ncol(KprotectedPerCell_Library))
+
+msy_per_cell <- colSums(KprotectedPerCell_Library * msyframe)
+
+tmp <- ShortCoord %>% 
+  mutate(msy_per_cell = msy_per_cell) %>% 
+    sf::st_as_sf(coords = c("lon", "lat"),
+               crs = sf::st_crs(land_shp_moll)) 
+
+tmp %>% 
+  ggplot(aes(color = msy_per_cell)) + 
+    geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) +
+  geom_sf(size = .1) + 
+  scale_color_viridis_c()
+
+cumu <- tibble(msy_per_cell = msy_per_cell) %>% 
+  arrange(desc(msy_per_cell)) %>% 
+  mutate(cumulative_msy = cumsum(msy_per_cell)) %>% 
+  mutate(patch = 1:nrow(.)) %>% 
+  mutate(ppatch = patch / nrow(.))
+
+cumu_msy_plot <- cumu %>% 
+  ggplot(aes(ppatch, cumulative_msy)) + 
+  geom_line() + 
+  scale_x_continuous(labels = percent, name = "% of Patches") + 
+  scale_y_continuous(labels = comma, name = "Cumulative MSY")
+
+
+
+
+a = eezs %>% 
+  filter(ISO_TER1 == "CHN") %>% 
+  ggplot() +
+  geom_sf(fill = "red") + 
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+
+# ggsave("test.png", a)
+
+
+bau_mpas <- ShortCoord_Sort %>%
+  sf::st_as_sf(coords = c("lon", "lat"),
+               crs = sf::st_crs(land_shp_moll)) 
+
+fao_country_captures <- fao_capture %>% 
+  filter(capture_units == "t",
+         !str_detect(fao_area,"Inland waters")) %>% 
+  group_by(country_name_en, iso3_code) %>% 
+  filter(year == max(year)) %>% 
+  summarise(capture = sum(capture, na.rm = TRUE)) %>% 
+  arrange(desc(capture)) %>% 
+  ungroup() %>% 
+  mutate(capture_rank = percent_rank(capture)) %>% 
+  arrange(desc(capture_rank)) %>% 
+  mutate(cumu_capture = cumsum(capture)) %>% 
+  mutate(first_half = cumu_capture < (max(cumu_capture) / 2),
+         p_global_h = capture / max(cumu_capture))
+
+
+test <- sf::st_join(bau_mpas, eezs)
+
+# MSY and sign per EEZ
+
+spatial_msy <- tmp %>%
+  sf::st_join(eezs) %>%
+  filter(!is.na(iso3_code)) %>% 
   janitor::clean_names()
 
-# upsides %>% 
-#   filter(dbase == "RAM", year > 2016, 
-#          policy == "BAU", 
-#          scenario == "Con. Concern") %>% 
-#   ggplot(aes(year, pmin(4,fv_fmsy), color = scenario, group = interaction(scenario, id_orig)))+ 
-#   geom_line(alpha = 0.5) + 
-#   facet_wrap(~policy,scales = "free_y")
+mean(spatial_msy$d_h > 0)
 
-upsides_bau <- upsides %>% 
-  filter(
-    policy == "BAU", 
-    scenario == "Con. Concern") %>% 
-  filter(year == max(year)) %>%
-  dplyr::rename(bvbmsy_upsides = bv_bmsy,
-                fvfmsy_upsides = fv_fmsy) %>% 
-  mutate(manage = ifelse(dbase == "FAO",0, 1))
+spatial_msy %>% 
+  filter(!is.na(iso3c_name) & iso3c_name == "China") %>% 
+  ggplot(aes(color = d_h)) + 
+  geom_sf(show.legend = FALSE) + 
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
 
-# sum(upsides_bau$catch) # costello et al. 2016 58.2
 
-upsides_bau$check <- (upsides_bau$bvbmsy_upsides * upsides_bau$fvfmsy_upsides) * upsides_bau$msy
+spatial_msy %>% 
+  ggplot(aes(color = d_h)) + 
+  geom_sf(show.legend = FALSE) + 
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) + 
+  scale_color_viridis_c()
+
+p_eez_closed <- spatial_msy %>%
+  group_by(iso3c_name, iso3_code) %>%
+  summarise(
+    p_closed = mean(d_h > 0),
+    weighed_p_closed = weighted.mean(d_h > 0, w = msy_per_cell),
+    top_weighed_p_closed = weighted.mean(d_h > 0 &
+                                           rank < 5, w = msy_per_cell),
+    top_p_closed = mean(d_h > 0 & rank < 5)
+  ) %>%
+  arrange(desc(p_closed)) %>%
+  left_join(fao_country_captures, by = c("iso3_code" = "iso3_code")) %>%
+  ungroup()
+  
+
+p_eez_closed_map <- p_eez_closed %>%
+  ggplot(aes(color = p_closed)) +
+  geom_sf(
+    data = land_shp_moll,
+    fill = "black",
+    lwd = 0,
+    inherit.aes = F
+  ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
+  geom_sf(size = .1) +
+  scale_color_viridis_c(labels = percent, name = "% of EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+
+top_p_eez_closed_map <- p_eez_closed %>%
+  ggplot(aes(color = top_p_closed)) +
+  geom_sf(
+    data = land_shp_moll,
+    fill = "black",
+    lwd = 0,
+    inherit.aes = F
+  ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
+  geom_sf(size = .1) +
+  scale_color_viridis_c(labels = percent, name = "% of EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+
+weighted_p_eez_closed_map <- p_eez_closed %>%
+  ggplot(aes(color = weighed_p_closed)) +
+  geom_sf(
+    data = land_shp_moll,
+    fill = "black",
+    lwd = 0,
+    inherit.aes = F
+  ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
+  geom_sf(size = .1) +
+  scale_color_viridis_c(labels = percent, name = "% of K-weighted EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+
+p_eez_closed_plot <- p_eez_closed %>% 
+  # filter(cumu_capture < 60e6) %>% 
+  filter(capture_rank > 0.85) %>% 
+  ggplot(aes(reorder(iso3c_name,p_closed), p_closed, fill = capture)) + 
+  geom_col() + 
+  coord_flip() + 
+  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") + 
+  scale_x_discrete(name = '') + 
+  scale_fill_viridis_c(labels = comma)
+
+top_p_eez_closed_plot <- p_eez_closed %>% 
+  # filter(cumu_capture < 60e6) %>% 
+  filter(capture_rank > 0.85) %>% 
+  ggplot(aes(reorder(iso3c_name,top_p_closed), top_p_closed, fill = capture)) + 
+  geom_col() + 
+  coord_flip() + 
+  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") + 
+  scale_x_discrete(name = '') + 
+  scale_fill_viridis_c(labels = comma)
+
+# p_eez_closed_plot + top_p_eez_closed_plot
+
+weighted_p_eez_closed_plot <- p_eez_closed %>%
+  # filter(cumu_capture < 60e6) %>%
+  filter(capture_rank > 0.85) %>%
+  ggplot(aes(reorder(iso3c_name, capture), weighed_p_closed, fill = capture)) +
+  geom_col() +
+  coord_flip() +
+  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") +
+  scale_x_discrete(name = '')
+
+
+a = spatial_msy %>% 
+  group_by(iso3c_name) %>% 
+  arrange(desc(msy_per_cell)) %>% 
+  mutate(cumu_msy =cumsum(msy_per_cell)) %>% 
+  mutate(patch = 1:length(cumu_msy)) %>% 
+  mutate(ppatch = patch / length(cumu_msy)) %>% 
+  ungroup() %>% 
+  group_by(iso3c_name) %>% 
+  mutate(total_msy = max(cumu_msy)) %>% 
+  ungroup()
+
+
+cumu_msy_country_plot <- a %>% 
+  ggplot(aes(ppatch, cumu_msy, color =total_msy)) + 
+  geom_line() +
+  facet_wrap(~iso3c_name, scales = "free_y") + 
+  theme_light() + 
+  theme(axis.text = element_blank(),
+        strip.text = element_blank()) + 
+  scale_x_continuous(name = "% of Patches") + 
+  scale_y_continuous(name = "Cumulative MSY") + 
+  labs(caption = "each facet is a country") + 
+  scale_color_viridis_c(trans = "log10")
+
+```
+
+```{r cumu-msy-fig, fig.cap="Cumulative MSY along patches sorted in descending order of MSY"}
+cumu_msy_plot
+```
+
+
+```{r p-eez-plot, fig.cap="Percent of countries in the top 85% percentile of global catch that Cabral et al. 2020 predicts could be placed in food-increasing MPAs"}
+p_eez_closed_plot
+```
+
+
+```{r top-p-eez-plot,  fig.cap = "Percent of countries in the top 85% percentile of global catch that Cabral et al. 2020 predicts could be placed in the top 5% of global food-increasing MPAs"}
+top_p_eez_closed_plot
+```
+
+# The BAU Policy for RAM Appears to be Incorrect
+
+```{r, echo = FALSE, include=FALSE}
+
+#Load MOLLWEIDE projected data
+MegaData<-readRDS(file = here("data","MegaData.rds"))
+Cleanmegacell<-readRDS(file = here("data","Cleanmegacell_mollweide.rds"))
+CleanCoordmegacell<-readRDS(file = here("data","CleanCoordmegacell_mollweide.rds"))
+KprotectedPerCell_Library<-readRDS(file = here("data","KprotectedPerCell_Library_mollweide.rds"))
+MPA_coord<-readRDS(file= here("data","MPA_coord_mollweide.rds")) #this is my code
+land_shp_moll<-readRDS(file = here("data","land_shp_moll.rds"))
+head(MPA_coord)
+dim(MPA_coord)
+
+#get MPA positions
+CleanCoordmegacell_MPA<-left_join(CleanCoordmegacell,MPA_coord,by=c("lon","lat"))
+head(CleanCoordmegacell_MPA)
+dim(CleanCoordmegacell_MPA)
+sum(CleanCoordmegacell_MPA$MPA,na.rm=T)
+
+#positions of 1s (MPAs)
+MPAposition<-which(CleanCoordmegacell_MPA$MPA==1)
+head(MPAposition)
+length(MPAposition)#2931 --- 2.44% are MPAs
+length(MPAposition)*100/dim(Cleanmegacell)[1]
+
+##TRY new approach
+numcell<-dim(Cleanmegacell)[1]
+celltoiterateFULL<-1:numcell
+MPAselect0<-matrix(0, nrow=numcell, ncol=1)
+PriorityAreas<-c()
+NetworkResult<-vector()
+
+#Make MPAselect0==1 for MPAs
+MPAselect0[MPAposition]<-1
+head(MPAselect0)
+sum(MPAselect0)
+
+#remove MPAs from celltoiterateFULL
+celltoiterateFULL<-celltoiterateFULL[-MPAposition]
+celltoiterate<-celltoiterateFULL
+ncell<-length(celltoiterate)
+
+###Compute spillover---PIXEL-LEVEL spillover 
+K<-MegaData$Kfin # K per species
+m<-MegaData$m # mobility per species
+r<-MegaData$r
+
+if (scenario=="all managed"){
+  E<-MegaData$Emsy
+}else if(scenario=="OAconstant"){
+  E<-MegaData$Efin
+}else if(scenario=="BAU1"){  
+  E<-MegaData$Efin_BAU1
+}else if(scenario=="Efin_msy"){ 
+  E<-MegaData$Efin_msy
+}else if(scenario=="EBvK01fin"){ 
+  E<-MegaData$EBvK01fin 
+}
+
+ER<-1-E
+ER<-1*(ER>1) + ER*(ER<=1)
+max(ER)
+min(ER)
+
+MPAselect<-MPAselect0
+R<-rowSums(KprotectedPerCell_Library[,which(MPAselect==1),drop=FALSE])
+ER_redistribute<-1-(1-ER)^(1/(1-R))
+
+
+b_outside_bau <-
+  ((m * K * (1 - R)) / (ER_redistribute * R + m)) * (1 - (ER_redistribute * (1 - R) * m) /
+                                                       ((ER_redistribute + m) * r)) 
+
+hbau<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
+hbau<-hbau*(hbau>0)
+HBAU<-sum(hbau)
+HBAU
+
+PICKSIZE<-100 #number of MPA sites selected
+
+nmax<-floor(length(celltoiterate)/PICKSIZE)
+nmax #this is the number of iterations needed for PICKSIZE at a time!
+
+Eevolve<-matrix(nrow=nmax,ncol=dim(MegaData)[1])
+# k_per_cell <- t(as.datKprotectedPerCell_Library)
+
+dhmpa_stockish <- matrix(NA, nrow = nmax, ncol = nrow(KprotectedPerCell_Library))
+
+
+  NetworkResult <-readRDS(file = file.path(results_path,"NetworkResult100_BAU1_mollweide.rds"))
+  
+  PriorityAreas <- readRDS(file = file.path(results_path,"PriorityAreas100_BAU1_mollweide.rds") )
+  
+
+
+PICKSIZE<-100
+BenefitCurve<-as.data.frame(NetworkResult)/1000000
+MPAsize<-(length(MPAposition)+1)*100/dim(Cleanmegacell)[1]
+#(MPAinEEZ+1)*100/length(EEZposition)#there is +1 because the next pixel starts with +1
+BenefitCurve$MPA <- rescale(seq.int(nmax), to = c(MPAsize, 100))
+zerozero<-data.frame(0,0)
+names(zerozero)<-c("NetworkResult","MPA")
+zerozero[1,]<-c(-HBAU/(1000000),100)
+BenefitCurve<-rbind(BenefitCurve,zerozero)
+theme_set(theme_cowplot())
+benefitplot<-ggplot(BenefitCurve, aes(MPA, NetworkResult)) +geom_line(col="blue")+# theme_classic()+
+  labs(x="% EEZ protected",y="Change in catch (MMT)",title=paste("Global (max =", round(max(BenefitCurve$NetworkResult),2),"MMT)"))#+geom_hline(yintercept = 0)
+benefitplot
+
+Priority<-as.data.frame(PriorityAreas)
+Priority$rank <- ((seq.int(nrow(Priority))/ncell))*100
+
+#add dh
+NetworkResult_prime<-as.data.frame(NetworkResult)
+dH_prime<-NetworkResult_prime %>% mutate(dH = NetworkResult - lag(NetworkResult, default = 0))
+plot(dH_prime$dH)
+Priority$NetworkResult<-rep(NetworkResult, each=PICKSIZE) ## this is adding delta H
+Priority$dH<-rep(dH_prime$dH/PICKSIZE, each=PICKSIZE) ## this is adding delta H
+head(Priority)
+dim(Priority)
+
+PriorityFrame <- as.data.frame(seq.int(nrow(CleanCoordmegacell)))
+names(PriorityFrame) <- "PriorityAreas"
+#add the priority
+PriorityFrame2<-left_join(PriorityFrame,Priority, by="PriorityAreas")
+PriorityFrame2[is.na(PriorityFrame2)] <- 0
+head(PriorityFrame2)
+dim(PriorityFrame2)
+
+ShortCoord<-CleanCoordmegacell
+ShortCoord$rank<-PriorityFrame2$rank
+ShortCoord$NetworkResult<- PriorityFrame2$NetworkResult#this is for deriving dh
+ShortCoord$dH<- PriorityFrame2$dH#this is for deriving dh
+ShortCoord$ID<-row.names(ShortCoord)
+
+dim(ShortCoord)
+head(ShortCoord)
+
+ShortCoord_Sort <- ShortCoord[order(-ShortCoord$rank),] %>% filter(rank!=-1000)
+
+plot(ShortCoord_Sort$rank, ShortCoord_Sort$dH)
+
+ShortCoord_Sort$sign<-ShortCoord_Sort$dH>0
+InflectPoint<-min(which(ShortCoord_Sort$sign == TRUE))
+InflectMPA<-ShortCoord_Sort$rank[InflectPoint]
+
+MPAcoverage<-ShortCoord_Sort %>% ggplot(aes(x=lon,y=lat,fill=rank)) + #scale_fill_gradient2(low="darkred", mid="white",high="#00539CFF",midpoint = 0, space = "Lab",na.value = "grey50", guide = "colourbar", aesthetics = "fill",name=expression(paste(Delta, "H (MT)")))+
+  scale_fill_gradientn(colours = c("forestgreen", "white", "orange"), limits=c(0,100), values = scales::rescale(c(min(ShortCoord_Sort$rank), InflectMPA, max(ShortCoord_Sort$rank))),name="Protection sequence")+
+  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank(),legend.position=c(0.63, 0.05), legend.direction = "horizontal")+ #"bottom
+  geom_raster()+
+  geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+MPAcoverage
+
+```
+
+```{r, include=FALSE}
 
 # plot(upsides_bau$check, upsides_bau$catch)
 # abline(a = 0, b = 1)
@@ -1334,30 +2057,30 @@ check_n <- mega_data %>%
   count()
 
 # 
-# mega_data %>% 
-#   ggplot(aes(msy, msy_fin)) + 
-#   geom_point() + 
-#   geom_abline(aes(slope = 1, intercept = 0))
+mega_data %>%
+  ggplot(aes(msy, msy_fin)) +
+  geom_point() +
+  geom_abline(aes(slope = 1, intercept = 0))
 
-# mega_data %>% 
-#   group_by(sci_name) %>% 
-#   summarise(msy = unique(msy), msy_fin = sum(msy)) %>% 
-#   ggplot(aes(msy, msy_fin)) + 
-#   geom_point() + 
-#   geom_abline(aes(slope = 1, intercept = 0))
+mega_data %>%
+  group_by(sci_name) %>%
+  summarise(msy = unique(msy), msy_fin = sum(msy)) %>%
+  ggplot(aes(msy, msy_fin)) +
+  geom_point() +
+  geom_abline(aes(slope = 1, intercept = 0))
 
 
-# mega_data %>% 
-#   ggplot(aes(msy, msy_total)) + 
-#   geom_point() + 
-#   geom_abline(aes(slope = 1, intercept = 0))
+mega_data %>%
+  ggplot(aes(msy, msy_total)) +
+  geom_point() +
+  geom_abline(aes(slope = 1, intercept = 0))
 
 # now let's comapare the R's
 
-# mega_data %>% 
-#   ggplot(aes(r, g)) + 
-#   geom_point() + 
-#   geom_abline(aes(slope = 1, intercept = 0))
+mega_data %>%
+  ggplot(aes(r, g)) +
+  geom_point() +
+  geom_abline(aes(slope = 1, intercept = 0))
 
 ram_upsides_bau <- upsides_bau %>% 
   filter(manage == 1) %>% 
@@ -1375,15 +2098,15 @@ check <- mega_data %>%
 check$f_bau <-1*(check$f_bau>1) + check$f_bau*(check$f_bau<=1)
 
 
-# check %>% 
-#   ggplot(aes(f_bau, f_bau_upsides)) + 
-#   geom_point() + 
-#   geom_abline(slope = 1, intercept = 0, color = "red") + 
-#   scale_x_continuous(name = "F BAU Cabral (1 - efin_bau1 that check for negative escapement) ") + 
-#   scale_y_continuous(name = "F BAU Upsides")
+check %>%
+  ggplot(aes(f_bau, f_bau_upsides)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = "red") +
+  scale_x_continuous(name = "F BAU Cabral (1 - efin_bau1 that check for negative escapement) ") +
+  scale_y_continuous(name = "F BAU Upsides")
 
-# Aha, I think this might be what is happening
-
+# Aha, I think this might be what is happening. It looks like they updated BAU values from RAM
+# code pulled from FoodProvisionEfficient.R
 ##RAM Legacy database here
 
 if (!dir.exists(ramlegacy::ram_dir())){
@@ -1398,9 +2121,10 @@ head(RAMDATA$timeseries_values_views)
 RAMDATA2<-RAMDATA$timeseries_values_views
 head(RAMDATA2)
 colnames(RAMDATA2)
-RAMDATA3<-RAMDATA2 %>% select(stockid,year,ERbest,ER, FdivFmsy, FdivFmgt)
+RAMDATA3<-RAMDATA2 %>% select(stockid,year,ERbest,ER, UdivUmsypref, FdivFmgt)
 #remove entries with no ER values
-terminalER<-RAMDATA3 %>% filter(!is.na(ER) & !is.na(FdivFmsy)) %>%  group_by(stockid) %>% slice(which.max(year))
+terminalER<-RAMDATA3 %>% filter(!is.na(ER) & !is.na(UdivUmsypref)) %>%  group_by(stockid) %>% slice(which.max(year))
+
 #terminalERtest<-RAMDATA2 %>% filter(! (ER=='NA')) %>%  group_by(stockid) %>% slice(which.max(year))
 #head(terminalERtest)
 head(terminalER)
@@ -1412,29 +2136,25 @@ terminalER$stockid ##terminalER is the file containing the stock assessments wit
 check <- check %>% 
   left_join(terminalER, by = "stockid")
 
+# ram_consistency_plot <- check %>%
+#   ggplot(aes(pmin(1,ERbest),FdivFmsy)) +
+#   geom_point()
+
 er_check_plot <- check %>% 
   ggplot(aes(f_bau, pmin(1,ERbest))) + 
   geom_point() + 
   geom_abline(slope = 1, intercept = 0, color = "red") + 
-  scale_x_continuous(name = "F BAU Cabral (1 - efin_bau1 that check for negative escapement) ") + 
+  scale_x_continuous(name = "F BAU Cabral (1 - efin_bau1 + that check for negative escapement) ") + 
   scale_y_continuous(name = "F BAU Ram")
 
-#aha! that's what's happening
+#aha! that's what's happening. So now, compare F/F~MSY~, not F
 
 check <- check %>% 
-  mutate(fvfmsy_bau_cabral = f_bau / (r / 2))
+  mutate(fvfmsy_bau_cabral = f_bau / (r / 2)) # convert F to F/F~MSY~ (really should be u everywhere)
 
-
-check %>% 
-  ggplot(aes(fvfmsy_bau_cabral, pmin(1,ERbest))) + 
-  geom_point() + 
-  geom_abline(slope = 1, intercept = 0, color = "red") + 
-  scale_x_continuous(name = "F BAU Cabral (1 - efin_bau1 that check for negative escapement) ") + 
-  scale_y_continuous(name = "ER Ram")
-
-
+# FdivFmsy is F/F~MSY~ from RAM
 fvfmsy_check_plot <- check %>% 
-  ggplot(aes(fvfmsy_bau_cabral, FdivFmsy, size = msy_fin)) + 
+  ggplot(aes(fvfmsy_bau_cabral, UdivUmsypref, size = msy_fin)) + 
   geom_point() + 
   geom_hline(aes(yintercept = 1), linetype = 2) +
   geom_abline(slope = 1, intercept = 0, color = "red") + 
@@ -1442,11 +2162,11 @@ fvfmsy_check_plot <- check %>%
   scale_y_continuous(name = "F/Fmsy BAU RAM") + 
   scale_size(trans = "sqrt")
 
-a = lm(FdivFmsy ~ fvfmsy_bau_cabral - 1, data = check)
+a = lm(UdivUmsypref ~ fvfmsy_bau_cabral - 1, data = check)
 
   
 check <- check %>% 
-  mutate(bias = fvfmsy_bau_cabral - pmin(2,FdivFmsy))
+  mutate(bias = fvfmsy_bau_cabral - pmin(2,UdivUmsypref))
 
 bias_plot <- check %>% 
   ggplot(aes(fvfmsy_bau_cabral, bias)) + 
@@ -1461,41 +2181,291 @@ bias_plot <- check %>%
 
 ```
 
-Another way to examine the predictions made by Cabral et al. 2020 is to examine the food-maximizing MPA network proscribed for only those stocks present in the RAM Legacy Stock Assessment Database. This has two advantages, in that a) the estimates of stock status are much more reliable and b) stock boundaries are now defined by Chris Free's spatial mapping of RAM stocks. As such, the results presented here should be less affected by errors and biases in both the unassessed estimates of stock status and the translation of Aquamaps SDMS into spatial maps of K. 
+```{r, include=FALSE}
+msyframe <- matrix(rep(MegaData$MSYfin, ncol(KprotectedPerCell_Library)), nrow = length(MegaData$Kfin), ncol = ncol(KprotectedPerCell_Library))
 
-We do have some technical questions about the BAU policy for RAM stocks. The BAU exploitation rate for the unassessed stocks appears to be set such that B/B~MSY~ BAU equals the MSY weighted mean B/B~MSY~ BAU from Costello et al. 2016. For the RAM stocks though those values do not match up, and digging closer it seems as though the values have been updated with the BAU values based on the latest RAM database. However, we think there are some issues there. It appears as though Cabral et al. 2020 pulls the most recent exploitation rate from RAM, not F/F~MSY~. BAU Conservation concern from Costello et al. 2016 calls for maintaining current F/F~MSY~, not current exploitation rate. 
+msy_per_cell <- colSums(KprotectedPerCell_Library * msyframe)
 
-This wouldn't matter if Cabral et al. 2020 used the same F~MSY~ values as RAM, but it does not. Fmsy = r/2 in this model, and r is pulled from fishlife etc. In addition, most RAM stocks have shape parameters such that Bmsy < 0.5K. The net result of all of this is that while this model uses the same BAU exploitation rate as RAM, that same exploitation rate can produce a very different F/Fmsy BAU between RAM and Cabral, which is the thing that matters from the perspective of potential yield gains from MPAs. 
+tmp <- ShortCoord %>% 
+  mutate(msy_per_cell = msy_per_cell) %>% 
+    sf::st_as_sf(coords = c("lon", "lat"),
+               crs = sf::st_crs(land_shp_moll)) 
 
-To illustrate, we followed the steps in FoodProvisionEfficient.R to pull out the RAM values, but along with the exploitation rates, pulled the F/Fmsy values (keeping only the most recent year of each stock that has both). We then plotted the exploitation rates from RAM against the exploitation rates calculated from Efin_BAU1, and they more or less match up except for a few outliers (not sure what's happening there), so this seems to tell us that this was in fact how the values in Efin_BAU1 were created (Fig.\@ref(fig:er-check-plot)). 
+tmp %>% 
+  ggplot(aes(color = msy_per_cell)) + 
+    geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) +
+  geom_sf(size = .1) + 
+  scale_color_viridis_c()
 
-We then converted the exploitation rates to F/Fmsy values using the r values reported in MegaData (f / (r/2)), and plotted those against the BAU F/Fmsy values from RAM. While there is a positive relationship between the two, it is noisy (R^2^ around  0.57), and critically appears to be positively biased at the upper end, i.e. the higher the the model used here says that F/Fmsy BAU is, the lower it the actual RAM F/Fmsy BAU is, often by enough to switch from overfishing under Cabral to underfishing under RAM (Fig.\@ref(fig:fvfmsy_check_plot), Fig.\@ref(fig:bias_check_plot)). While there is also negative bias at the lower F/Fmsy values, it appears as though most of the MSY is concentrated in the positive bias area. 
+cumu <- tibble(msy_per_cell = msy_per_cell) %>% 
+  arrange(desc(msy_per_cell)) %>% 
+  mutate(cumulative_msy = cumsum(msy_per_cell)) %>% 
+  mutate(patch = 1:nrow(.)) %>% 
+  mutate(ppatch = patch / nrow(.))
+
+cumu %>% 
+  ggplot(aes(ppatch, cumulative_msy)) + 
+  geom_line() + 
+  scale_x_continuous(labels = percent, name = "% of Patches") + 
+  scale_y_continuous(labels = comma, name = "Cumulative MSY")
 
 
-```{r er-check-plot, fig.cap = "Exploitation rate from Cabral et al. 2020 plotted against most recent exploitation rate reported in RAM"}
+eezs <-
+  sf::read_sf(here("data", "World_EEZ_v11_20191118_LR", "eez_v11_lowres.shp")) %>%
+  mutate(iso3_code = countrycode(SOVEREIGN1, "country.name",  "iso3c")) %>% 
+    mutate(iso3c_name = countrycode(iso3_code, "iso3c",  "country.name")) %>%
+  filter(!is.na(iso3_code)) %>%
+  sf::st_transform(sf::st_crs(land_shp_moll))
+
+a = eezs %>% 
+  filter(ISO_TER1 == "CHN") %>% 
+  ggplot() +
+  geom_sf(fill = "red") + 
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+
+# ggsave("test.png", a)
+
+
+bau_mpas <- ShortCoord_Sort %>%
+  sf::st_as_sf(coords = c("lon", "lat"),
+               crs = sf::st_crs(land_shp_moll)) 
+
+fao_country_captures <- fao_capture %>% 
+  filter(capture_units == "t",
+         !str_detect(fao_area,"Inland waters")) %>% 
+  group_by(country_name_en, iso3_code) %>% 
+  filter(year == max(year)) %>% 
+  summarise(capture = sum(capture, na.rm = TRUE)) %>% 
+  arrange(desc(capture)) %>% 
+  ungroup() %>% 
+  mutate(capture_rank = percent_rank(capture)) %>% 
+  arrange(desc(capture_rank)) %>% 
+  mutate(cumu_capture = cumsum(capture)) %>% 
+  mutate(first_half = cumu_capture < (max(cumu_capture) / 2),
+         p_global_h = capture / max(cumu_capture))
+
+
+test <- sf::st_join(bau_mpas, eezs)
+
+# MSY and sign per EEZ
+
+spatial_msy <- tmp %>%
+  sf::st_join(eezs) %>%
+  filter(!is.na(iso3_code)) %>% 
+  janitor::clean_names()
+
+mean(spatial_msy$d_h > 0)
+
+spatial_msy %>% 
+  filter(!is.na(iso3c_name) & iso3c_name == "China") %>% 
+  ggplot(aes(color = d_h)) + 
+  geom_sf(show.legend = FALSE) + 
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+
+
+spatial_msy %>% 
+  ggplot(aes(color = d_h)) + 
+  geom_sf(show.legend = FALSE) + 
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) + 
+  scale_color_viridis_c()
+
+p_eez_closed <- spatial_msy %>%
+  group_by(iso3c_name, iso3_code) %>%
+  summarise(
+    p_closed = mean(d_h > 0),
+    weighed_p_closed = weighted.mean(d_h > 0, w = msy_per_cell),
+    top_weighed_p_closed = weighted.mean(d_h > 0 &
+                                           rank < 5, w = msy_per_cell),
+    top_p_closed = mean(d_h > 0 & rank < 5)
+  ) %>%
+  arrange(desc(p_closed)) %>%
+  left_join(fao_country_captures, by = c("iso3_code" = "iso3_code")) %>%
+  ungroup()
+  
+
+p_eez_closed_map <- p_eez_closed %>%
+  ggplot(aes(color = p_closed)) +
+  geom_sf(
+    data = land_shp_moll,
+    fill = "black",
+    lwd = 0,
+    inherit.aes = F
+  ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
+  geom_sf(size = .1) +
+  scale_color_viridis_c(labels = percent, name = "% of EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines")), limits = c(0,1)) + 
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+
+top_p_eez_closed_map <- p_eez_closed %>%
+  ggplot(aes(color = top_p_closed)) +
+  geom_sf(
+    data = land_shp_moll,
+    fill = "black",
+    lwd = 0,
+    inherit.aes = F
+  ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
+  geom_sf(size = .1) +
+  scale_color_viridis_c(labels = percent, name = "% of EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+
+weighted_p_eez_closed_map <- p_eez_closed %>%
+  ggplot(aes(color = weighed_p_closed)) +
+  geom_sf(
+    data = land_shp_moll,
+    fill = "black",
+    lwd = 0,
+    inherit.aes = F
+  ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
+  geom_sf(size = .1) +
+  scale_color_viridis_c(labels = percent, name = "% of K-weighted EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+
+p_eez_closed_plot <- p_eez_closed %>% 
+  # filter(cumu_capture < 60e6) %>% 
+  filter(capture_rank > 0.85) %>% 
+  ggplot(aes(reorder(iso3c_name,p_closed), p_closed, fill = capture)) + 
+  geom_col() + 
+  coord_flip() + 
+  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") + 
+  scale_x_discrete(name = '') + 
+  scale_fill_viridis_c(labels = comma)
+
+top_p_eez_closed_plot <- p_eez_closed %>% 
+  # filter(cumu_capture < 60e6) %>% 
+  filter(capture_rank > 0.85) %>% 
+  ggplot(aes(reorder(iso3c_name,top_p_closed), top_p_closed, fill = capture)) + 
+  geom_col() + 
+  coord_flip() + 
+  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") + 
+  scale_x_discrete(name = '') + 
+  scale_fill_viridis_c(labels = comma)
+
+# p_eez_closed_plot + top_p_eez_closed_plot
+
+weighted_p_eez_closed_plot <- p_eez_closed %>%
+  # filter(cumu_capture < 60e6) %>%
+  filter(capture_rank > 0.85) %>%
+  ggplot(aes(reorder(iso3c_name, capture), weighed_p_closed, fill = capture)) +
+  geom_col() +
+  coord_flip() +
+  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") +
+  scale_x_discrete(name = '')
+
+
+a = spatial_msy %>% 
+  group_by(iso3c_name) %>% 
+  arrange(desc(msy_per_cell)) %>% 
+  mutate(cumu_msy =cumsum(msy_per_cell)) %>% 
+  mutate(patch = 1:length(cumu_msy)) %>% 
+  mutate(ppatch = patch / length(cumu_msy)) %>% 
+  ungroup() %>% 
+  group_by(iso3c_name) %>% 
+  mutate(total_msy = max(cumu_msy)) %>% 
+  ungroup()
+
+
+cumu_msy_country_plot <- a %>% 
+  ggplot(aes(ppatch, cumu_msy, color =total_msy)) + 
+  geom_line() +
+  facet_wrap(~iso3c_name, scales = "free_y") + 
+  theme_light() + 
+  theme(axis.text = element_blank(),
+        strip.text = element_blank()) + 
+  scale_x_continuous(name = "% of Patches") + 
+  scale_y_continuous(name = "Cumulative MSY") + 
+  labs(caption = "each facet is a country") + 
+  scale_color_viridis_c(trans = "log10")
+
+
+spcoords <- sf::st_coordinates(spatial_msy) %>% 
+  as_tibble()
+
+eez_cabralish_plot <- spatial_msy %>%
+  bind_cols(spcoords) %>% 
+  ggplot(aes(x = X, y = Y,fill = d_h)) +
+  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank(),legend.position="bottom", legend.direction = "horizontal")+ #"bottom
+  geom_raster()+
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) + 
+  scale_fill_gradient2(low = "red", mid = "gray80" , high = "forestgreen", midpoint = 0, 
+                       guide = guide_colorbar(barwidth = unit(15, "lines")))
+eez_cabralish_plot
+
+```
+
+
+Looking at the results, we were surprised by the contribution of RAM stocks to the total potential increase in food production from MPAs, and by the amount of MPAs providing food increases in areas with heavy RAM coverage. In looking into this question, we feel there may be a problem with the way that the BAU policy is working for RAM stocks. 
+
+The BAU exploitation rate for the unassessed stocks appears to be set such that B/B~MSY~ BAU equals the MSY weighted mean B/B~MSY~ BAU from Costello et al. 2016. For the RAM stocks though it seems as though the values have been updated with the BAU values based on the latest RAM database, rather than the values used in Costello et al. 2016. Updating the RAM values makes perfect sense. However, it appears as though Cabral et al. 2020 pulls the most recent exploitation rate from RAM, not F/F~MSY~. While the text of Costello et al. 2016 does state that the BAU policy for RAM stocks holds the most recent fishing mortality constant, the upsides model works in units of F/F~MSY~, not F, and since Fmsy is constant per stock in the Costello et al. 2016 analysis, holding F/F~MSY~ constant is the same as holding F constant. 
+
+Our concern is that it appears that the Cabral et al. 2020 analysis constructs the F BAU policy for ram stocks by pulling the most recent exploitation rate from RAM, not the most recent F/F~MSY~ from RAM. This would not matter if the Cabral et al. 2020 projections used the same population model and growth parameter as the stock assessment. However, it appears that each RAM stock is assigned an intrinsic growth rate *r* from an external source, mostly FishLife. Fmsy in a Schaefer model is *r/2*, and so changing *r* changes Fmsy. To the extent that the *r* values and Schaefer population dynamics used in the Cabral et al. 2020 analysis differ from those used in the actual RAM assessments, the Fmsy value used in this analysis will differ from the RAM value accordingly (and differ from holding the current exploitation rate constant but using the exact same model as the assessment). This linkage means that using the BAU fishing mortality rate for a RAM stock can produce very different stock status than would be achieved by holding RAM F/F~MSY~ constant. If we are right, the way to achieve the same BAU policy for RAM stocks as used in Costello et al. 2016 (not factoring in all the conservation concern caveats) would be to calculate the BAU exploitation rate such that the Cabral et al. model F/F~MSY~ BAU matches F/F~MSY~ BAU from RAM.
+
+To illustrate this potential issue, we followed the steps in FoodProvisionEfficient.R to pull out the RAM values, but along with the exploitation rates, pulled the F/F~MSY~ values (keeping only the most recent year of each stock that has both for comparison). We then plotted the exploitation rates from RAM against the exploitation rates calculated from Efin_BAU1, and they are mostly consistent, except for a few outliers (maybe due to existing MPAs or underfished stocks?). This seems to tell us that this procedure was likely how the values in Efin_BAU1 were created (Fig.\@ref(fig:er-check-plot)). Running the BAU scenario, which uses Efin_BAU1, in FoodGlobalAnalysis_EffortRedistribute_clean, produces the same BAU results as those presented in the paper as best as we can tell, so it seems as though these were the values that produced Fig.2. 
+
+We then converted the Cabral et al. BAU exploitation rates (F) to F/F~MSY~ values using the r values reported in MegaData (F/F~MSY~ = F / (r/2)), and plotted those against the BAU F/F~MSY~ values from RAM. While there is a positive relationship between the two, it is noisy (R^2^ around  0.57), and critically appears to be positively biased at higher values of Cabral et al. 2020 F/F~MSY~ BAU values (Fig.\@ref(fig:fvfmsy-check-plot), Fig.\@ref(fig:bias-check-plot)). This bias is enough that many high-MSY stocks classified as overfishing under BAU by the Cabral et al. 2020 method would be classified as underfishing under BAU according to RAM. While there is also negative bias at the lower F/F~MSY~ values, it appears as though most of the MSY is concentrated in the positive bias area. 
+
+
+```{r er-check-plot, fig.cap = " BAU exploitation rate from Cabral et al. 2020 plotted against most recent BAU exploitation rate reported in RAM"}
 
 er_check_plot
 
 ```
 
 
-```{r fvfmsy-check-plot, fig.cap="F/Fmsy BAU from Cabral et al. against F/Fmsy BAU from RAM"}
+```{r fvfmsy-check-plot, fig.cap="Most recent F/F~MSY~ BAU from Cabral et al. 2020 plotted against most recent F/F~MSY~ BAU from RAM"}
 
 fvfmsy_check_plot
 
 ```
 
 
-```{r bias-check-plot, fig.cap="Bias as a function of F/Fmsy BAU Cabral (RAM values truncated at 2 to remove the influence of the different model assumptions"}
+```{r bias-check-plot, fig.cap="Bias as a function of F/F~MSY~ BAU Cabral (RAM values truncated at 2 to remove the influence of the different model assumptions"}
 
 bias_plot
 ```
 
-The net result of all this is that as we understand it the RAM BAU policy implemented here does not match the BAU policy used in Costello et al. 2016, and since what matters from the perspective of food provision from MPAs is BAU F/Fmsy, this could produce some substantially different results. We suspect that this is why you are reporting much higher gains in catches from MPAs for the RAM stocks than the losses from overfishing of RAM stocks estimated by Hilborn et al. 2020. We go through that below, but these issues may be of secondary concern if we are correct about this issue with the RAM stocks. It seems like around 65% of the MSY in the estimates used here come from unassessed stocks, so changing a subset of the RAM stocks might not change the totals tremendously, but it certainly might change the spatial distribution. IF we are correct, the correct BAU for RAM stocks (not factoring in all the conservation concern caveats) would be to calculate the BAU exploitation rate such that the Cabral et al. model F/Fmsy matches F/Fmsy BAU from RAM. 
+The net result, as we understand it, is that the RAM BAU policy implemented here does not match the BAU policy used in Costello et al. 2016, and would instead amount to a F/F~MSY~ BAU set by the relative differences in the population dynamics between the RAM assessment and the values used here. Since what matters from the perspective of food provision from MPAs is BAU F/F~MSY~, the proposed analysis could produce some substantially different results than would be obtained by projecting stock status based on using the BAU F/F~MSY~ from RAM, as per Costello et al. 2016. We suspect that this is the reason why you are reporting much higher gains in catches from MPAs for the RAM stocks than the losses from overfishing of RAM stocks estimated by Hilborn et al. 2020. 
 
-Taking the Efin_BAU1 for the managed stock at face value, Looking at the resulting map, the model used in Cabral et al. 2020 suggest that a substantial global network of MPAs, including both open ocean and coastal Seas, would produce up to 4.11 MMT in catch benefits for the fisheries in RAM, out of a total included MSY of  `r  scales::comma(sum(MegaData$MSYfin[MegaData$Manage == 1]))`. This suggests that overfishing is currently reducing global catch of RAM fisheries by `r percent(4.1e6 / (sum(MegaData$MSYfin[MegaData$Manage == 1])))`. In contrast, Hilborn et al. 2020, using a near identical version of RAM, estimated that 3%-5% of the potential catch of RAM stocks is lost due to overfishing.
 
-We can then go through and calculate, for each stock in RAM, the percent of the footprint reported in by Chris Free that would, according to Cabral et al. 2020, produce an increase in total catch of RAM stocks. We can repeat the same analysis but only for the top 5% ranking of protected areas. In both cases, the Cabral et al. 2020 model estimates that most RAM stocks could have over 25% of their footprint placed in MPAs while increasing the total amount of catch produced by RAM stocks (Fig.\@ref(fig:ram-protected-plot), Fig.\@ref(fig:ram-top5-protected-plot)). 
+```{r include=FALSE}
+
+check_imp <- check %>% 
+  rename(fvfmsy_bau_ram = UdivUmsypref) %>% 
+  filter(!is.na(fvfmsy_bau_ram) & !is.na(fvfmsy_bau_cabral))
+
+total_check_imp_msy <- check_imp$msy_fin %>% sum()
+
+overfished_bau_cabral <- check_imp %>% 
+  filter(fvfmsy_bau_cabral > 1) %>% 
+  mutate(catch_bau = msy_fin * fvfmsy_bau_cabral * (2 - fvfmsy_bau_cabral)) %>% 
+  mutate(catch_lost = msy_fin - catch_bau)
+
+overfished_bau_ram <- check_imp %>% 
+  filter(fvfmsy_bau_ram > 1) %>% 
+  mutate(fvfmsy_bau_ram = pmin(2,fvfmsy_bau_ram)) %>% 
+  mutate(catch_bau = msy_fin * fvfmsy_bau_ram * (2 - fvfmsy_bau_ram)) %>% 
+  mutate(catch_lost = msy_fin - catch_bau)
+
+
+cabral_upside_potential <- sum(overfished_bau_cabral$catch_lost)
+
+ram_upside_potential <- sum(overfished_bau_ram$catch_lost)
+
+cabral_ram_ratio <- cabral_upside_potential / ram_upside_potential
+
+cabral_msy_upside_potential <- cabral_upside_potential / total_check_imp_msy
+
+ram_msy_upside_potential <- ram_upside_potential / total_check_imp_msy
+
+```
+
+
+We can do some back of the envelope calculations of the potential impact of this difference in terms of total food yield. We calculated the equilibrium catch for each of the stocks for which we have both RAM and Cabral F/F~MSY~ BAU estimates (n = `r nrow(check_imp)`, since we did not do all the gap-filling steps outlined in the rest of the code for producing Efin_BAU1), using both the Cabral and RAM F/F~MSY~ BAU policy (no MPAs). We then separated out the stocks for which Cabral F/F~MSY~ BAU > 1, and Ram F/F~MSY~ BAU > 1. For each of these groups, we then then calculated the difference between each stock's BAU catch and MSY, giving us an index of the amount of catch potentially being lost due to overfishing, which could conceivably by recovered through MPAs. We then summed the total amount of catch lost due to overfishing for both groups, and divided that amount by the total MSY of the subsample of stocks looked at here. 
+
+The subset of stocks with both Cabral & RAM F/F~MSY~ BAU values have a total MSY of `r scales::comma(total_check_imp_msy)`. Using the Cabral et al. F/F~MSY~ BAU values, the estimated amount of catch lost due to overfishing is `r scales::comma(cabral_upside_potential)`, or `r percent(cabral_msy_upside_potential)` of the MSY of these stocks. Using the RAM F/F~MSY~ BAU values the estimated amount of catch lost due to overfishing is `r scales::comma(ram_upside_potential)`, or `r percent(ram_msy_upside_potential)` of the MSY of these stocks, `r round(ram_upside_potential / cabral_upside_potential,2)` of the amount of potential food upside from stopping overfishing through MPAs based on the Cabral et al. 2020 F/F~MSY~ BAU values. 
+
+Given that RAM stocks are roughly 35% of the total estimated MSY in the subset of stocks used in Cabral et al. 2020, and that this issue would then affect a substantial but still fractional part of that 35% of potential upside, it is likely that changing the RAM BAU policy to reflect the Costello et al. 2016 method would not change the total amount of potential yield from reducing global overfishing via MPAs projected by this model substantially. However, it might well change the prioritization map. We calculated, for each stock in RAM, the percent of the footprint reported in by Chris Free that would, according to Cabral et al. 2020, produce an increase in total catch of RAM stocks (Fig.\@ref(fig:ram-protected-plot)). We repeated the same analysis but only for the top 5% ranking of protected areas (Fig.\@ref(fig:ram-top5-protected-plot)). In both cases, the Cabral et al. 2020 model estimates that most RAM stocks could have over 25% of their footprint placed in MPAs while increasing the total amount of catch produced by RAM stocks (Fig.\@ref(fig:ram-protected-plot), Fig.\@ref(fig:ram-top5-protected-plot)). We suspect this may be partly driven by the meaningfully higher levels of overfishing produced by the Cabral et al. 2020 F/F~MSY~ BAU values, relative to the RAM F/F~MSY~ BAU values, and as such the spatial prioritization produced by Cabral et al. 2020 might look different, in particular for RAM heavy areas, if this correction were to be applied. 
 
 
 ```{r load ram data, echo = FALSE, include=FALSE}
@@ -1595,6 +2565,8 @@ nmax #this is the number of iterations needed for PICKSIZE at a time!
 Eevolve<-matrix(nrow=nmax,ncol=dim(MegaData)[1])
 # k_per_cell <- t(as.datKprotectedPerCell_Library)
 
+dhmpa_stockish <- matrix(NA, nrow = nmax, ncol = nrow(KprotectedPerCell_Library))
+
 if (run_ram_exmaple){
   
   cores<-detectCores() - 2
@@ -1611,6 +2583,7 @@ for (i in 1:nmax){
     
     hmpa<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
     hmpa<-hmpa*(hmpa>0)
+    
     HMPA<-sum(hmpa)
     HMPA-HBAU
   }
@@ -1635,6 +2608,9 @@ for (i in 1:nmax){
 
   hmpa<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
   hmpa<-hmpa*(hmpa>0)
+  
+  dhmpa_stockish[i,] <- hmpa - hbau
+
   HMPA<-sum(hmpa)
   
   #save result. Comment other parts not needed now.
@@ -1683,9 +2659,9 @@ names(zerozero)<-c("NetworkResult","MPA")
 zerozero[1,]<-c(-HBAU/(1000000),100)
 BenefitCurve<-rbind(BenefitCurve,zerozero)
 theme_set(theme_cowplot())
-benefitplot<-ggplot(BenefitCurve, aes(MPA, NetworkResult)) +geom_line(col="blue")+# theme_classic()+
+ram_only_benefitplot<-ggplot(BenefitCurve, aes(MPA, NetworkResult)) +geom_line(col="blue")+# theme_classic()+
   labs(x="% EEZ protected",y="Change in catch (MMT)",title=paste("Global (max =", round(max(BenefitCurve$NetworkResult),2),"MMT)"))#+geom_hline(yintercept = 0)
-benefitplot
+ram_only_benefitplot
 
 Priority<-as.data.frame(PriorityAreas)
 Priority$rank <- ((seq.int(nrow(Priority))/ncell))*100
@@ -1733,18 +2709,18 @@ InflectMPA<-ShortCoord_Sort$rank[InflectPoint]
 
 ram_MPAcoverage<-ShortCoord_Sort %>% filter(sign == TRUE) %>%  ggplot(aes(x=lon,y=lat, fill = dH)) + #scale_fill_gradient2(low="darkred", mid="white",high="#00539CFF",midpoint = 0, space = "Lab",na.value = "grey50", guide = "colourbar", aesthetics = "fill",name=expression(paste(Delta, "H (MT)")))+
   # scale_fill_gradientn(colours = c("forestgreen", "white", "orange"), limits=c(0,100), values = scales::rescale(c(min(ShortCoord_Sort$rank), InflectMPA, max(ShortCoord_Sort$rank))),name="Protection sequence")+
-  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank(),legend.position=c(0.63, 0.05), legend.direction = "horizontal")+ #"bottom
+  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank(),legend.position=c(0.5, 0.015), legend.direction = "horizontal")+ #"bottom
   geom_raster()+
   # geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
   geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) + 
-  scale_fill_viridis_c()
+  scale_fill_gradient(low = "lightgrey", high = "tomato", guide = guide_colorbar(barwidth = unit(15,"lines")))
 
 
 ```
 
 
 
-```{r ram-mpa-map, fig.cap = "Delta harvest by cell for RAM only MPA network"}
+```{r ram-mpa-map, fig.cap = "Delta harvest by cell for RAM only MPA network for cells with positive marginal changes in harvest through MPAs"}
 ram_MPAcoverage
 ```
 
@@ -1833,7 +2809,6 @@ ram_stocks_protected_plot <- ram_stocks %>%
 ram_stocks_protected_plot
 ```
 
-We can repeat the same analysis, but now only for the first 5% of ranked stocks
 ```{r, echo = FALSE, include=FALSE}
 
 # proportion of RAM stocks closed
@@ -1893,8 +2868,8 @@ a = ShortCoord_Sort %>%
 # 
 
 out <- a %>%
-  summarise(p_area_protected = mean(sign & rank < 5),
-            p_k_protected = weighted.mean(sign & rank < 5, k))
+  summarise(p_area_protected = mean(sign & (rank < 5)),
+            p_k_protected = weighted.mean(sign & (rank < 5), k))
 
 }
 
@@ -1918,35 +2893,36 @@ top_5_ram_stocks_protected_plot <- ram_stocks %>%
 top_5_ram_stocks_protected_plot
 ```
 
+To summarize the main questions we have then and their implications
+
+* As best as we can understand, the BAU policy for RAM used here does not match the BAU policy from Costello et al. 2016
+* The resulting F/F~MSY~ BAU values used here appear to be positively biased relative to the RAM F/F~MSY~ BAU values
+* As a result the model used here estimates 3X as much potential food upsides from BAU overfished RAM stocks, compared to what we would estimate using the RAM F/F~MSY~ BAU policy
+* Using the RAM F/F~MSY~ BAU policies may also change the resulting spatial prioritization shown in Cabral et al. 2020 Fig.2
+* If we are correct, a solution would be to, for the RAM stocks, pull F/F~MSY~ BAU from RAM, and then given the r values used in Cabral et al. 2020, and hence Fmsy, solve for F BAU
+* We do however have some more philosophical questions that we should discuss once this is resolved if we are correct
+
+## Applying Costello BAU Policy Produces Different Results
+
+To examine the potential implications of this difference in the RAM BAU policy used in Cabral et al. 2020 and the RAM BAU policy used in Costello et al. 2016, we replaced the escapement rates for RAM stocks used in Cabral et al. 2020 with the escapement rates that correspond with holding most recent F/F~MSY~ from RAM (the Costello et al. 2016 BAU). 
+
+$$escapement= 1 - \frac{f}{f_{msy}} \times (r/2) $$
+There F/Fmsy is pulled from RAM, and the *r* values are pulled from Cabral et al. 2020. We then re-ran the Cabral et al. 2020 analysis, but with these corrected BAU escapements for RAM stocks. We note that there are 205 stocks in this analysis that have no F/Fmsy values reported in RAM, but which are included in Cabral et al. 2020. Since we are not clear what rules were used to assign BAU policies for these stocks we omit them from this analysis. As such, some of these differences are due to the slight difference in stocks. However, this subset of RAM stocks contains 88% of the total MSY of RAM stocks reported in Cabral et al. 2020, so it is unlikely to have a dramatic effect on results. But, that discrepancy should be corrected to clearly compare the difference between these two BAU policies. 
+
+Overall, as suspected, using the corrected RAM BAU policy produces a lower estimate of global maximum upside from MPA protection, 6.91 MMT down from 10.49 MMT. While this is a non-trivial difference, and should be corrected so as not to confuse public discourse around the estimated magnitude of fishing losses under BAU, it is still in the order of magnitude as the original results from Cabral et al. 2020 (Fig.\@ref(fig:cor-ben-plot)). 
+
+Spatially though we see come clearer differences. Given the largely coastal nature of RAM, we restrict our spatial analysis to percent coverage within EEZ. Particular for countries with large stock assessed fisheries (e.g. those in South America and the USA), the percentage of that country's EEZ that the Cabral et al. 2020 model states could be placed in a food-increasing MPA decreases substantially, while increasing in other areas (e.g. the Mediterranean) (Fig.\@ref(fig:cor-map)). 
+
+While this correction is easily to apply and would keep the results in line what what might be considered a reasonable BAU policy for RAM stocks, given the other issues raised in this summary we do not suggest that this corrected map represents the "right" value. 
 
 
-# Uncertainty in F
+```{r, include=FALSE}
 
-General comment here on the problems with stacking models on models (find that paper on the topic). RAM values are already estimates. Upsides are estiamtes from models trained on models. Highly uncertian, and critically likely to have biases and errors that are correlated in space, time, and species. If each stock is assumed independent, then just taking the mean might produce the same expected value (though maybe not given nonlinear impacts of different levels of error). 
-
-Ths bigger philosphical issues is to convey a sense of uncertainty evaluation (e.g. calling sensitiviti analysis error bars) gives an uninformed reader a sense that that estimate is accountig for the main sources of uncertainty in the model. No model can explore every source of error, but given the massive error in the F/Fmsy estimates from upsides, and the fact that in any projection model that F/Fmsy is what matters, this has to be explicitly addressed, or acknowledge that it is not addresed 
-
-
-# A one-MPA example
-
-The idea: pick one region / country, and demonstrate how far the benefits from that MPA are dispersed
-
-
-1. Pick a place (let's say Chile). 
-
-2. Pick out any species that has some overlap with that areas in its range
-
-3. run MPA optimization but only for the cells in chile
-
-4. Store total upsides... wait
-  - if you have total upsides from that MPA, the question then is where do those upsides go. Suppose that 99% of the upsides went to one species, you don't wannt to attribute it on the map to another. 
-  - You need to store upside by species for each cell protected. 
-  - Then,  distribute benefit by species acacording to their distribution
-  - Then, sum benefits by cell
-  
-  XXX do a version with only species with movement = .1 / .3 XXX
-  
-```{r, echo = FALSE, include=FALSE}
+##SELECT SCENARIO --- there are four scenarios
+scenario<-"BAU1"
+#scenario<-"OAconstant"
+#scenario<-"EBvK01fin"
+#scenario<-"all managed"
 
 #Load MOLLWEIDE projected data
 MegaData<-readRDS(file = here("data","MegaData.rds"))
@@ -1957,6 +2933,58 @@ MPA_coord<-readRDS(file= here("data","MPA_coord_mollweide.rds")) #this is my cod
 land_shp_moll<-readRDS(file = here("data","land_shp_moll.rds"))
 head(MPA_coord)
 dim(MPA_coord)
+
+# pull up RAM data sued here
+# 
+# load_ramlegacy()
+RAMDATA <- load_ramlegacy(tables = "timeseries_values_views")
+head(RAMDATA$timeseries_values_views)
+RAMDATA2 <- RAMDATA$timeseries_values_views
+head(RAMDATA2)
+colnames(RAMDATA2)
+ram_bau <- RAMDATA2 %>% select(stockid, year, UdivUmsypref,UdivUmgtpref) %>%
+  janitor::clean_names() %>%
+  mutate(udiv_umsypref = ifelse(is.na(udiv_umsypref) & !is.na(udiv_umgtpref),udiv_umgtpref, udiv_umsypref)) %>% 
+  group_by(stockid) %>% 
+  filter(!is.na(udiv_umsypref)) %>% 
+  filter(year == max(year)) %>% 
+  select(-year, -udiv_umgtpref) 
+
+og_mega_data <- MegaData
+MegaData <- MegaData %>% 
+  left_join(ram_bau, by = "stockid")
+  
+# convert RAM F/Fmsy into F, accorindg to Cabral model
+
+MegaData$u_bau_ram = MegaData$udiv_umsypref * (MegaData$r / 2)
+
+hist(MegaData$u_bau_ram)
+
+MegaData$ram_escapement_bau = 1 - MegaData$u_bau_ram
+
+MegaData %>% 
+  filter(Manage == 1) %>% 
+  ggplot(aes(Efin_BAU1, ram_escapement_bau)) +
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0)
+
+MegaData$Efin_BAU1[MegaData$Manage == 1] <- MegaData$ram_escapement_bau[MegaData$Manage == 1]
+  
+MegaData %>% 
+  filter(Manage == 1) %>% 
+  ggplot(aes(Efin_BAU1, ram_escapement_bau)) +
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0)
+
+plot(og_mega_data$Efin_BAU1[og_mega_data$Manage == 1],MegaData$Efin_BAU1[MegaData$Manage == 1])
+
+plot(og_mega_data$Efin_BAU1[og_mega_data$Manage == 0],MegaData$Efin_BAU1[MegaData$Manage == 0])
+
+
+KprotectedPerCell_Library <- KprotectedPerCell_Library[!is.na(MegaData$Efin_BAU1),]
+
+MegaData <- MegaData %>% 
+  filter(!is.na(Efin_BAU1))
 
 #get MPA positions
 CleanCoordmegacell_MPA<-left_join(CleanCoordmegacell,MPA_coord,by=c("lon","lat"))
@@ -1992,6 +3020,9 @@ K<-MegaData$Kfin # K per species
 m<-MegaData$m # mobility per species
 r<-MegaData$r
 
+
+
+
 if (scenario=="all managed"){
   E<-MegaData$Emsy
 }else if(scenario=="OAconstant"){
@@ -2003,6 +3034,7 @@ if (scenario=="all managed"){
 }else if(scenario=="EBvK01fin"){ 
   E<-MegaData$EBvK01fin 
 }
+
 
 ER<-1-E
 ER<-1*(ER>1) + ER*(ER<=1)
@@ -2030,56 +3062,16 @@ nmax #this is the number of iterations needed for PICKSIZE at a time!
 
 Eevolve<-matrix(nrow=nmax,ncol=dim(MegaData)[1])
 # k_per_cell <- t(as.datKprotectedPerCell_Library)
-
-hmpa_stockish <- matrix(NA, nrow = nmax, ncol = nrow(KprotectedPerCell_Library))
-
-# pull out case study cells
-
-teleporting_eezs <- eezs %>% 
-  filter(iso3c_name %in% c("Australia"))
-
-cabral_cells <- CleanCoordmegacell %>%
-  sf::st_as_sf(coords = c("lon", "lat"),
-               crs = sf::st_crs(land_shp_moll)) %>% 
-  mutate(cell = 1:nrow(.))
-
-spcoords <- sf::st_coordinates(cabral_cells) %>% 
-  as_tibble()
-
-cabral_cells <- cabral_cells %>% 
-  bind_cols(spcoords) 
-
-teleport_cells <- cabral_cells %>% 
-  sf::st_intersection(teleporting_eezs)
+dhmpa_stockish <- matrix(NA, nrow = nmax, ncol = nrow(KprotectedPerCell_Library))
 
 
-teleport_cells %>%
-  ggplot() +
-  geom_sf(
-    data = land_shp_moll,
-    fill = "black",
-    lwd = 0,
-    inherit.aes = F
-  ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
-  geom_sf(color = "red")
+missing <- nrow(MegaData) / nrow(og_mega_data)
 
+n_missing = nrow(og_mega_data) - nrow(MegaData)
 
-celltoiterateFULL <- teleport_cells$cell
+msy_missing = sum(MegaData$MSYfin) / sum(og_mega_data$MSYfin)
 
-celltoiterate <- celltoiterateFULL
-
-PICKSIZE<-100 #number of MPA sites selected
-
-nmax<-floor(length(celltoiterate)/PICKSIZE)
-
-nmax #this is the number of iterations needed for PICKSIZE at a time!
-
-Eevolve<-matrix(nrow=nmax,ncol=dim(MegaData)[1])
-# k_per_cell <- t(as.datKprotectedPerCell_Library)
-
-hmpa_stockish <- matrix(NA, nrow = nmax, ncol = nrow(KprotectedPerCell_Library))
-
-if (run_teleportation){
+if (run_corrected_cabral_et_al){
   
   cores<-detectCores() - 2
 registerDoParallel(cores)
@@ -2118,10 +3110,8 @@ for (i in 1:nmax){
   ER_redistribute<-1-(1-ER)^(1/(1-R))
 
   hmpa<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
-  
   hmpa<-hmpa*(hmpa>0)
-  
-  hmpa_stockish[i,] <- hmpa - hbau
+  dhmpa_stockish[i,] <- hmpa - hbau
   
   HMPA<-sum(hmpa)
   
@@ -2139,16 +3129,23 @@ plot(NetworkResult)
 stopImplicitCluster()
 
 if(scenario=="BAU1"){
-  saveRDS(NetworkResult,
-          file = file.path(results_path, "teleport_NetworkResult100_BAU1_mollweide.rds"))
-  saveRDS(PriorityAreas,
-          file = file.path(results_path, "teleport_PriorityAreas100_BAU1_mollweide.rds"))
-  saveRDS(ER_redistribute,
-          file = file.path(results_path, "teleport_ER_redistribute100_BAU1_mollweide.rds"))
+  saveRDS(
+    NetworkResult,
+    file = file.path(
+      results_path,
+      "corrected_NetworkResult100_BAU1_mollweide.rds"
+    )
+  )
+  saveRDS(
+    PriorityAreas,
+    file = file.path(
+      results_path,
+      "corrected_PriorityAreas100_BAU1_mollweide.rds"
+    )
+  )
   
-  saveRDS(hmpa_stockish,
-          file = file.path(results_path, "teleport_stockish_results_bau1.rds"))
-  
+  saveRDS(dhmpa_stockish,
+          file = file.path(results_path, "corrected_stockish_results_bau1.rds"))
 }else if(scenario=="all managed"){  
   saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_allmanaged_redistribute.rds")
   saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_allmanaged_redistribute.rds") 
@@ -2163,9 +3160,9 @@ if(scenario=="BAU1"){
   
 } else {
   
-  NetworkResult <-readRDS(file = file.path(results_path,"teleport_NetworkResult100_BAU1_mollweide.rds"))
+  NetworkResult <-readRDS(file = file.path(results_path,"corrected_NetworkResult100_BAU1_mollweide.rds"))
   
-  PriorityAreas <- readRDS(file = file.path(results_path,"teleport_PriorityAreas100_BAU1_mollweide.rds") )
+  PriorityAreas <- readRDS(file = file.path(results_path,"corrected_PriorityAreas100_BAU1_mollweide.rds") )
   
 }
 
@@ -2179,9 +3176,9 @@ names(zerozero)<-c("NetworkResult","MPA")
 zerozero[1,]<-c(-HBAU/(1000000),100)
 BenefitCurve<-rbind(BenefitCurve,zerozero)
 theme_set(theme_cowplot())
-benefitplot<-ggplot(BenefitCurve, aes(MPA, NetworkResult)) +geom_line(col="blue")+# theme_classic()+
+corrected_benefitplot<-ggplot(BenefitCurve, aes(MPA, NetworkResult)) +geom_line(col="blue")+# theme_classic()+
   labs(x="% EEZ protected",y="Change in catch (MMT)",title=paste("Global (max =", round(max(BenefitCurve$NetworkResult),2),"MMT)"))#+geom_hline(yintercept = 0)
-benefitplot
+corrected_benefitplot
 
 Priority<-as.data.frame(PriorityAreas)
 Priority$rank <- ((seq.int(nrow(Priority))/ncell))*100
@@ -2218,114 +3215,251 @@ ShortCoord_Sort$sign<-ShortCoord_Sort$dH>0
 InflectPoint<-min(which(ShortCoord_Sort$sign == TRUE))
 InflectMPA<-ShortCoord_Sort$rank[InflectPoint]
 
-MPAcoverage<-ShortCoord_Sort %>% filter(sign == TRUE) %>%  ggplot(aes(x=lon,y=lat,fill=dH)) + #scale_fill_gradient2(low="darkred", mid="white",high="#00539CFF",midpoint = 0, space = "Lab",na.value = "grey50", guide = "colourbar", aesthetics = "fill",name=expression(paste(Delta, "H (MT)")))+
+# this is broken becuase of the ranking plot error
+MPAcoverage<-ShortCoord_Sort %>% ggplot(aes(x=lon,y=lat,fill=dH)) + #scale_fill_gradient2(low="darkred", mid="white",high="#00539CFF",midpoint = 0, space = "Lab",na.value = "grey50", guide = "colourbar", aesthetics = "fill",name=expression(paste(Delta, "H (MT)")))+
+  scale_fill_gradientn(colours = c("forestgreen", "white", "orange"), limits=c(0,100), values = scales::rescale(c(min(ShortCoord_Sort$rank), InflectMPA, max(ShortCoord_Sort$rank))),name="Protection sequence")+
   theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank(),legend.position=c(0.63, 0.05), legend.direction = "horizontal")+ #"bottom
   geom_raster()+
+  geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
   geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
 MPAcoverage
 
+clean_MPAcoverage<-ShortCoord_Sort %>% ggplot(aes(x=lon,y=lat,fill=dH)) + #scale_fill_gradient2(low="darkred", mid="white",high="#00539CFF",midpoint = 0, space = "Lab",na.value = "grey50", guide = "colourbar", aesthetics = "fill",name=expression(paste(Delta, "H (MT)")))+
+  # scale_fill_gradientn(colours = c("forestgreen", "white", "orange"), limits=c(0,100), values = scales::rescale(c(min(ShortCoord_Sort$rank), InflectMPA, max(ShortCoord_Sort$rank))),name="Protection sequence")+
+  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank(),legend.position=c(0.63, 0.05), legend.direction = "horizontal")+ #"bottom
+  geom_raster()+
+  geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) + 
+  scale_fill_gradient2(low = "tomato", mid = "white", high = "forestgreen", 
+                       midpoint = 0)
+clean_MPAcoverage
+
+
+```
+
+
+```{r cor-ben-plot, fig.cap="Network result plot from Cabral et al. 2020 without (A) and with (B) RAM BAU correction"}
+(benefitplot + labs(subtitle = "A) Carbral BAU")) / (corrected_benefitplot + labs(subtitle = "B) Corrected RAM BAU"))
+```
 
 
 
-total_dh <- rowSums(hmpa_stockish)
+```{r, include=FALSE}
+msyframe <- matrix(rep(MegaData$MSYfin, ncol(KprotectedPerCell_Library)), nrow = length(MegaData$Kfin), ncol = ncol(KprotectedPerCell_Library))
 
-stockish_dh <- hmpa_stockish[total_dh == max(total_dh),]
-
-percent_affected <- mean(abs(stockish_dh) > 0)
-
-percent_benefited <- mean(stockish_dh > 0)
-
-percent_hurt <- mean(stockish_dh < 0)
-
-affected_stockish <- which(stockish_dh > 0 & tunas == FALSE) # to keep it simple just focus on stocks that get benefits from MPAs
-
-check <- MegaData$SciName[affected_stockish]
+msy_per_cell <- colSums(KprotectedPerCell_Library * msyframe)
 
 tmp <- ShortCoord %>% 
-  mutate(k_per_cell = as.numeric(KprotectedPerCell_Library[which(MegaData$SciName == check[1])[1],])) %>% 
+  mutate(msy_per_cell = msy_per_cell) %>% 
     sf::st_as_sf(coords = c("lon", "lat"),
-               crs = sf::st_crs(land_shp_moll)) %>% 
-  filter(k_per_cell > 0) 
+               crs = sf::st_crs(land_shp_moll)) 
 
 tmp %>% 
-  ggplot(aes(color = k_per_cell)) + 
+  ggplot(aes(color = msy_per_cell)) + 
     geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) +
   geom_sf(size = .1) + 
   scale_color_viridis_c()
 
+cumu <- tibble(msy_per_cell = msy_per_cell) %>% 
+  arrange(desc(msy_per_cell)) %>% 
+  mutate(cumulative_msy = cumsum(msy_per_cell)) %>% 
+  mutate(patch = 1:nrow(.)) %>% 
+  mutate(ppatch = patch / nrow(.))
+
+cumu %>% 
+  ggplot(aes(ppatch, cumulative_msy)) + 
+  geom_line() + 
+  scale_x_continuous(labels = percent, name = "% of Patches") + 
+  scale_y_continuous(labels = comma, name = "Cumulative MSY")
 
 
-tunas <- MegaData$SciName %>%  str_detect("Thunnus")
+eezs <-
+  sf::read_sf(here("data", "World_EEZ_v11_20191118_LR", "eez_v11_lowres.shp")) %>%
+  mutate(iso3_code = countrycode(SOVEREIGN1, "country.name",  "iso3c")) %>% 
+    mutate(iso3c_name = countrycode(iso3_code, "iso3c",  "country.name")) %>%
+  filter(!is.na(iso3_code)) %>%
+  sf::st_transform(sf::st_crs(land_shp_moll))
 
-teleport_k <- as.data.table(KprotectedPerCell_Library[affected_stockish,])
+a = eezs %>% 
+  filter(ISO_TER1 == "CHN") %>% 
+  ggplot() +
+  geom_sf(fill = "red") + 
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
 
-teleport_h <- stockish_dh[stockish_dh > 0 & tunas == FALSE]
+# ggsave("test.png", a)
 
-test <- rowSums(teleport_h * teleport_k)
 
-teleport_benefits <- colSums(teleport_h * teleport_k)
+bau_mpas <- ShortCoord_Sort %>%
+  sf::st_as_sf(coords = c("lon", "lat"),
+               crs = sf::st_crs(land_shp_moll)) 
 
-plot(test, teleport_h)
-abline(a = 0, b = 1)
-
-cabral_cells$teleport_benefits <- teleport_benefits
-
-cabral_cells$teleport_benefits[cabral_cells$teleport_benefits == 0] <- NA
-
-cabral_cells <- cabral_cells %>% 
-  filter(!is.na(teleport_benefits)) %>% 
+fao_country_captures <- fao_capture %>% 
+  filter(capture_units == "t",
+         !str_detect(fao_area,"Inland waters")) %>% 
+  group_by(country_name_en, iso3_code) %>% 
+  filter(year == max(year)) %>% 
+  summarise(capture = sum(capture, na.rm = TRUE)) %>% 
+  arrange(desc(capture)) %>% 
   ungroup() %>% 
-  mutate(mpa = cell %in% as.numeric(ShortCoord$ID[ShortCoord$dH > 0 & !is.na(ShortCoord$dH)])) 
-
-cabral_mpa <- cabral_cells
-
-
-cabral_cells <- cabral_cells %>% 
-  filter(!mpa) %>% 
-    mutate(scaled_benefits = teleport_benefits / max(teleport_benefits))
+  mutate(capture_rank = percent_rank(capture)) %>% 
+  arrange(desc(capture_rank)) %>% 
+  mutate(cumu_capture = cumsum(capture)) %>% 
+  mutate(first_half = cumu_capture < (max(cumu_capture) / 2),
+         p_global_h = capture / max(cumu_capture))
 
 
+test <- sf::st_join(bau_mpas, eezs)
 
-teleport_map <-cabral_cells %>% filter(scaled_benefits > 0.1) %>% ggplot() + 
-  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank(),legend.position= "bottom", legend.direction = "horizontal")+ #"bottom
-  geom_raster(aes(x = X, y = Y,fill=scaled_benefits),alpha = 0.5)+
-  geom_raster(data = cabral_mpa %>% filter(mpa),aes(x = X, y = Y), fill = "red") +
+# MSY and sign per EEZ
+
+spatial_msy <- tmp %>%
+  sf::st_join(eezs) %>%
+  filter(!is.na(iso3_code)) %>% 
+  janitor::clean_names()
+
+mean(spatial_msy$d_h > 0)
+
+spatial_msy %>% 
+  filter(!is.na(iso3c_name) & iso3c_name == "China") %>% 
+  ggplot(aes(color = d_h)) + 
+  geom_sf(show.legend = FALSE) + 
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
+
+
+spatial_msy %>% 
+  ggplot(aes(color = d_h)) + 
+  geom_sf(show.legend = FALSE) + 
   geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) + 
-  scale_fill_viridis_c(name = "Benefits / max(Benefits)",guide = guide_colorbar(barwidth = unit(15, "lines")))
-teleport_map
+  scale_color_viridis_c()
 
-ggsave(filename = file.path(results_path, "teleport-map.pdf"), teleport_map, height = 10, width = 20)
+p_eez_closed <- spatial_msy %>%
+  group_by(iso3c_name, iso3_code) %>%
+  summarise(
+    p_closed = mean(d_h > 0),
+    weighed_p_closed = weighted.mean(d_h > 0, w = msy_per_cell),
+    top_weighed_p_closed = weighted.mean(d_h > 0 &
+                                           rank < 5, w = msy_per_cell),
+    top_p_closed = mean(d_h > 0 & rank < 5)
+  ) %>%
+  arrange(desc(p_closed)) %>%
+  left_join(fao_country_captures, by = c("iso3_code" = "iso3_code")) %>%
+  ungroup()
+  
 
-ggsave(filename = file.path(results_path, "teleport-map.png"), teleport_map, height = 10, width = 20)
-```
+corrected_p_eez_closed_map <- p_eez_closed %>%
+  ggplot(aes(color = p_closed)) +
+  geom_sf(
+    data = land_shp_moll,
+    fill = "black",
+    lwd = 0,
+    inherit.aes = F
+  ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
+  geom_sf(size = .1) +
+  scale_color_viridis_c(labels = percent, name = "% of EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines")), limits = c(0,1)) + 
+  theme(legend.position = "top", legend.direction = "horizontal")
 
 
-# upsides range
+corrected_top_p_eez_closed_map <- p_eez_closed %>%
+  ggplot(aes(color = top_p_closed)) +
+  geom_sf(
+    data = land_shp_moll,
+    fill = "black",
+    lwd = 0,
+    inherit.aes = F
+  ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
+  geom_sf(size = .1) +
+  scale_color_viridis_c(labels = percent, name = "% of EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
+  theme(legend.position = "top", legend.direction = "horizontal")
 
-```{r}
 
-upsides_bau %>% 
-  filter(dbase == "FAO") %>% 
-  ggplot(aes(sci_name, bvbmsy_upsides)) + 
-  geom_point() +  
+corrected_weighted_p_eez_closed_map <- p_eez_closed %>%
+  ggplot(aes(color = weighed_p_closed)) +
+  geom_sf(
+    data = land_shp_moll,
+    fill = "black",
+    lwd = 0,
+    inherit.aes = F
+  ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
+  geom_sf(size = .1) +
+  scale_color_viridis_c(labels = percent, name = "% of K-weighted EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+
+corrected_p_eez_closed_plot <- p_eez_closed %>% 
+  # filter(cumu_capture < 60e6) %>% 
+  filter(capture_rank > 0.85) %>% 
+  ggplot(aes(reorder(iso3c_name,p_closed), p_closed, fill = capture)) + 
+  geom_col() + 
   coord_flip() + 
-  facet_wrap(~species_cat)
+  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") + 
+  scale_x_discrete(name = '') + 
+  scale_fill_viridis_c(labels = comma)
+
+corrected_top_p_eez_closed_plot <- p_eez_closed %>% 
+  # filter(cumu_capture < 60e6) %>% 
+  filter(capture_rank > 0.85) %>% 
+  ggplot(aes(reorder(iso3c_name,top_p_closed), top_p_closed, fill = capture)) + 
+  geom_col() + 
+  coord_flip() + 
+  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") + 
+  scale_x_discrete(name = '') + 
+  scale_fill_viridis_c(labels = comma)
+
+# p_eez_closed_plot + top_p_eez_closed_plot
+
+corrected_weighted_p_eez_closed_plot <- p_eez_closed %>%
+  # filter(cumu_capture < 60e6) %>%
+  filter(capture_rank > 0.85) %>%
+  ggplot(aes(reorder(iso3c_name, capture), weighed_p_closed, fill = capture)) +
+  geom_col() +
+  coord_flip() +
+  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") +
+  scale_x_discrete(name = '')
 
 
-upsides_bau %>% 
-  filter(dbase == "FAO") %>% 
-  group_by(sci_name, species_cat_name) %>% 
-  mutate(b_range = max(bvbmsy_upsides) - min(bvbmsy_upsides)) %>% 
-  ggplot(aes(b_range)) +
-  geom_histogram() + 
-  facet_wrap(~species_cat_name)
-  
-  
+a = spatial_msy %>% 
+  group_by(iso3c_name) %>% 
+  arrange(desc(msy_per_cell)) %>% 
+  mutate(cumu_msy =cumsum(msy_per_cell)) %>% 
+  mutate(patch = 1:length(cumu_msy)) %>% 
+  mutate(ppatch = patch / length(cumu_msy)) %>% 
+  ungroup() %>% 
+  group_by(iso3c_name) %>% 
+  mutate(total_msy = max(cumu_msy)) %>% 
+  ungroup()
+
+
+corrected_cumu_msy_country_plot <- a %>% 
+  ggplot(aes(ppatch, cumu_msy, color =total_msy)) + 
+  geom_line() +
+  facet_wrap(~iso3c_name, scales = "free_y") + 
+  theme_light() + 
+  theme(axis.text = element_blank(),
+        strip.text = element_blank()) + 
+  scale_x_continuous(name = "% of Patches") + 
+  scale_y_continuous(name = "Cumulative MSY") + 
+  labs(caption = "each facet is a country") + 
+  scale_color_viridis_c(trans = "log10")
+
+
+spcoords <- sf::st_coordinates(spatial_msy) %>% 
+  as_tibble()
+
+corrected_eez_cabralish_plot <- spatial_msy %>%
+  bind_cols(spcoords) %>% 
+  ggplot(aes(x = X, y = Y,fill = d_h)) +
+  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank(),legend.position="bottom", legend.direction = "horizontal")+ #"bottom
+  geom_raster()+
+  geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) + 
+  scale_fill_gradient2(low = "red", mid = "gray80" , high = "forestgreen", midpoint = 0, 
+                       guide = guide_colorbar(barwidth = unit(15, "lines")))
+corrected_eez_cabralish_plot
 ```
 
 
-
-
+```{r cor-map, fig.cap="Percent of each country's EEZ that could be placed in global food-increasing MPA from using Cabral et al. 2020 BAU policy for RAM stocks (A) and using the corrected RAM BAU policy (B)"}
+(p_eez_closed_map + labs(subtitle ="A) Cabral BAU")) / (corrected_p_eez_closed_map + labs(subtitle = "B) Corrected BAU") + guides(color = FALSE)) 
+```
 
 
 
