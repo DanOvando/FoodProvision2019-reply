@@ -44,9 +44,9 @@ library(sf)
 
 rename <- dplyr::rename
 
-run_cabral_et_al <- TRUE
+run_cabral_et_al <- FALSE
 
-run_corrected_cabral_et_al <- TRUE
+run_corrected_cabral_et_al <- FALSE
 
 get_fao_data <- TRUE
 
@@ -360,6 +360,8 @@ Eevolve<-matrix(nrow=nmax,ncol=dim(MegaData)[1])
 
 dhmpa_stockish <- matrix(NA, nrow = nmax, ncol = nrow(KprotectedPerCell_Library))
 
+R_stockish <- matrix(NA, nrow = nmax, ncol = nrow(KprotectedPerCell_Library))
+
 if (run_cabral_et_al){
   
   cores<-detectCores() - 2
@@ -403,6 +405,8 @@ for (i in 1:nmax){
   hmpa<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
   hmpa<-hmpa*(hmpa>0)
   
+  R_stockish[i,] <- R
+  
   dhmpa_stockish[i,] <- hmpa - hbau
 
   
@@ -429,6 +433,11 @@ if(scenario=="BAU1"){
   
   saveRDS(dhmpa_stockish,
           file = file.path(results_path, "stockish_results_bau1.rds"))
+  
+    
+  saveRDS(R_stockish,
+          file = file.path(results_path, "R_stockish_bau1.rds"))
+  
 }else if(scenario=="all managed"){  
   saveRDS(NetworkResult,file = "~/foodGCEfile/NetworkResult100_allmanaged_redistribute.rds")
   saveRDS(PriorityAreas,file = "~/foodGCEfile/PriorityAreas100_allmanaged_redistribute.rds") 
@@ -446,6 +455,13 @@ if(scenario=="BAU1"){
   NetworkResult <-readRDS(file = file.path(results_path,"NetworkResult100_BAU1_mollweide.rds"))
   
   PriorityAreas <- readRDS(file = file.path(results_path,"PriorityAreas100_BAU1_mollweide.rds") )
+  
+   dhmpa_stockish <-  readRDS(
+          file = file.path(results_path, "stockish_results_bau1.rds"))
+  
+    
+ R_stockish <-  readRDS(
+          file = file.path(results_path, "R_stockish_bau1.rds"))
   
 }
 
@@ -507,6 +523,69 @@ MPAcoverage<-ShortCoord_Sort %>% ggplot(aes(x=lon,y=lat,fill=rank)) + #scale_fil
   geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
   geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent'))
 MPAcoverage
+
+
+# process MPA size and harvest benefits
+
+
+dim(R_stockish)
+
+dim(dhmpa_stockish)
+
+colnames(R_stockish) <- MegaData$stockid
+
+colnames(dhmpa_stockish) <- MegaData$stockid
+
+
+tmpR <- R_stockish %>% 
+  as_tibble() %>% 
+  mutate(global_mpa_size_index = 1:nrow(.)) %>% 
+  pivot_longer(-global_mpa_size_index,names_to = "stockid", values_to = "percent_mpa")
+
+tmpH <- dhmpa_stockish %>% 
+  as_tibble() %>% 
+  mutate(global_mpa_size_index = 1:nrow(.)) %>% 
+  pivot_longer(-global_mpa_size_index,names_to = "stockid", values_to = "delta_harvest")
+
+mpa_v_harvest <- tmpR %>% 
+  mutate(delta_harvest = tmpH$delta_harvest)
+
+mpa_v_harvest_plot <- mpa_v_harvest %>% 
+  ggplot(aes(percent_mpa, delta_harvest, color = stockid), alpha = 0.5) + 
+  geom_line(show.legend = FALSE) + 
+  scale_x_continuous(labels = percent) + 
+  scale_y_continuous(name = "Change in Harvest from MPA") + 
+  labs(caption = "Each line is a 'stock'")
+
+scaled_mpa_v_harvest_plot <- mpa_v_harvest %>% 
+  group_by(stockid) %>% 
+  mutate(sdh = scale(delta_harvest)) %>% 
+  ggplot(aes(percent_mpa, sdh, color = stockid), alpha = 0.5) + 
+  geom_line(show.legend = FALSE)
+
+mpa_v_harvest <- mpa_v_harvest %>% 
+  left_join(MegaData %>% select(stockid, SciName, r, MSYfin, Kfin,Efin_BAU1, Manage), by = "stockid")
+
+
+peak_dh  <- mpa_v_harvest %>% 
+  group_by(global_mpa_size_index) %>% 
+  summarise(total_dh = sum(delta_harvest)) %>% 
+  ungroup()
+
+peak_dh %>% 
+  ggplot(aes(global_mpa_size_index, total_dh)) + 
+  geom_line() +
+  scale_y_continuous(labels = comma)
+
+peak <- peak_dh$global_mpa_size_index[peak_dh$total_dh == max(peak_dh$total_dh)]
+
+mpa_v_harvest %>% 
+  filter(global_mpa_size_index == peak) %>% 
+  ggplot(aes(delta_harvest)) + 
+  geom_histogram() + 
+  facet_wrap(~Manage)
+
+write_rds(mpa_v_harvest, file = file.path(results_path,"mpa_v_harvest.rds"))
 
 ```
 

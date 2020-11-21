@@ -6,3 +6,7 @@
 data/*
 *.DS_Store
 *.pdf
+*_cache/
+results/*/mpa_v_harvest.rds
+results/*/teleport-map.png
+results/*/teleport-map.pdf
