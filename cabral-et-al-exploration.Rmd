@@ -43,13 +43,13 @@ library(devtools)
 library(ramlegacy)
 library(sf)
 
-warning("Each 'run_` takes about 10 hours on 10 cores, be prepared to wait if running everything")
+warning("Each 'run_` takes about 10 hours on 12 cores, be prepared to wait if running everything. Results are stored via github since they are small so you can set every run_ to FALSE. run_teleportation is the only exception, only takes a minute or two.")
 
 rename <- dplyr::rename
 
 run_cabral_et_al <- FALSE
 
-run_trimmed_cabral_et_al <- TRUE
+run_trimmed_cabral_et_al <- FALSE
 
 run_corrected_cabral_et_al <- FALSE
 
@@ -1525,7 +1525,7 @@ Cabral et al. 2020 focuses on the potential for closing a small proportion (~5%)
 
 However, given that the majority of the economic and food benefits of fisheries come from coastal waters, taking the results from Cabral et al. 2020 at face value, it is instructive to consider what they would imply for individual countries within the analysis. To examine this, we merged the spatial results of Cabral et al. 2020 with a shapefile of the world's EEZs, and then calculated the percent of the cells in each country's EEZ that the Cabral et al. 2020 model says could be placed in MPAs all of which are predicted to produce marginal increases in global food production. 
 
-According to the model, countries such as Denmark could close nearly 80% of their EEZ in global food-increasing MPAs. The United States, which provides around 7% of global marine capture, and which loses minimal amounts of catch due to overfishing (Hilborn et al. 2020), is estimated to be able to close 40% of its EEZ in MPAs at a net increase to global harvest. Interestingly, countries that Costello et al. 2016 suggests are most at risk from overfishing, such as China and Indonesia, as well as other countries throughout Southeast Asia, have much lower MPA coverage than places such as the USA and Canada (Fig.\@ref(fig:p-eez-plot)). Restricting our analysis to the top 5% of food-increasing MPAs still concentrates those MPAs within the EEZs of unlikely places, particularly South Korea, Argentina, and Iceland (Fig.\@ref(fig:top-p-eez-plot)).
+According to the model, countries such as Denmark could close nearly 80% of their EEZ in global food-increasing MPAs. The United States, which provides around 7% of global marine capture, and which loses minimal amounts of catch due to overfishing (Hilborn et al. 2020), is estimated to be able to close 40% of its EEZ in MPAs at a net increase to global harvest. Interestingly, countries that Costello et al. 2016 suggests are most at risk from overfishing, such as China and Indonesia, as well as other countries throughout Southeast Asia, have much lower MPA coverage than places such as the USA and Canada (Fig.\@ref(fig:p-eez-plot)). Restricting our analysis to the top 5% of food-increasing MPAs still concentrates those MPAs within the EEZs of unlikely places, particularly South Korea, Argentina, and Iceland (Fig.\@ref(fig:top-p-eez-plot), though the projection is creating some distortion at the poles that needs to be investigated, but does not appear to be affecting Iceland).
 
 This has two important implications. First, from a distributional perspective, taking the results from Cabral et al. 2020 at face value, many countries would clearly be made worse off while providing global benefits; it is hard to tell a convincing story that Iceland could individually increase their catches while closing nearly 80% of their EEZ. Second though, these results provide another example of questionable results from this analysis: that closing 40% of the USA's EEZ would produce a net increase in global food production is not realistic, given the status of the largest stocks that actually occur within the USA's EEZ.
 
@@ -1692,8 +1692,8 @@ cumu <- tibble(msy_per_cell = msy_per_cell) %>%
 cumu_msy_plot <- cumu %>% 
   ggplot(aes(ppatch, cumulative_msy)) + 
   geom_line() + 
-  scale_x_continuous(labels = percent, name = "% of Patches") + 
-  scale_y_continuous(labels = comma, name = "Cumulative MSY")
+  scale_x_continuous(labels = scales::percent, name = "% of Patches") + 
+  scale_y_continuous(labels = scales::comma, name = "Cumulative MSY")
 
 
 
@@ -1773,7 +1773,7 @@ p_eez_closed_map <- p_eez_closed %>%
     inherit.aes = F
   ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
   geom_sf(size = .1) +
-  scale_color_viridis_c(labels = percent, name = "% of EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
+  scale_color_viridis_c(labels = scales::percent, name = "% of EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
   theme(legend.position = "top", legend.direction = "horizontal")
 
 
@@ -1786,7 +1786,7 @@ top_p_eez_closed_map <- p_eez_closed %>%
     inherit.aes = F
   ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
   geom_sf(size = .1) +
-  scale_color_viridis_c(labels = percent, name = "% of EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
+  scale_color_viridis_c(labels = scales::percent, name = "% of EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
   theme(legend.position = "top", legend.direction = "horizontal")
 
 
@@ -1799,7 +1799,7 @@ weighted_p_eez_closed_map <- p_eez_closed %>%
     inherit.aes = F
   ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
   geom_sf(size = .1) +
-  scale_color_viridis_c(labels = percent, name = "% of K-weighted EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
+  scale_color_viridis_c(labels = scales::percent, name = "% of K-weighted EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
   theme(legend.position = "top", legend.direction = "horizontal")
 
 
@@ -1809,7 +1809,7 @@ p_eez_closed_plot <- p_eez_closed %>%
   ggplot(aes(reorder(iso3c_name,p_closed), p_closed, fill = capture)) + 
   geom_col() + 
   coord_flip() + 
-  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") + 
+  scale_y_continuous(labels = scales::percent, name =  "% of EEZ in food increasing MPA") + 
   scale_x_discrete(name = '') + 
   scale_fill_viridis_c(labels = comma)
 
@@ -1819,7 +1819,7 @@ top_p_eez_closed_plot <- p_eez_closed %>%
   ggplot(aes(reorder(iso3c_name,top_p_closed), top_p_closed, fill = capture)) + 
   geom_col() + 
   coord_flip() + 
-  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") + 
+  scale_y_continuous(labels = scales::percent, name =  "% of EEZ in food increasing MPA") + 
   scale_x_discrete(name = '') + 
   scale_fill_viridis_c(labels = comma)
 
@@ -1831,7 +1831,7 @@ weighted_p_eez_closed_plot <- p_eez_closed %>%
   ggplot(aes(reorder(iso3c_name, capture), weighed_p_closed, fill = capture)) +
   geom_col() +
   coord_flip() +
-  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") +
+  scale_y_continuous(labels = scales::percent, name =  "% of EEZ in food increasing MPA") +
   scale_x_discrete(name = '')
 
 
@@ -2211,8 +2211,8 @@ cumu <- tibble(msy_per_cell = msy_per_cell) %>%
 cumu %>% 
   ggplot(aes(ppatch, cumulative_msy)) + 
   geom_line() + 
-  scale_x_continuous(labels = percent, name = "% of Patches") + 
-  scale_y_continuous(labels = comma, name = "Cumulative MSY")
+  scale_x_continuous(labels = scales::percent, name = "% of Patches") + 
+  scale_y_continuous(labels = scales::comma, name = "Cumulative MSY")
 
 
 eezs <-
@@ -2297,7 +2297,7 @@ p_eez_closed_map <- p_eez_closed %>%
     inherit.aes = F
   ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
   geom_sf(size = .1) +
-  scale_color_viridis_c(labels = percent, name = "% of EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines")), limits = c(0,1)) + 
+  scale_color_viridis_c(labels = scales::percent, name = "% of EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines")), limits = c(0,1)) + 
   theme(legend.position = "top", legend.direction = "horizontal")
 
 
@@ -2310,7 +2310,7 @@ top_p_eez_closed_map <- p_eez_closed %>%
     inherit.aes = F
   ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
   geom_sf(size = .1) +
-  scale_color_viridis_c(labels = percent, name = "% of EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
+  scale_color_viridis_c(labels = scales::percent, name = "% of EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
   theme(legend.position = "top", legend.direction = "horizontal")
 
 
@@ -2323,7 +2323,7 @@ weighted_p_eez_closed_map <- p_eez_closed %>%
     inherit.aes = F
   ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
   geom_sf(size = .1) +
-  scale_color_viridis_c(labels = percent, name = "% of K-weighted EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
+  scale_color_viridis_c(labels = scales::percent, name = "% of K-weighted EEZ in food increasing MPA", guide = guide_colorbar(barwidth = unit(15,"lines"))) + 
   theme(legend.position = "top", legend.direction = "horizontal")
 
 
@@ -2333,7 +2333,7 @@ p_eez_closed_plot <- p_eez_closed %>%
   ggplot(aes(reorder(iso3c_name,p_closed), p_closed, fill = capture)) + 
   geom_col() + 
   coord_flip() + 
-  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") + 
+  scale_y_continuous(labels = scales::percent, name =  "% of EEZ in food increasing MPA") + 
   scale_x_discrete(name = '') + 
   scale_fill_viridis_c(labels = comma)
 
@@ -2343,7 +2343,7 @@ top_p_eez_closed_plot <- p_eez_closed %>%
   ggplot(aes(reorder(iso3c_name,top_p_closed), top_p_closed, fill = capture)) + 
   geom_col() + 
   coord_flip() + 
-  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") + 
+  scale_y_continuous(labels = scales::percent, name =  "% of EEZ in food increasing MPA") + 
   scale_x_discrete(name = '') + 
   scale_fill_viridis_c(labels = comma)
 
@@ -2355,7 +2355,7 @@ weighted_p_eez_closed_plot <- p_eez_closed %>%
   ggplot(aes(reorder(iso3c_name, capture), weighed_p_closed, fill = capture)) +
   geom_col() +
   coord_flip() +
-  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") +
+  scale_y_continuous(labels = scales::percent, name =  "% of EEZ in food increasing MPA") +
   scale_x_discrete(name = '')
 
 
@@ -2677,6 +2677,8 @@ dH_prime<-NetworkResult_prime %>% mutate(dH = NetworkResult - lag(NetworkResult,
 plot(dH_prime$dH)
 Priority$NetworkResult<-rep(NetworkResult, each=PICKSIZE) ## this is adding delta H
 Priority$dH<-rep(dH_prime$dH/PICKSIZE, each=PICKSIZE) ## this is adding delta H
+
+
 head(Priority)
 dim(Priority)
 
@@ -2912,15 +2914,15 @@ To summarize the main questions we have then and their implications
 To examine the potential implications of this difference in the RAM BAU policy used in Cabral et al. 2020 and the RAM BAU policy used in Costello et al. 2016, we replaced the escapement rates for RAM stocks used in Cabral et al. 2020 with the escapement rates that correspond with holding most recent F/F~MSY~ from RAM (the Costello et al. 2016 BAU). 
 
 $$escapement= 1 - \frac{f}{f_{msy}} \times (r/2) $$
-There F/Fmsy is pulled from RAM, and the *r* values are pulled from Cabral et al. 2020. We then re-ran the Cabral et al. 2020 analysis, but with these corrected BAU escapements for RAM stocks. We note that there are 205 RAM stocks in this analysis that have no F/Fmsy values reported in RAM, but which are included in Cabral et al. 2020. Since we are not clear what rules were used to assign BAU policies for these stocks (some of which have ERbest values in RAM, so guessing those were used) we omit them from this analysis. As such, some of these differences are due to the difference in stocks. However, this subset of RAM stocks contains 88% of the total MSY of RAM stocks reported in Cabral et al. 2020, so it is unlikely to have a dramatic effect on results. But, that discrepancy should be corrected to clearly compare the difference between these two BAU policies. 
+There F/Fmsy is pulled from RAM, and the *r* values are pulled from Cabral et al. 2020. We then re-ran the Cabral et al. 2020 analysis, but with these corrected BAU escapements for RAM stocks. We note that there are 205 RAM stocks in this analysis that have no F/Fmsy values reported in RAM, but which are included in Cabral et al. 2020. Since we are not clear what rules were used to assign BAU policies for these stocks (some of which have ERbest values in RAM, so guessing those were used) we omit them from this analysis. As such, some of these differences are due to the difference in stocks. However, this subset of RAM stocks contains 88% of the total MSY of RAM stocks reported in Cabral et al. 2020, so it is unlikely to have a dramatic effect on results. To clearly compare the effect of the BAU policies, we re-ran the Cabral et al. 2020 analysis, but removing any RAM stocks that do not have F/Fmsy values reported in RAM. We then compared the results for that same subset of stocks but using the corrected RAM BAU policy. 
 
-Overall, as suspected, using the corrected RAM BAU policy produces a lower estimate of global maximum upside from MPA protection, 6.91 MMT down from 10.49 MMT. While this is a non-trivial difference, and should be corrected so as not to confuse public discourse around the estimated magnitude of fishing losses under BAU (and unclear how much of this is simply due to the omitted RAM stocks, though given that most RAM stocks are in relatively good shape, most of the upsides shouldn't be coming from them anyway), it is still in the order of magnitude as the original results from Cabral et al. 2020 (Fig.\@ref(fig:cor-ben-plot)). 
+Overall, using the corrected RAM BAU policy produces a lower estimate of global maximum upside from MPA protection, 6.91 MMT down from 9.97 MMT (relative to the 10.49 MMT of upside with all the RAM stocks used in Cabral et al. 2020). While this is a non-trivial difference, a 30% reduction in projected upside, and should be corrected so as not to confuse public discourse around the estimated magnitude of fishing losses under BAU, it is still in the order of magnitude as the original results from Cabral et al. 2020 (Fig.\@ref(fig:cor-ben-plot)). 
 
-Spatially though we see come clearer differences. Given the largely coastal nature of RAM, we restrict our spatial analysis to percent coverage within EEZ. Particular for countries with large, stock-assessed fisheries (e.g. those in South America and the USA), the percentage of that country's EEZ that the Cabral et al. 2020 model states could be placed in a food-increasing MPA decreases substantially, while increasing in other areas (e.g. the Mediterranean) (Fig.\@ref(fig:cor-map)). Again though, we would need to consider these differences in light of the slightly different stock mix used here, due to lack fo F/Fmsy values for many RAM stocks included here. 
+Spatially though we see come clearer differences. Given the largely coastal nature of RAM, we restrict our spatial analysis to percent coverage within EEZ. Particular for countries with large, stock-assessed fisheries (e.g. those in South America and the USA), the percentage of that country's EEZ that the Cabral et al. 2020 model states could be placed in a food-increasing MPA decreases substantially, while increasing in other areas (e.g. the Mediterranean) (Fig.\@ref(fig:cor-map)).  
 
-While this correction is easy to apply and would keep the results in line what what might be considered a reasonable BAU policy for RAM stocks, given the other issues raised in this summary we do not suggest that this corrected map represents the "right" value. 
+<!-- While this correction is easy to apply and would keep the results in line what what might be considered a reasonable BAU policy for RAM stocks, given the other issues raised in this summary we do not suggest that this corrected map represents the "right" value.  -->
 
-```{r run-trimmed-cabral}
+```{r run-trimmed-cabral, include=FALSE}
 #Load MOLLWEIDE projected data
 MegaData<-readRDS(file = here("data","MegaData.rds"))
 Cleanmegacell<-readRDS(file = here("data","Cleanmegacell_mollweide.rds"))
@@ -3139,7 +3141,7 @@ BenefitCurve<-rbind(BenefitCurve,zerozero)
 theme_set(theme_cowplot())
 trimmed_benefitplot<-ggplot(BenefitCurve, aes(MPA, NetworkResult)) +geom_line(col="blue")+# theme_classic()+
   labs(x="% EEZ protected",y="Change in catch (MMT)",title=paste("Global (max =", round(max(BenefitCurve$NetworkResult),2),"MMT)"))#+geom_hline(yintercept = 0)
-benefitplot
+trimmed_benefitplot
 
 Priority<-as.data.frame(PriorityAreas)
 Priority$rank <- ((seq.int(nrow(Priority))/ncell))*100
@@ -3272,7 +3274,7 @@ spatial_msy %>%
   geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) + 
   scale_color_viridis_c()
 
-p_eez_closed <- spatial_msy %>%
+trimmed_p_eez_closed <- spatial_msy %>%
   group_by(iso3c_name, iso3_code) %>%
   summarise(
     p_closed = mean(d_h > 0),
@@ -3286,7 +3288,7 @@ p_eez_closed <- spatial_msy %>%
   ungroup()
   
 
-trimmed_p_eez_closed_map <- p_eez_closed %>%
+trimmed_p_eez_closed_map <- trimmed_p_eez_closed %>%
   ggplot(aes(color = p_closed)) +
   geom_sf(
     data = land_shp_moll,
@@ -3626,7 +3628,7 @@ clean_MPAcoverage
 
 
 ```{r cor-ben-plot, fig.cap="Network result plot from Cabral et al. 2020 without (A) and with (B) RAM BAU correction"}
-(benefitplot + labs(subtitle = "A) Cabral BAU")) / (corrected_benefitplot + labs(subtitle = "B) Corrected RAM BAU")) / (trimmed_benefitplot + labs(subtitle = "C) Trimmed Cabral BAU"))
+(trimmed_benefitplot + labs(subtitle = "A) Trimmed Cabral BAU")) / (corrected_benefitplot + labs(subtitle = "B) Corrected RAM BAU"))
 ```
 
 
@@ -3844,9 +3846,8 @@ corrected_eez_cabralish_plot
 ```
 
 
-```{r cor-map, fig.cap="Percent of each country's EEZ that could be placed in global food-increasing MPA from using Cabral et al. 2020 BAU policy for RAM stocks (A) and using the corrected RAM BAU policy (B)"}
-(p_eez_closed_map + labs(subtitle ="A) Cabral BAU")) / (corrected_p_eez_closed_map + labs(subtitle = "B) Corrected BAU") + guides(color = FALSE))  / (trimmed_p_eez_closed_map +
- labs(subtitle = "C) Trimmed Corrected BAU") + guides(color = FALSE))
+```{r cor-map, fig.cap="Percent of each country's EEZ that could be placed in global food-increasing MPA from using Cabral et al. 2020 BAU policy for RAM stocks (A) and using the corrected RAM BAU policy (B). Both cases use the same subset of unassessed and RAM stocks."}
+(trimmed_p_eez_closed_map + labs(subtitle ="A) Trimmed Cabral BAU")) / (corrected_p_eez_closed_map + labs(subtitle = "B) Trimmed Corrected BAU") + guides(color = FALSE))
 ```
 
 
