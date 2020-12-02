@@ -14,7 +14,15 @@ linkcolor: blue
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, cache = TRUE)
 ```
 
+Any global model must make compromises to reach an answer. As consumers we must then evaluate those choices made and consider whether they provide on average right results. We feel there are clear signs that this is not the case for this paper. USA Example. Australia to Baja example. China example. Global stock underpinning that. Taking F/Fmsy estimates as unbiased data. 
 
+Moving forward, we should suggest that any model of global MPAs be sufficiently spatially resolved to provide sensible results for XX. 
+
+consider the USA as one MSY weighted stock, suggests upsides is Blah according to their model. 
+
+Following the model as it stands here, there are two truisms that require no simulation: one could close a large percent of the world's oceans to fishign without reducint fishing catch substantially if at all, and if we assume that at least some overlapping combination of stocks are overfished, it is possible to create an MPA network that increases food. 
+
+The relevant questions then are by how much and where? Here is where we feel this model has both errors and assumptions that produce results that are innacurate, even by the scale of a global analysis. 
 
 ```{r, echo = FALSE, include=FALSE}
 

@@ -350,6 +350,8 @@ hbau<-hbau*(hbau>0)
 HBAU<-sum(hbau)
 HBAU
 
+hbau_frame <- tibble(stockid = MegaData$stockid, bau_harvest = hbau, f = ER)
+
 PICKSIZE<-100 #number of MPA sites selected
 
 nmax<-floor(length(celltoiterate)/PICKSIZE)
@@ -564,7 +566,11 @@ scaled_mpa_v_harvest_plot <- mpa_v_harvest %>%
   geom_line(show.legend = FALSE)
 
 mpa_v_harvest <- mpa_v_harvest %>% 
-  left_join(MegaData %>% select(stockid, SciName, r, MSYfin, Kfin,Efin_BAU1, Manage), by = "stockid")
+  left_join(MegaData %>% select(stockid, SciName, r, MSYfin, Kfin,Efin_BAU1, Manage,m), by = "stockid") %>% 
+  left_join(hbau_frame, by = "stockid") %>% 
+  rename(f_bau = f) %>% 
+  mutate(f_fmsy_bau = f_bau / (r/2)) %>% 
+  mutate(mpa_harvest = bau_harvest + delta_harvest)
 
 
 peak_dh  <- mpa_v_harvest %>% 
@@ -579,6 +585,10 @@ peak_dh %>%
 
 peak <- peak_dh$global_mpa_size_index[peak_dh$total_dh == max(peak_dh$total_dh)]
 
+
+check <- mpa_v_harvest %>% 
+  filter(global_mpa_size_index == peak)
+
 mpa_v_harvest %>% 
   filter(global_mpa_size_index == peak) %>% 
   ggplot(aes(delta_harvest)) + 
@@ -586,6 +596,21 @@ mpa_v_harvest %>%
   facet_wrap(~Manage)
 
 write_rds(mpa_v_harvest, file = file.path(results_path,"mpa_v_harvest.rds"))
+
+mpa_v_harvest %>% 
+  filter(Manage == 1, f_fmsy_bau > 1) %>% 
+  ggplot(aes(bau_harvest / MSYfin)) + 
+  geom_histogram()
+
+bye_bye <- mpa_v_harvest %>% 
+  filter(Manage == 1, f_fmsy_bau == 2,global_mpa_size_index == peak)
+
+sum(bye_bye$MSYfin)
+
+
+(mean(bye_bye$mpa_harvest / bye_bye$MSYfin) * sum(bye_bye$MSYfin)) / (sum(check$delta_harvest))
+
+
 
 ```
 
