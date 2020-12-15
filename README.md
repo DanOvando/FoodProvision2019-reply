@@ -11,7 +11,9 @@ All materials needed to reproduce our results and manuscript are contained in th
 
 This project has a lot of package dependencies so depending on what you already have installed the `renv` process might take a while (like 10-20 minutes). 
 
-Once you've successfully run `renv::restore()` you can reproduce our results by running ram-bau-question.Rmd. After running the renv steps, you should not have to change anything on your end in order to reproduce our analysis (saved versions of results are pushed to github so you don't have to re-run everything). This has been tested on MacOS, Linux, and Windows. 
+Once you've successfully run `renv::restore()` you can reproduce our results by running cabral-etal-exploration.Rmd. This will knit the reply stored in cabral-etal-reply.Rmd.
+
+After running the renv steps, you should not have to change anything on your end in order to reproduce our analysis (saved versions of results are pushed to github so you don't have to re-run everything). This has been tested on MacOS, Linux, and Windows. 
 
 
 # Cabral et al. README

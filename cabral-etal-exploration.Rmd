@@ -4304,7 +4304,7 @@ write_rds(upsides_summary, file = file.path(results_path,"upsides_summary.rds"))
 ```{r}
   rmarkdown::render(
     here::here("cabral-etal-reply.Rmd"),
-    params = list(run_name = run_name)
+    params = list(results_name = results_name)
   )
   
 ```
