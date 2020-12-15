@@ -4299,3 +4299,13 @@ write_rds(upsides_summary, file = file.path(results_path,"upsides_summary.rds"))
 
 ```
 
+# knit reply
+
+```{r}
+  rmarkdown::render(
+    here::here("cabral-etal-reply.Rmd"),
+    params = list(run_name = run_name)
+  )
+  
+```
+
