@@ -1,7 +1,9 @@
 ---
-title: "Reply to Cabral et al. 2020 RAM BAU Policy"
+title: |
+  | Models of Marine Protected Areas that
+  | Omit Distance are Not Credible
 author: 
-  - Dan Ovando
+  - Daniel Ovando
   - Owen Liu
   - Renato Molina
   - Cody Szuwalski
@@ -9,34 +11,49 @@ date: "`r Sys.Date()`"
 output: bookdown::pdf_document2
 linkcolor: blue
 toc: false
+bibliography: references.bib
+csl: pnas.csl
 ---
 
-Letters to the Editor provide brief comments that allow readers to constructively address a difference of opinion with authors of a PNAS article.
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(sf)
+library(here)
+library(readr)
+library(ggplot2)
+library(patchwork)
 
-- Letters are limited to 500 words and 10 references.
+theme_set(theme_classic())
 
-- Letters may not include requests to cite the Letter writer's work, accusations of misconduct, or personal comments to an author.
+results_name <- "v0.5"
 
-- Letters must be submitted within 6 months of the first online publication date of the subject article.
+results_path <- here("results", results_name)
 
-We strongly agree with three broad points raised by @cabral2020: 1) Marine Protected Areas (MPAs) have an important role play in global conservation and food security 2) Given the relative unproductivity of pelagic ecosystems [citation], a large percentage of the global oceans could be closed to fishing without substantially reducing global catch and 3) much of the food-security benefits of MPAs could be achieved by targeted protection in a few key places. However, we have serious concerns about the specific amounts of food benefits and priority locations for protection which are the core results of @cabral2020. Specifically there is an error in their business-as-usual (BAU) policy that if corrected produces meaningfully different results. Beyond this error, their model makes a series of highly questionable assumptions that produce a series of results inconsistent with best available knowledge of the state of global fisheries. 
+if (!dir.exists(results_path)){
+  dir.create(results_path, recursive = TRUE)
+}
 
-@cabral2020's BAU model purports to follow the BAU policy described in @costello2016. Under this policy, equilibrium fishing pressure for a given fish stock is a function of its management institutions. Under the @costello2016 BAU policy, fisheries in the RAM Legacy Stock Assessment Database, which collectively make up roughly 50% of global marine captures, are assumed to maintain their current $F/F_{msy}$ (fishing mortality rate (*F*) relative to the fishing mortality rate that would produce maximum sustainable yield (*F~MSY~*))
-"because they are neither poorly managed nor necessarily optimally managed [@cabral2020]". However, rather than using the most recent $F/F_{msy}$ from RAM for their BAU policy, @cabral2020 uses the most recent $F$ values. This is a critical difference, as they pair these $F$ values with a different $F_{msy}$ value than used in the RAM assessment. The net result of this is that @cabral2020 projects a future for RAM stocks totally inconsistent with their current management regimes. Under the BAU policy used in @costello2016, the median global $B/B_{msy}$ of RAM fisheries is XX. Under the @cabral2020 BAU, that value is only XX. The result of this error is a) to overestimate the potential food benefits from global MPAs by XX% and B) a map prioritizing MPAs in areas that have, under the assumptions of @costello2016 on which @cabral2020 is based, well managed fisheries that we would not expect to obtain food benefits from MPAs (Fig.\@ref(fig:XX)). Correcting this error produces a very different global network of marine protected areas for food. 
+upsides_summary <- read_rds(file = file.path(results_path,"upsides_summary.rds"))
 
-Fig.1: map of world with their BAU and the correct one, with global upsides in the panel titles.
+reply_plot <- read_rds(file = file.path(results_path,"reply_plot.rds"))
 
-```{r ram-bau-error}
-# map of world with their BAU
+
 ```
 
-This BAU error is relatively easy to correct, and should be accurately reflect the methods used in @costello2016 and our understanding of RAM stocks. However even with the correct BAU we do not feel that @cabral2020's model is capable of providing an accurate picture of a global MPA network for food provision. @cabral2020's model assumes that all unassessed stocks are part of one connected global population, with stock status and fishing mortality identical in ever fished patch. The result of this assumption is that their model assumes that MPAs placed in Australia can provide equal benefits to areas off of Indonesia and Baja California (Fig.XX-A), or that closures in the Caribbean can provide substantial benefits to species only caught near China (Fig.XX-B). A reader taking these results at face value then must be comfortable with a number of highly questionable results, such as that a food maximizing MPA network would close 40%XX of the USA to fishing, while placing no MPAs in India's EEZ, and only 10%-15% of Indonesia and China's EEZs in MPAs, despite @costello2016 estimating that these areas had XX times more to gain in terms of food security from reducing overfishing. 
+<!-- an error in their business-as-usual (BAU) policy produces meaningfully different results if corrected, reducing the projected food benefits from MPAs by roughly 30%, as well as altering their global MPA prioritization map. Beyond this error though, -->
 
+We agree with three broad points raised by Cabral *et al.* 2020 [@cabral2020]: 1) Marine Protected Areas (MPAs) can play an important role in conservation and food security, 2) much of the high seas could be closed to fishing without substantially reducing global catch and 3) much of the food-security benefits of MPAs could be achieved by targeted protection in a few key places. However, beyond an error in their original  business-as-usual policy that alters their results meaningfully, their model makes a series of questionable assumptions that produce results inconsistent with best available knowledge of the state of global fisheries and fish ecology.
 
-Fig.2 - so many things... the Australia example + the china example? I guess that works since the first map shows people the percent closed in each EEZ.
+Cabral *et al.*'s model assumes that all unassessed stocks of the same species comprise a single perfectly interconnected population, based on probability of occurrence estimates from Aquamaps [@kaschner2019]. This results in the median geographic range of an unassessed stock according to their model being 17 times that of an assessed stock, which is not credible and distorts the optimal size of MPA networks. Ignoring the distance between patches of ocean, and assuming that fishing mortality is equal everywhere, results in illogical results like MPAs placed in Australia providing equal benefits to areas as far apart as Indonesia and Mexico (Fig.\@ref(fig:reply-fig)a), and closures off of the Americas benefiting species only caught near China (Fig.\@ref(fig:reply-fig)b).
 
+The global MPA network for food production resulting from this distance-free model should give MPA stakeholders of all kinds pause. Using the corrected BAU policy for RAM stocks, Cabral *et al.*'s food maximizing MPA network would close 22% of the USA's EEZ to fishing, yet places only 2.5% of India's, 10% of Indonesia's, and 12% of China's EEZ in MPAs (Fig.\@ref(fig:reply-fig)b). Costello *et al.*. 2016 [@costello2016] estimated that the median $F/F_{MSY}$ (fishing mortality rate *F* relative to the fishing mortality rate producing maximum sustainable yield *F~MSY~*) of fisheries in India, Indonesia, and China is nearly twice that of the USA, creating almost five times as much potential food upside from fishery reforms in those regions relative to the USA. Based solely on the results presented in the paper users have no way of knowing whether the purported food benefits of MPAs in an area highlighted by Cabral *et al.* stem from these sorts of trans-oceanic connections.
 
-We acknowledge that any model attempting to make globl inferences must make simplifying assumptions. However, the assumptions made in @cabral2020 are not neccesary. Beyond fixing the error in their BAU policy, a global model of MPAs should either constrain the range of individual populations to reflect the biological constraints of fish and larval movement and areas of consistent fishery institutions (following the same stock structure as @costello2016 would be a start in this direction), or explicitly model the role that distances play in ecological and economic responses to MPAs. 
+Any global model must make simplifying assumptions, but the assumptions made in Cabral *et al.* 2020 are not necessary and lead to misleading results. A global model of MPAs must consider biological constraints of movement and spatial heterogeneity of fishery institutions. Reducing the effective range of populations by following the same stock structure as Costello *et al.* (2016) would be a start in this direction, but explicitly modeling the role that distance plays in ecological and economic responses to MPAs would be preferred. Either of these approaches would be computationally intensive but feasible, and we suspect would produce markedly different results from the findings they currently report.
 
+```{r reply-fig, fig.cap = "Assumptions of Cabral *et al.* 2020 produce results that are not credible.  Panel *a* shows the distribution of food increases, omitting tunas, generated by a network of MPAs covering Australia's EEZ according to the Cabral *et al.* 2020 model, with MPAs shown in red, and color of individual non-MPA cells showing the predicted food benefits generated by the Australian MPAs in that cell, scaled by the maximum food benefits generated by these MPAs in any cell. White areas show cells with benefits divided by maximum benefits less than 0.01. Panel *b* shows percent of each country's exclusive economic zone (EEZ) protected under Cabral *et al.* 2020's food maximizing MPA network under their business as usual (BAU) policy, applying the BAU correction for RAM stocks. Text percentages show percent of MPA-generated food benefits for overfished unassessed species caught nearly exclusively in the Pacific Northwest FAO region originating from FAO regions outside the Pacific Northwest according to Cabral *et al.* 2020. White areas are outside of EEZs."}
+reply_plot
+```
 
+\newpage
 
+# References

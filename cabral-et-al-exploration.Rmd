@@ -1,5 +1,5 @@
 ---
-title: "Questions around Cabral et al. 2020"
+title: "Ommiting Distance from Models of Marine Protected Areas Produces Unreliable Results"
 author: 
   - Daniel Ovando
   - Owen Liu
@@ -50,6 +50,8 @@ library(devtools)
 #install_github("ropensci/ramlegacy")
 library(ramlegacy)
 library(sf)
+library(smoothr)
+library(rnaturalearth)
 
 warning("Each 'run_` takes about 10 hours on 12 cores, be prepared to wait if running everything. Results are stored via github since they are small so you can set every run_ to FALSE. run_teleportation is the only exception, only takes a minute or two.")
 
@@ -839,6 +841,17 @@ hmpa_stockish <- matrix(NA, nrow = nmax, ncol = nrow(KprotectedPerCell_Library))
 teleporting_eezs <- eezs %>% 
   filter(iso3c_name %in% c("Australia"))
 
+# teleporting_eezs %>%
+#   ggplot() +
+#   geom_sf() +
+#   geom_sf(
+#     data = land_shp_moll,
+#     fill = "black",
+#     lwd = 0,
+#     inherit.aes = F
+#   ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
+#   geom_sf(color = "red")
+
 cabral_cells <- CleanCoordmegacell %>%
   sf::st_as_sf(coords = c("lon", "lat"),
                crs = sf::st_crs(land_shp_moll)) %>% 
@@ -1093,6 +1106,13 @@ teleport_map <-cabral_cells %>% filter(scaled_benefits > 0.01) %>% ggplot() +
   geom_raster(aes(x = X, y = Y,fill=scaled_benefits))+
   geom_raster(data = cabral_mpa %>% filter(mpa),aes(x = X, y = Y), fill = "red") +
   scale_fill_viridis_c(name = "Benefits / max(Benefits)",guide = guide_colorbar(barwidth = unit(15, "lines")))
+
+compact_teleport_map <-cabral_cells %>% filter(scaled_benefits > 0.01) %>% ggplot() + 
+  theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank(),legend.position= "bottom", legend.direction = "horizontal")+ #"bottom
+    geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) + 
+  geom_raster(aes(x = X, y = Y,fill=scaled_benefits))+
+  geom_raster(data = cabral_mpa %>% filter(mpa),aes(x = X, y = Y), fill = "red") +
+  scale_fill_viridis_c(name = "Benefits / max(Benefits)")
 
 
 ggsave(filename = file.path(results_path, "teleport-map.pdf"), teleport_map, height = 10, width = 20)
@@ -1437,11 +1457,18 @@ cs_MPAcoverage<-ShortCoord_Sort %>% filter(sign) %>%  ggplot(aes(x=lon,y=lat)) +
   # scale_fill_viridis_c( values = scales::rescale(c(min(ShortCoord_Sort$rank), InflectMPA, max(ShortCoord_Sort$rank)))) +
   # scale_fill_gradientn(colours = c("forestgreen", "white", "orange"), limits=c(0,100), values = scales::rescale(c(min(ShortCoord_Sort$rank), InflectMPA, max(ShortCoord_Sort$rank))),name="Protection sequence")+
   theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank(),legend.position=c(0.63, 0.05), legend.direction = "horizontal")+ #"bottom
-  geom_raster(aes(fill = dH))+
+  geom_raster(aes(fill = dH / max(dH)))+
   # geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
   geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) + 
-  scale_fill_viridis_c(option = "C")
+  scale_fill_viridis_c()
 
+# 
+# compact_china_map <-ShortCoord_Sort %>% filter(sign, dH / max(dH) > .1) %>%  ggplot(aes(x=lon,y=lat)) + 
+#   theme(axis.title.x = element_blank(),axis.title.y = element_blank(), panel.background = element_blank())+ #"bottom
+#   geom_raster(aes(fill = dH / max(dH)))+
+#   # geom_raster(data=MPA_coord, aes(x=lon, y=lat),fill="cyan")+  #"#EEA47FFF"
+#   geom_sf(data = land_shp_moll, fill="black", lwd = 0, inherit.aes = F)+ theme(panel.grid.major = element_line(colour = 'transparent')) + 
+#   scale_fill_viridis_c()
 
 ggsave(file.path(results_path,"cs_MPAcoverage.pdf"), cs_MPAcoverage, width = 20, height = 10)
 ```
@@ -1481,6 +1508,8 @@ fao_area_contributions <- test %>%
 #   ggplot(aes(reorder(fao_area_code,percent_delta_h), percent_delta_h)) + 
 #   geom_col()
 
+write_rds(fao_area_contributions, file = file.path(results_path,"china-contributions.rds"))
+
 dh_outside_chinaish_plot <- fao_area_contributions %>% 
   filter(!is.na(fao_area_code)) %>% 
   mutate(chinaish = fao_area_code == 61) %>% 
@@ -1489,8 +1518,8 @@ dh_outside_chinaish_plot <- fao_area_contributions %>%
   ggplot(aes(reorder(chinaish,percent_delta_h), percent_delta_h)) + 
   geom_col() + 
   scale_y_continuous(labels = scales::percent, expand = c(0,NA),
-                     name = "% of MPA Harvest Benefits") + 
-  scale_x_discrete(labels = c("Outside Area 61", "Inside Area 61"), name = '')
+                     name = "% of MPA Harvest Benefits to China") + 
+  scale_x_discrete(labels = c("Outside Pacific Northwest", "Inside Pacific Northwest"), name = '')
 
 
 china_pio_plot <- io %>% 
@@ -1678,7 +1707,7 @@ InflectMPA<-ShortCoord_Sort$rank[InflectPoint]
 
 msyframe <- matrix(rep(MegaData$MSYfin, ncol(KprotectedPerCell_Library)), nrow = length(MegaData$Kfin), ncol = ncol(KprotectedPerCell_Library))
 
-msy_per_cell <- colSums(KprotectedPerCell_Library * msyframe)
+ msy_per_cell <- colSums(KprotectedPerCell_Library * msyframe)
 
 tmp <- ShortCoord %>% 
   mutate(msy_per_cell = msy_per_cell) %>% 
@@ -3756,6 +3785,19 @@ corrected_p_eez_closed_map <- p_eez_closed %>%
   theme(legend.position = "top", legend.direction = "horizontal")
 
 
+compact_corrected_p_eez_closed_map <- p_eez_closed %>%
+  ggplot(aes(color = p_closed)) +
+  geom_sf(
+    data = land_shp_moll,
+    fill = "black",
+    lwd = 0,
+    inherit.aes = F
+  ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
+  geom_sf(size = .1) +
+  scale_color_viridis_c(labels = percent, name = "% of EEZ in food increasing MPA", limits = c(0,1)) + 
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+
 corrected_top_p_eez_closed_map <- p_eez_closed %>%
   ggplot(aes(color = top_p_closed)) +
   geom_sf(
@@ -3784,7 +3826,7 @@ corrected_weighted_p_eez_closed_map <- p_eez_closed %>%
 
 corrected_p_eez_closed_plot <- p_eez_closed %>% 
   # filter(cumu_capture < 60e6) %>% 
-  filter(capture_rank > 0.85) %>% 
+  filter(capture_rank > 0.9) %>% 
   ggplot(aes(reorder(iso3c_name,p_closed), p_closed, fill = capture)) + 
   geom_col() + 
   coord_flip() + 
@@ -3794,13 +3836,30 @@ corrected_p_eez_closed_plot <- p_eez_closed %>%
 
 corrected_top_p_eez_closed_plot <- p_eez_closed %>% 
   # filter(cumu_capture < 60e6) %>% 
-  filter(capture_rank > 0.85) %>% 
+  filter(capture_rank > 0.9) %>% 
   ggplot(aes(reorder(iso3c_name,top_p_closed), top_p_closed, fill = capture)) + 
   geom_col() + 
   coord_flip() + 
   scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") + 
   scale_x_discrete(name = '') + 
   scale_fill_viridis_c(labels = comma)
+
+
+corrected_comparison_p_eez_closed_plot <- p_eez_closed %>% 
+  # filter(cumu_capture < 60e6) %>% 
+  filter(capture_rank > 0.9) %>% 
+  as_tibble %>% 
+  select(iso3c_name,top_p_closed,capture,p_closed) %>% 
+  ungroup() %>% 
+  pivot_longer(contains("_closed"), names_to = "tmp", values_to = "percent_closed") %>% 
+  mutate(tmp = case_when(tmp == "p_closed" ~ "All Food Increasing", TRUE ~ "Top 5% Food Increasing"))  %>% 
+  ggplot(aes(reorder(iso3c_name,percent_closed), percent_closed, fill = tmp)) + 
+  geom_col(position = "dodge") + 
+  coord_flip() + 
+  scale_y_continuous(labels = percent, name =  "% of EEZ in food increasing MPA") + 
+  scale_x_discrete(name = '') + 
+  scale_fill_discrete(name = '') + 
+  theme(legend.position = c(0.4,.2))
 
 # p_eez_closed_plot + top_p_eez_closed_plot
 
@@ -3858,5 +3917,385 @@ corrected_eez_cabralish_plot
 (trimmed_p_eez_closed_map + labs(subtitle ="A) Trimmed Cabral BAU")) / (corrected_p_eez_closed_map + labs(subtitle = "B) Trimmed Corrected BAU") + guides(color = FALSE))
 ```
 
+# Reply Figures
 
+
+```{r}
+# helper function to convert lon/lat to center
+shift_center_v <- function(center) {
+  ifelse(center >=0, (-180 - center) + 360, -180 - center)
+}
+# function to take global shape and recenter using equal earth projection
+# adapted from https://gist.github.com/valentinitnelav/c7598fcfc8e53658f66feea9d3bafb40
+recenter_vector <- function(shp_file, center) {
+  prj <- glue::glue("+proj=eqearth +lon_0={center} +wktext")
+  shift <- 180 + shift_center_v(center = center)
+  # create "split line" to split polygon/lines
+  WGS84 <- sp::CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+  split_line <- sp::SpatialLines(list(sp::Lines(list(sp::Line(cbind(180 - shift, c(-90, 90)))), ID = "line")),
+                                 proj4string = WGS84
+  )
+  split_line <- sf::st_as_sf(split_line)
+  # does split intersect shape?
+  line_int <- sf::st_intersection(split_line, shp_file)
+  # if shape is a point or doesn't intersect the split, just reproject
+  if (nrow(line_int) < 1 | grepl("POINT", sf::st_geometry_type(shp_file, by_geometry = FALSE), fixed = TRUE)) {
+    output_shape <- sf::st_transform(shp_file, crs = prj)
+  } else {
+    # create a very thin polygon (buffer) out of the intersecting "split line"
+    line_buf <- sf::st_buffer(line_int, dist = 0.00001) %>%
+      sf::st_union(.) %>%
+      sf::st_cast(., "MULTIPOLYGON")
+    # split polygons/lines using intersecting thin polygon (buffer)
+    shape_split <- sf::st_difference(shp_file, line_buf)
+    # if shape is polygon, identify split shapes and add vertices for smoother edges
+    if (!grepl("STRING", sf::st_geometry_type(shp_file, by_geometry = FALSE), fixed = TRUE)) {
+      shape_split <- shape_split %>%
+        slice(-sf::st_intersects(split_line, shp_file)[[1]]) %>%
+        rbind(
+          shape_split %>%
+            slice(sf::st_intersects(split_line, shp_file)[[1]]) %>%
+            smoothr::densify(., n = 100)
+        )
+    }
+    output_shape <- sf::st_transform(shape_split, crs = prj)
+  }
+  return(output_shape)
+}
+```
+
+
+
+## top panel: corrected peez with contributions to china
+
+
+```{r}
+eezs <-
+  sf::read_sf(here("data", "World_EEZ_v11_20191118_LR", "eez_v11_lowres.shp")) %>%
+  mutate(iso3_code = countrycode(SOVEREIGN1, "country.name",  "iso3c")) %>% 
+    mutate(iso3c_name = countrycode(iso3_code, "iso3c",  "country.name")) %>%
+  filter(!is.na(iso3_code)) %>%
+  sf::st_transform(sf::st_crs(fao_areas))
+
+
+fao_areas <- sf::st_read(here('data', "FAO_AREAS_NOCOASTLINE")) %>%
+  janitor::clean_names()
+
+
+fao_areas <- fao_areas %>%
+  group_by(f_area) %>%
+  nest() %>%
+  mutate(geometry = map(data, sf::st_union)) %>%
+  select(-data)
+
+
+fao_areas = fao_areas %>%
+  unnest(cols = geometry) %>%
+  ungroup() %>%
+  sf::st_as_sf() %>%
+  # sf::st_simplify() %>%
+  mutate(fao_area_code = as.numeric(f_area)) #%>% 
+
+
+MegaData<-readRDS(file = here("data","MegaData.rds"))
+Cleanmegacell<-readRDS(file = here("data","Cleanmegacell_mollweide.rds"))
+CleanCoordmegacell<-readRDS(file = here("data","CleanCoordmegacell_mollweide.rds"))
+KprotectedPerCell_Library<-readRDS(file = here("data","KprotectedPerCell_Library_mollweide.rds"))
+MPA_coord<-readRDS(file= here("data","MPA_coord_mollweide.rds")) #this is my code
+land_shp_moll<-readRDS(file = here("data","land_shp_moll.rds"))
+head(MPA_coord)
+dim(MPA_coord)
+
+# pull up RAM data sued here
+# 
+# load_ramlegacy()
+RAMDATA <- load_ramlegacy(tables = "timeseries_values_views")
+head(RAMDATA$timeseries_values_views)
+RAMDATA2 <- RAMDATA$timeseries_values_views
+head(RAMDATA2)
+colnames(RAMDATA2)
+ram_bau <- RAMDATA2 %>% select(stockid, year, UdivUmsypref,UdivUmgtpref) %>%
+  janitor::clean_names() %>%
+  mutate(udiv_umsypref = ifelse(is.na(udiv_umsypref) & !is.na(udiv_umgtpref),udiv_umgtpref, udiv_umsypref)) %>% 
+  group_by(stockid) %>% 
+  filter(!is.na(udiv_umsypref)) %>% 
+  filter(year == max(year)) %>% 
+  select(-year, -udiv_umgtpref) 
+
+og_mega_data <- MegaData
+MegaData <- MegaData %>% 
+  left_join(ram_bau, by = "stockid")
+  
+# convert RAM F/Fmsy into F, accorindg to Cabral model
+
+MegaData$u_bau_ram = MegaData$udiv_umsypref * (MegaData$r / 2)
+
+hist(MegaData$u_bau_ram)
+
+MegaData$ram_escapement_bau = 1 - MegaData$u_bau_ram
+
+MegaData %>% 
+  filter(Manage == 1) %>% 
+  ggplot(aes(Efin_BAU1, ram_escapement_bau)) +
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0)
+
+MegaData$Efin_BAU1[MegaData$Manage == 1] <- MegaData$ram_escapement_bau[MegaData$Manage == 1]
+  
+MegaData %>% 
+  filter(Manage == 1) %>% 
+  ggplot(aes(Efin_BAU1, ram_escapement_bau)) +
+  geom_point() + 
+  geom_abline(slope = 1, intercept = 0)
+
+plot(og_mega_data$Efin_BAU1[og_mega_data$Manage == 1],MegaData$Efin_BAU1[MegaData$Manage == 1])
+
+plot(og_mega_data$Efin_BAU1[og_mega_data$Manage == 0],MegaData$Efin_BAU1[MegaData$Manage == 0])
+
+
+KprotectedPerCell_Library <- KprotectedPerCell_Library[!is.na(MegaData$Efin_BAU1),]
+
+MegaData <- MegaData %>% 
+  filter(!is.na(Efin_BAU1))
+
+  NetworkResult <-readRDS(file = file.path(results_path,"corrected_NetworkResult100_BAU1_mollweide.rds"))
+  
+
+  PriorityAreas <- readRDS(file = file.path(results_path,"corrected_PriorityAreas100_BAU1_mollweide.rds") )
+  
+
+Priority<-as.data.frame(PriorityAreas)
+Priority$rank <- ((seq.int(nrow(Priority))/ncell))*100
+
+#add dh
+NetworkResult_prime<-as.data.frame(NetworkResult)
+dH_prime<-NetworkResult_prime %>% mutate(dH = NetworkResult - lag(NetworkResult, default = 0))
+plot(dH_prime$dH)
+Priority$NetworkResult<-rep(NetworkResult, each=PICKSIZE) ## this is adding delta H
+Priority$dH<-rep(dH_prime$dH/PICKSIZE, each=PICKSIZE) ## this is adding delta H
+head(Priority)
+dim(Priority)
+
+PriorityFrame <- as.data.frame(seq.int(nrow(CleanCoordmegacell)))
+names(PriorityFrame) <- "PriorityAreas"
+#add the priority
+PriorityFrame2<-left_join(PriorityFrame,Priority, by="PriorityAreas")
+PriorityFrame2[is.na(PriorityFrame2)] <- 0
+head(PriorityFrame2)
+dim(PriorityFrame2)
+
+ShortCoord<-CleanCoordmegacell
+ShortCoord$rank<-PriorityFrame2$rank
+ShortCoord$NetworkResult<- PriorityFrame2$NetworkResult#this is for deriving dh
+ShortCoord$dH<- PriorityFrame2$dH#this is for deriving dh
+ShortCoord$ID<-row.names(ShortCoord)
+
+tmp <- ShortCoord %>% 
+  mutate(msy_per_cell = msy_per_cell) %>% 
+  sf::st_as_sf(coords = c("lon", "lat"),
+               crs = sf::st_crs(land_shp_moll)) %>% 
+  sf::st_transform(sf::st_crs(fao_areas))
+spatial_msy <- tmp %>%
+  sf::st_join(eezs) %>%
+  filter(!is.na(iso3_code)) %>% 
+  janitor::clean_names()
+
+
+trimmed_p_eez_closed <- spatial_msy %>%
+  group_by(iso3c_name, iso3_code) %>%
+  summarise(
+    p_closed = mean(d_h > 0),
+    weighed_p_closed = weighted.mean(d_h > 0, w = msy_per_cell),
+    top_weighed_p_closed = weighted.mean(d_h > 0 &
+                                           rank < 5, w = msy_per_cell),
+    top_p_closed = mean(d_h > 0 & rank < 5)
+  ) %>%
+  arrange(desc(p_closed)) %>%
+  left_join(fao_country_captures, by = c("iso3_code" = "iso3_code")) %>%
+  ungroup()
+
+
+fao_area_center <- fao_areas %>% 
+       recenter_vector(center = -200) %>%
+  # sf::st_shift_longitude() %>%
+  sf::st_centroid()
+
+
+fao_area_center_coords <- fao_area_center %>% 
+  sf::st_coordinates()
+
+fao_area_contributions <- read_rds(file = file.path(results_path,"china-contributions.rds")) %>% 
+  as_tibble() %>% 
+  select(fao_area_code, percent_delta_h)
+
+
+test <- fao_area_center %>% 
+  cbind(fao_area_center_coords)
+
+pne <- test %>% 
+  filter(fao_area_code == 61) %>% 
+  as_tibble() %>% 
+  select(X,Y) %>% 
+  rename(x_end = X, y_end = Y) %>% 
+  mutate(x_end = x_end,
+         y_end = y_end)
+
+not_pne <- test %>% 
+  filter(fao_area_code != 61) %>% 
+  as_tibble() %>% 
+  select(fao_area_code,X,Y) %>% 
+  cbind(pne) %>% 
+  left_join(fao_area_contributions, by = "fao_area_code") %>% 
+  filter(percent_delta_h > 0.05) %>%
+  mutate(contrib_label = percent(percent_delta_h, accuracy = 1))
+
+
+land_sf <- rnaturalearth::ne_countries(scale = 110, returnclass = 'sf')
+
+land_recenter <- recenter_vector(land_sf,center = -200)
+
+
+reply_a_fig <- trimmed_p_eez_closed %>% 
+  sf::st_transform(crs = sf::st_crs(fao_areas)) %>% 
+     recenter_vector(center = -200) %>%
+  ggplot() +
+    # geom_sf(data = fao_areas, fill = "transparent") +
+  geom_sf(aes(color = p_closed, fill = p_closed), size = .1) +
+  geom_sf(
+    data = land_recenter,
+    fill = "darkgrey",
+    lwd = 0,
+    inherit.aes = F
+  ) + theme(panel.grid.major = element_line(colour = 'transparent')) +
+  geom_segment(data = not_pne,aes(x = X, y = Y,xend =x_end, yend = y_end),alpha = 1, linetype = 2,
+               color = "red") +
+  geom_label(data = not_pne, aes(x = X, y = Y, label = contrib_label), alpha = 0.75, size = 4) +
+  scale_color_viridis_c(labels = percent, name = "% in Food Increasing MPA", guide = guide_colorbar(barheight = unit(7,"lines"),
+                                                                                 frame.colour = "black"), limits = c(0,1)) + 
+  scale_fill_viridis_c(labels = percent, name = "% in Food Increasing MPA", guide = guide_colorbar(barheight = unit(7,"lines"),
+                                                                                                 frame.color = "black"), limits = c(0,1)) +
+    theme(
+        plot.margin = margin(0,10,0,1),
+        axis.title = element_blank())
+
+# theme(legend.direction = "horizontal", legend.position = c(0,.1),
+#         legend.background = element_rect(fill = "lightgrey"),
+#         legend.margin =  margin(0, 14, 2, 12),
+#         axis.title = element_blank())
+reply_a_fig
+
+```
+## bottom panel
+Now do the australia example
+
+```{r}
+
+cabral_mpa <-  cabral_mpa %>% 
+  sf::st_transform(crs = sf::st_crs(fao_areas)) 
+
+
+land_sf <- rnaturalearth::ne_countries(scale = 110, returnclass = 'sf')
+
+land_recenter <- recenter_vector(land_sf,center = -200)
+
+reply_b_fig <-cabral_cells %>%
+  sf::st_transform(crs = sf::st_crs(fao_areas)) %>% 
+   recenter_vector(center = -200) %>% 
+  # sf::st_shift_longitude() %>% 
+  filter(scaled_benefits > 0.01) %>% 
+  ggplot() + 
+    geom_sf(
+    data =land_recenter,
+    fill = "darkgrey",
+    lwd = 0,
+    inherit.aes = F
+  ) +
+  geom_sf(aes(color=scaled_benefits), size = .1) +
+  geom_sf(data = cabral_mpa %>% filter(mpa) %>% recenter_vector(center = -200), color = "red", size = .1) +
+  scale_color_viridis_c(name = "Benefits / max(Benefits)", guide = guide_colorbar(barheight = unit(7,"lines"),
+                                                                  frame.colour = "black"),
+                        option = "A") + 
+  theme(
+        plot.margin = margin(0,10,0,1))
+
+reply_b_fig
+```
+
+
+## put it all together
+
+```{r}
+
+
+
+tmp <- foot_dist_plot +theme(plot.margin = margin(0,0,0,0)) + 
+  theme(axis.title = element_text(size = 6),
+        plot.background = element_rect(fill = "red"))
+reply_plot<-
+ ((((
+    reply_b_fig + labs(subtitle = "a")) / (reply_a_fig + labs(subtitle = "b"))))) & theme(
+    axis.text = element_text(size = 6),
+    legend.title = element_text(size = 6),
+    legend.text = element_text(size = 6),
+    plot.margin = unit(c(-.075, -10, -.1, -10), "lines")
+  )
+
+reply_plot
+
+write_rds(reply_plot, file = file.path(results_path,"reply_plot.rds"))
+
+
+ggsave(reply_plot,filename = file.path(results_path,"reply-plot.png"),
+       height = 8,
+       width = 8)
+
+```
+
+
+```{r}
+reply_plot<-
+ (tmp |(((
+    reply_a_fig + labs(subtitle = "a")) / (reply_b_fig + labs(subtitle = "b"))))) + plot_layout(ncol = 2, widths = c(1,3)) & theme(
+    axis.text = element_text(size = 6),
+    legend.title = element_text(size = 6),
+    legend.text = element_text(size = 6),
+    plot.margin = unit(c(-.075, -10, -.1, -10), "lines")
+  )
+
+reply_plot
+```
+
+UPsides summary 
+```{r}
+usa_v_world <- upsides_bau %>% 
+  filter(country %in% c("USA",'China',"Indonesia","India"))
+
+
+upsides_summary <- usa_v_world %>% 
+  group_by(country) %>% 
+  summarise(upside_potential = sum(msy - catch),
+            median_fbau = median(fvfmsy_upsides),
+            mean_fbau = mean(fvfmsy_upsides))
+
+
+comparison <- trimmed_p_eez_closed %>% 
+  filter(iso3c_name %in% c("United States","China","Indonesia","India"))
+  
+
+upsides_summary <- usa_v_world %>% 
+  filter(country %in% c("USA","China","Indonesia","India")) %>% 
+  mutate(usa = country == "USA") %>% 
+  group_by(usa) %>% 
+  summarise(upside_potential = sum(msy - catch),
+            median_fbau = median(fvfmsy_upsides),
+            mean_fbau = mean(fvfmsy_upsides))
+
+f_comparison <- round(upsides_summary$median_fbau[upsides_summary$usa == FALSE] / upsides_summary$median_fbau[upsides_summary$usa == TRUE],1)
+
+catch_comparison <- round(upsides_summary$upside_potential[upsides_summary$usa == FALSE] / upsides_summary$upside_potential[upsides_summary$usa == TRUE],1)
+
+write_rds(upsides_summary, file = file.path(results_path,"upsides_summary.rds"))
+
+
+```
 
