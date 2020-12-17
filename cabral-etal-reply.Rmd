@@ -8,7 +8,10 @@ author:
   - Renato Molina
   - Cody Szuwalski
 date: "`r Sys.Date()`"
-output: bookdown::pdf_document2
+output: 
+  bookdown::pdf_document2: default
+  bookdown::word_document2: 
+    reference_docx: template.docx
 linkcolor: blue
 toc: false
 bibliography: references.bib
