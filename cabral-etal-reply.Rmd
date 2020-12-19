@@ -1,11 +1,10 @@
 ---
-title: Models of Marine Protected Areas Must Directly Address Distance
+title: Models of Marine Protected Areas Must Explicitly Address Spatial Dynamics
 author: 
   - Daniel Ovando
   - Owen Liu
   - Renato Molina
   - Cody Szuwalski
-date: "`r Sys.Date()`"
 output: 
   bookdown::word_document2: 
     reference_docx: template.docx
@@ -46,23 +45,30 @@ reply_plot <- read_rds(file = file.path(results_path,"reply_plot.rds"))
 
 <!-- an error in their business-as-usual (BAU) policy produces meaningfully different results if corrected, reducing the projected food benefits from MPAs by roughly 30%, as well as altering their global MPA prioritization map. Beyond this error though, -->
 
-We agree with three broad points raised by Cabral *et al.* 2020 [@cabral2020]: 1) Marine Protected Areas (MPAs) can play an important role in conservation and food security, 2) much of the high-seas could be likely closed to fishing without substantially reducing global catch and 3) much of the food-security benefits of MPAs could be achieved by targeted protection in a few key places. We noted an error in the business-as-usual (BAU) policy for assessed fisheries in their original manuscript which overestimated the food gains of MPAs and distorted the prioritization map, but which is being corrected by Cabral *et al.*. However, beyond this issue their model makes a series of questionable assumptions that produce results inconsistent with best available knowledge of the state of global fisheries and fish ecology.
+#  {.unnumbered}
 
-Cabral *et al.*'s model does not directly account for distance in their model, instead assuming that all unassessed stocks of the same species comprise a single perfectly interconnected population, based on probability of occurrence estimates from Aquamaps [@kaschner2019]. This results in the median modeled geographic range of an unassessed stock  being 17 times that of an assessed stock, which is not credible and distorts the optimal size of MPA networks. This lack of explicit distance results in illogical results like MPAs placed in Australia providing equal benefits to areas as far apart as Indonesia and Mexico (Fig.\@ref(fig:reply-fig)a), and closures by the Americas benefiting species only caught near China (Fig.\@ref(fig:reply-fig)b). Based on the results presented in the paper, users have no way of knowing whether the purported food benefits of MPAs in an area highlighted by Cabral *et al.* stem from these sorts of trans-oceanic connections.
+We agree with three broad points raised by Cabral *et al.* 2020 [@cabral2020]: 1) Marine Protected Areas (MPAs) can play an important role in conservation and food security, 2) much of the high-seas could be closed to fishing without substantially reducing global catch and 3) much of the potential food-security benefits of MPAs could be achieved by targeted protection in key places. We noted an error in the business-as-usual (BAU) policy in their original manuscript which overestimated the food gains of MPAs and distorted the prioritization map, but which is being corrected by Cabral *et al.*. However, beyond this issue their model makes a series of assumptions that produce results inconsistent with best available knowledge of the state of global fisheries and marine ecology.
 
-The global MPA network for food production resulting from this distance-free model should give pause to MPA stakeholders of all kinds. Using the corrected BAU policy, Cabral *et al.*'s food maximizing MPA network would close 22% of the USA's EEZ to fishing, yet places only 2.5% of India's, 10% of Indonesia's, and 12% of China's EEZ in MPAs (Fig.\@ref(fig:reply-fig)b). Costello *et al.*. 2016 [@costello2016] estimated that the median $F/F_{MSY}$ (fishing mortality rate *F* relative to the fishing mortality rate producing maximum sustainable yield *F~MSY~*) of fisheries in India, Indonesia, and China is nearly twice that of the USA, creating almost five times as much potential food upside from fishery reforms in those regions relative to the USA. 
+Cabral *et al.* do not explicitly account for spatial structure of fish populations in their model, instead assuming that all unassessed (i.e. not in the RAM Legacy Stock Assessment Database @ricard2012) stocks of the same species comprise a single perfectly interconnected population, based on probability of occurrence estimates from Aquamaps [@kaschner2019]. This results in the median modeled geographic range of an unassessed stock being 17 times that of an assessed stock, which is not credible and distorts the optimal size of MPA networks. This lack of explicit spatial structure produces results such as MPAs placed in Australia providing equal benefits to areas as far apart as Indonesia and Mexico (Fig.\@ref(fig:reply-fig)a), and closures by the Americas benefiting species only caught near China (Fig.\@ref(fig:reply-fig)b). Based on the results in the paper, users cannot know if the purported food benefits of MPAs in an area highlighted by Cabral *et al.* stem from these sorts of trans-oceanic connections.
 
-Any global model must make simplifying assumptions, but the assumptions made in Cabral *et al.* 2020 are not necessary and lead to misleading results. A global model of MPAs must consider biological constraints of movement and spatial heterogeneity of fishery institutions. Reducing the effective range of populations by following the same stock structure as Costello *et al.* (2016) would be a start in this direction, but explicitly modeling the role that distance plays in ecological and economic responses to MPAs would be preferred. Either of these approaches would be computationally intensive but feasible, and we suspect would produce markedly different results from the findings they currently report.
+The global MPA network for food production resulting from this distance-free model should give pause to MPA stakeholders of all kinds. Using the corrected BAU policy, Cabral *et al.*'s food maximizing MPA network would close 22% of the USA's EEZ to fishing, yet places only 2.5% of India's, 10% of Indonesia's, and 12% of China's EEZ in MPAs (Fig.\@ref(fig:reply-fig)b). Costello *et al.*. 2016 [@costello2016] estimated that the median $F/F_{MSY}$ (fishing mortality rate *F* relative to the fishing mortality rate producing maximum sustainable yield *F~MSY~*) of fisheries in India, Indonesia, and China is nearly twice that of the USA, creating almost five times as much potential food upside from fishery reforms in those regions relative to the USA.
 
-```{r reply-fig, fig.cap = "Omitting distance from MPA models produces results that are not credible.  Panel *a* shows the distribution of food increases, omitting tunas, generated by a network of MPAs covering Australia's EEZ according to the Cabral *et al.* 2020 model, with MPAs shown in red, and color of individual non-MPA cells showing the predicted food benefits generated by the Australian MPAs in that cell, scaled by the maximum food benefits generated by these MPAs in any cell. White areas show cells with benefits divided by maximum benefits less than 0.01. Panel *b* shows percent of each country's exclusive economic zone (EEZ) protected under Cabral *et al.* 2020's food maximizing MPA network under their business as usual (BAU) policy, applying the BAU correction for RAM stocks. Text percentages show percent of MPA-generated food benefits for overfished unassessed species caught nearly exclusively in the Pacific Northwest FAO region originating from FAO regions outside the Pacific Northwest according to Cabral *et al.* 2020. White areas are outside of EEZs."}
+Any global model must make simplifying assumptions, but the assumptions made in Cabral *et al.* 2020 are not necessary and produce misleading results. A global model of MPAs must consider biological constraints of movement and spatial heterogeneity of fishery institutions. Reducing the effective range of populations by following the same stock structure as Costello *et al.* (2016) would be a start in this direction, but explicitly modeling the role that distance plays in ecological and economic responses to MPAs would be preferred. Either of these approaches would be computationally intensive but feasible, and we suspect would produce markedly different results from the findings they currently report.
+
+```{r reply-fig, fig.cap = "Omitting distance from MPA models produces results that are not credible.  Panel *a* shows the distribution of food increases, omitting tunas, generated by a network of MPAs covering Australia's EEZ according to the Cabral *et al.* 2020 model, with MPAs shown in red, and color of individual non-MPA cells showing the predicted food benefits generated by the Australian MPAs in that cell, scaled by the maximum food benefits generated by these MPAs in any cell. White areas show cells with benefits divided by maximum benefits less than 0.01. Panel *b* shows percent of each country's exclusive economic zone (EEZ) protected under Cabral *et al.* 2020's food maximizing MPA network under their business as usual (BAU) policy, applying the BAU correction for RAM stocks. Text percentages show percent of MPA-generated food benefits for overfished unassessed species caught nearly exclusively by China in the Pacific Northwest FAO region originating from FAO regions outside the Pacific Northwest according to Cabral *et al.* 2020. White areas are outside of EEZs."}
 reply_plot
+
+ggsave("cabral-etal-reply-plot.pdf",reply_plot, height = 5, width = 8)
 ```
-
-# Data Availablity 
-
-All materials needed to fully reproduce this letter are publicly available at https://github.com/DanOvando/FoodProvision2019-reply. We thank the authors of Cabral *et al.* 2020 for freely sharing the code and data needed to replicate their results. 
-
 
 \newpage
 
-# References
+# Data Availablity {.unnumbered}
+
+All materials needed to fully reproduce this letter are publicly available at <https://github.com/DanOvando/FoodProvision2019-reply>. 
+
+# Acknowledgements {.unnumbered}
+
+We thank the authors of Cabral *et al.* 2020 for freely sharing the code and data needed to replicate their results, and for helpful discussions during the writing of this letter.
+
+# References {.unnumbered}

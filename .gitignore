@@ -10,3 +10,6 @@ data/*
 results/*/mpa_v_harvest.rds
 results/*/teleport-map.png
 results/*/teleport-map.pdf
+*.docx
+*.png
+*.eps
