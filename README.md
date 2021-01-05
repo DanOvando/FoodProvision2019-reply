@@ -1,6 +1,8 @@
 
 # Reproducing Results
 
+This is a forked version of the repository used to produce Cabral *et al.* 2020 "A global network of marine protected areas for food". The repository has been modified to produce the results presented in Ovando *et al.* In Review "Models of Marine Protected Areas Must Explicitly Address Spatial Dynamics". The original repository for Cabral *et al.* 2020 can be found [here](https://github.com/rencabral/FoodProvision2019), please see documentation there for details on use of their materials. 
+
 All materials needed to reproduce our results and manuscript are contained in this repository. In order to reproduce
 
 1. Fork the repository and clone to your machine
@@ -15,33 +17,3 @@ Once you've successfully run `renv::restore()` you can reproduce our results by 
 
 After running the renv steps, you should not have to change anything on your end in order to reproduce our analysis (saved versions of results are pushed to github so you don't have to re-run everything). This has been tested on MacOS, Linux, and Windows. 
 
-
-# Cabral et al. README
-Please read this document before proceeding to use the other files.
-
-This is the repository page for the code and the data used in the paper
-"A global network of marine protected areas for food"
-by: R.B. Cabral, D. Bradley, J. Mayorga, W. Goodell, A.M. Friedlander, E. Sala, C. Costello, S.D. Gaines
-(in press, PNAS)
- 
-This file contains the metadata
- 
-Files: 
-
-MegaData.rds - contains the species list, biological parameters, and exploitation rates. See below for the metadata or description of the column names.
-  
-CleanCoordmegacell_mollweide.rds. - coordinates of the management units in mollweide projection. The resolution of the cell is ~55 km by 55 km.
- 
-Cleanmegacell_mollweide.rds - contains the species distribution of the modeled stocks. Column names are stock ids "stockid column in Megadata.rds" while rows are normalized distribution of stock.
-
-Column descriptions for MegaData.rds:
-SpeciesID - Aquamaps species ID
-Manage - 0 for unassessed stocks, 1 for assessed stocks
-stockid - Aquamaps species ID for unassessed stocks, RAM database ID for assessed stocks
-Sci Name - Scientific name
-r - instrinsic growth rate
-m - mobility
-Kfin - total carrying capacity of the stock
-MSYfin - maximum sustainable yield of the stock
-
- 
