@@ -637,6 +637,10 @@ if (run_cabral_et_al){
     
     results <- sim_mpa(r = r, k = K, m = m, u = ER_redistribute,p_mpa = R,local_dd = local_dd,years = mpa_sim_years)
     
+    if (i == 2){
+      stop()
+    }
+    
     # if (any((R == .999))){
     #   stop()
     # }
