@@ -4233,11 +4233,11 @@ tmp <- foot_dist_plot +theme(plot.margin = margin(0,0,0,0)) +
         plot.background = element_rect(fill = "red"))
 reply_plot<-
  ((((
-    reply_b_fig + labs(subtitle = "a")) / (reply_a_fig + labs(subtitle = "b"))))) & theme(
+    reply_b_fig + labs(subtitle = "A")) / (reply_a_fig + labs(subtitle = "B"))))) & theme(
     axis.text = element_text(size = 6),
-    legend.title = element_text(size = 6),
-    legend.text = element_text(size = 6),
-    plot.margin = unit(c(-.075, -10, -.1, -10), "lines")
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 8),
+    plot.margin = unit(c(.1, -10, -.1, -10), "lines")
   )
 
 reply_plot
