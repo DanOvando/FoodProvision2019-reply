@@ -451,19 +451,21 @@ tmp_mega$Efin_BAU1 <- 1 - f_fmsy_bau * (tmp_mega$r / 2)
 
 out <- list(tmp_mega = tmp_mega, temp_occurance =stock_occurance )
 }
-if (divide_stocks){
+if (divide_stocks | (!file.exists(here("data","divided-stocks.rds")))){
   
-divided_stocks <- ua_upsides_bau %>% 
+message("dividings stocks, this can take a while, like up to an hour")
+
+  divided_stocks <- ua_upsides_bau %>% 
   group_by(id_orig) %>% 
   nest() %>% 
   ungroup() %>% 
   mutate(ds = map(data,divide_stock, MegaData = MegaData, KprotectedPerCell_Library = KprotectedPerCell_Library, tmp = tmp))
 
-write_rds(divided_stocks,"divided-stocks.rds")
+write_rds(divided_stocks,here("data","divided-stocks.rds"))
 
 } else {
   
-  divided_stocks <- read_rds("divided-stocks.rds")
+  divided_stocks <- read_rds(here("data","divided-stocks.rds"))
   
 }
 

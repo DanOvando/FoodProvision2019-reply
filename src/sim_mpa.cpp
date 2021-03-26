@@ -102,7 +102,7 @@ p_mpa <- 1e-3
 
 u <- r / 2
 
-years <- 100
+years <- 10000
 
 
 
@@ -134,32 +134,17 @@ popfoo <- function(r,k,m,u,mpa, years = 100, dd = 0) {
     } else {
 
 
-      
-      move <- -m * b[i - 1, 1] * (b[i - 1, 1] / (k * mpa) - b[i - 1, 2] / (k * (1 - mpa))) + m * b[i - 1, 2] * (b[i - 1, 2] / (k * (1 - mpa)) - b[i - 1, 1] / (k *  mpa))
-      
-      # b[i, 1] <-
-      #   b[i - 1, 1] +  r * b[i - 1,1] * (1 - b[i - 1, 1] / max(1e-3,(k * mpa))) - mu * (b[i - 1, 1] - (mpa / (1 - mpa)) * b[i - 1, 2])
-
-
-      # outside MPA
-
-      # b[i, 2] <-
-      #   (1 - u) * b[i - 1, 2] + r * b[i - 1, 2] * (1 - b[i - 1 , 2] / max(1e-3,(k * (1 - mpa)))) + mu * (b[i - 1, 1] - (mpa / (1 - mpa)) * b[i - 1, 2])
-      # 
-      # 
-
       b[i, 1] <-
-        b[i - 1, 1] +  r * b[i - 1,1] * (1 - b[i - 1, 1] / max(1e-3,(k * mpa))) + move
+        b[i - 1, 1] +  r * b[i - 1,1] * (1 - b[i - 1, 1] / max(1e-3,(k * mpa))) - mu * (b[i - 1, 1] - (mpa / (1 - mpa)) * b[i - 1, 2])
 
-      
+
       # outside MPA
-      
+
       b[i, 2] <-
-        (1 - u) * b[i - 1, 2] + r * b[i - 1, 2] * (1 - b[i - 1 , 2] / max(1e-3,(k * (1 - mpa)))) - move
-      
-      
-      
-      
+        (1 - u) * b[i - 1, 2] + r * b[i - 1, 2] * (1 - b[i - 1 , 2] / max(1e-3,(k * (1 - mpa)))) + mu * (b[i - 1, 1] - (mpa / (1 - mpa)) * b[i - 1, 2])
+
+
+
     }
 
     h[i-1] <- u *  b[i - 1, 2]
@@ -189,7 +174,7 @@ popfoo <- function(r,k,m,u,mpa, years = 100, dd = 0) {
 
 }
 
-a <- popfoo(r = r,k =k,m = m,u = u,mpa = p_mpa,dd = 1, years = years)
+a <- popfoo(r = r,k =k,m = m,u = u,mpa = p_mpa,dd = 0, years = years)
 
 a[years,]
 

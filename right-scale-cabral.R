@@ -449,19 +449,23 @@ tmp_mega$Efin_BAU1 <- 1 - f_fmsy_bau * (tmp_mega$r / 2)
 
 out <- list(tmp_mega = tmp_mega, temp_occurance =stock_occurance )
 }
-if (divide_stocks){
+
+
+if (divide_stocks | (!file.exists(here("data","divided-stocks.rds")))){
   
-divided_stocks <- ua_upsides_bau %>% 
-  group_by(id_orig) %>% 
-  nest() %>% 
-  ungroup() %>% 
-  mutate(ds = map(data,divide_stock, MegaData = MegaData, KprotectedPerCell_Library = KprotectedPerCell_Library, tmp = tmp))
-
-write_rds(divided_stocks,"divided-stocks.rds")
-
+  message("dividings stocks, this can take a while, like up to an hour")
+  
+  divided_stocks <- ua_upsides_bau %>% 
+    group_by(id_orig) %>% 
+    nest() %>% 
+    ungroup() %>% 
+    mutate(ds = map(data,divide_stock, MegaData = MegaData, KprotectedPerCell_Library = KprotectedPerCell_Library, tmp = tmp))
+  
+  write_rds(divided_stocks,here("data","divided-stocks.rds"))
+  
 } else {
   
-  divided_stocks <- read_rds("divided-stocks.rds")
+  divided_stocks <- read_rds(here("data","divided-stocks.rds"))
   
 }
 
@@ -570,10 +574,6 @@ Eevolve<-matrix(nrow=nmax,ncol=dim(MegaData)[1])
 check <- sim_mpa(r = r, k = K, m = m, u = ER_redistribute,p_mpa = R,local_dd = 0,year = 500)
 
 
-sum(check$yield) / HBAU
-
-sum(check$outside_b) /  sum(b_outside_bau)
-
 
 if (run_cabral_et_al){
   
@@ -587,8 +587,6 @@ if (run_cabral_et_al){
       MPAselect[celltoiterate[iter]]<-1
       R<-MPAselectPrev+KprotectedPerCell_Library[,celltoiterate[iter]]
       ER_redistribute<-1-(1-ER)^(1/(1-R))
-      
-      results <- sim_mpa(r = r, k = K, m = m, u = ER_redistribute,p_mpa = R,local_dd = 0,year = 100)
       
       hmpa<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redistribute*(1-R)*m)/(((ER_redistribute*R)+m)*r))))
       
@@ -989,13 +987,6 @@ hbau<-na.omit(ER_redistribute*((m*K*(1-R))/((ER_redistribute*R)+m))*(1-((ER_redi
 hbau<-hbau*(hbau>0)
 HBAU<-sum(hbau)
 HBAU
-
-check <- sim_mpa(r = r, k = K, m = m, u = ER_redistribute,p_mpa = R,local_dd = 0,year = 500)
-
-
-sum(check$yield) / HBAU
-
-sum(check$outside_b) /  sum(b_outside_bau)
 
 
 PICKSIZE<-100 #number of MPA sites selected
